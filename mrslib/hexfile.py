@@ -34,6 +34,12 @@ class HexFile(object):
     def close(self):
         self.file.close()
 
+def sort(in_filename, out_filename):
+    """Sort a HexFile."""
+    from subprocess import Popen
+    proc = Popen(('sort', '-o', out_filename, in_filename))
+    proc.wait()
+
 def enhex(byteseq):
     """Encode an arbitrary byte sequence as an ASCII hexadecimal string.
     
