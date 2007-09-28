@@ -61,6 +61,7 @@ def enhex(byteseq):
     
     Make sure that whatever you send in is packed as a str.  Use the
     struct module in the standard Python library to help you do this.
+    If you fail to do so, this will raise a TypeError.
     """
     # Note that hex() returns strings like '0x61', and we don't want the 0x.
     return ''.join(hex(ord(byte))[2:] for byte in byteseq)
