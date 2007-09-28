@@ -1,6 +1,27 @@
 #!/usr/bin/env python
 from itertools import islice
 
+class HexFile(object):
+    """A key-value store using ASCII hexadecimal encoding
+
+    This has the property that sorting the file will preserve the sort order.
+    """
+    def __init__(self, filename, mode='r'):
+        self.file = open(filename, mode)
+
+    def read(self):
+        """Return the next key-value pair from the HexFile."""
+        line = self.file.readline()
+        key, value = [dehex(field) for field in line.split()]
+        return (key, value)
+
+    def write(self, key, value):
+        """Write a key-value pair to a HexFile."""
+        print >>self.file, enhex(key), enhex(value)
+
+    def close(self):
+        self.file.close()
+
 def enhex(byteseq):
     """Encode an arbitrary byte sequence as an ASCII hexadecimal string.
     
@@ -28,6 +49,5 @@ def group_by_two(s):
     I = iter(s)
     while True:
         yield I.next() + I.next()
-
 
 # vim: et sw=4 sts=4
