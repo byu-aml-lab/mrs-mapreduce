@@ -22,7 +22,7 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
-from mrs.mrslib.mapreduce import mapreduce
+from mrs.mapreduce import mapreduce
 
 def mapper(key, value):
     for word in value.split():

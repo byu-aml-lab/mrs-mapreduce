@@ -23,7 +23,8 @@
 # copyright@byu.edu.
 
 from hexfile import HexFile
+from textfile import TextFile
 
-__all__ = ('HexFile',)
+__all__ = ('HexFile', 'TextFile')
 
 # vim: et sw=4 sts=4
