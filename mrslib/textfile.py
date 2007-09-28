@@ -24,9 +24,11 @@
 from itertools import islice
 
 class TextFile(object):
-    """A read-only file that reads line by line.
+    """A file format for user interaction.
 
-    The key is the file offset, and the value is the contents of the line.
+    For reading, the key is the file offset, and the value is the contents of
+    the line.  For writing, the key and value are separated by spaces, with
+    one entry per line.
     """
     def __init__(self, filename, mode='r'):
         self.file = open(filename, mode)
@@ -45,6 +47,9 @@ class TextFile(object):
         offset = self.file.tell()
         line = self.file.next()
         return (offset, line)
+
+    def write(self, key, value):
+        print >>self.file, key, value
 
     def close(self):
         self.file.close()

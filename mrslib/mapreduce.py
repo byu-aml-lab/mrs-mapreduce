@@ -22,7 +22,7 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
-from hexfile import HexFile
+from hexfile import HexFile, sort
 from textfile import TextFile
 
 # TODO: make it so we can output from map into a different file for each
@@ -33,16 +33,16 @@ from textfile import TextFile
 def mapreduce(mapper, reducer, input_filename):
     """Serial mapreduce for filename input."""
     input_file = TextFile(input_filename)
-    intermediate_file = HexFile('intermediate_test.txt', 'w')
+    intermediate_file = HexFile('intermediate1.txt', 'w')
 
     map(mapper, input_file, intermediate_file)
     input_file.close()
     intermediate_file.close()
 
-    # SORT HERE
+    sort('intermediate1.txt', 'intermediate2.txt')
 
-    intermediate_file = HexFile('intermediate_test.txt')
-    output_file = HexFile('output_test.txt', 'w')
+    intermediate_file = HexFile('intermediate2.txt')
+    output_file = TextFile('output.txt', 'w')
 
     reduce(reducer, intermediate_file, output_file)
 
