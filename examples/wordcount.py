@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from mrs.mrslib.mapreduce import mapreduce
+from mrs.mapreduce import mapreduce
 
 def mapper(key, value):
     for word in value.split():
