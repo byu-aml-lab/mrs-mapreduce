@@ -5,6 +5,9 @@ class HexFile(object):
     """A key-value store using ASCII hexadecimal encoding
 
     This has the property that sorting the file will preserve the sort order.
+
+    TODO: we might as well base64-encode the value, rather than hex-encoding
+    it, since it doesn't need to be sortable.
     """
     def __init__(self, filename, mode='r'):
         self.file = open(filename, mode)
