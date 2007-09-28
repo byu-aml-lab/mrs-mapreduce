@@ -35,8 +35,17 @@ class HexFile(object):
         self.file = open(filename, mode)
 
     def read(self):
-        """Return the next key-value pair from the HexFile."""
+        """Return the next key-value pair from the HexFile or None if EOF."""
         line = self.file.readline()
+        if line:
+            key, value = [dehex(field) for field in line.split()]
+            return (key, value)
+        else:
+            return None
+
+    def next(self):
+        """Return the next key-value pair or raise StopIteration if EOF."""
+        line = self.file.next()
         key, value = [dehex(field) for field in line.split()]
         return (key, value)
 
