@@ -22,8 +22,7 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
-from hexfile import HexFile, sort
-from textfile import TextFile
+import hexfile, textfile
 
 # TODO: make it so we can output from map into a different file for each
 # reducer.
@@ -31,8 +30,21 @@ from textfile import TextFile
 # TODO: start up and close down mappers and reducers.
 
 class Operation(object):
-    """Specifies a map phase followed by a reduce phase."""
-    pass
+    """Specifies a map phase followed by a reduce phase.
+    
+    The output_format is a file format, such as HexFile or TextFile.
+    """
+    def __init__(self, mapper, reducer, output_format=None,
+            output_dir='.', output_prefix=None):
+        self.mapper = mapper
+        self.reducer = reducer
+        self.output_prefix = output_prefix
+        self.output_dir = output_dir
+        if output_format is None:
+            self.output_format = textfile.TextFile
+        else:
+            self.output_format = output_format
+
 
 class Job(object):
     """Keeps track of the parameters of the MR job and carries out the work.
@@ -42,15 +54,86 @@ class Job(object):
     - parallel execution on a shared-memory system
     - parallel execution with shared storage on a POSIX filesystem (like NFS)
     - parallel execution with a non-POSIX distributed filesystem
+
+    To execute, make sure to do:
+    job.inputs.append(input_filename)
+    job.operations.append(mrs_operation)
     """
     def __init__(self):
+        self.inputs = []
         self.operations = []
+
+    def add_input(self, input):
+        """Add a filename to be used for input to the map task.
+        """
+        self.inputs.append(input)
+
+    def run(self):
+        raise NotImplementedError(
+                "I think you should have instantiated a subclass of Job.")
 
 
 class SerialJob(Job):
     """MapReduce execution on a single processor
     """
-    pass
+    def __init__(self):
+        Job.__init__(self)
+
+    def run(self, debug=False):
+        """Run a MapReduce operation in serial.
+        
+        If debug is specified, don't cleanup temporary files afterwards.
+        """
+        import os, tempfile
+
+        if len(self.operations) != 1:
+            raise NotImplementedError("Requires exactly one operation.")
+        operation = self.operations[0]
+
+        if len(self.inputs) != 1:
+            raise NotImplementedError("Requires exactly one input file.")
+        input = self.inputs[0]
+
+        # MAP PHASE
+        input_file = textfile.TextFile(open(input))
+        fd, intermediate_name = tempfile.mkstemp(prefix='mrs.intermediate_')
+        intermediate_tmp = os.fdopen(fd, 'w')
+        intermediate_file = hexfile.HexFile(intermediate_tmp)
+
+        map(operation.mapper, input_file, intermediate_file)
+
+        input_file.close()
+        intermediate_file.close()
+
+        # SORT PHASE
+        fd, sorted_name = tempfile.mkstemp(prefix='mrs.sorted_')
+        os.close(fd)
+        hexfile.sort(intermediate_name, sorted_name)
+
+        # REDUCE PHASE
+        sorted_file = hexfile.HexFile(open(sorted_name))
+        output_prefix = operation.output_prefix
+        if output_prefix is None:
+            output_prefix = 'mrs.output_'
+        fd, output_name = tempfile.mkstemp(prefix=output_prefix,
+                dir=operation.output_dir)
+        output_tmp = os.fdopen(fd, 'w')
+        output_file = operation.output_format(output_tmp)
+
+        reduce(operation.reducer, sorted_file, output_file)
+
+        sorted_file.close()
+        output_file.close()
+
+        # CLEANUP
+
+        if not debug:
+            import os
+            os.unlink(intermediate_name)
+            os.unlink(sorted_name)
+
+        return [output_name]
+
 
 class POSIXJob(Job):
     """MapReduce execution on POSIX shared storage, such as NFS
@@ -61,25 +144,6 @@ class POSIXJob(Job):
     def __init__(self, shared_dir):
         Job.__init__(self)
         self.shared_dir = shared_dir
-
-def mapreduce(mapper, reducer, input_filename):
-    """Serial mapreduce for filename input."""
-    input_file = TextFile(input_filename)
-    intermediate_file = HexFile('intermediate1.txt', 'w')
-
-    map(mapper, input_file, intermediate_file)
-    input_file.close()
-    intermediate_file.close()
-
-    sort('intermediate1.txt', 'intermediate2.txt')
-
-    intermediate_file = HexFile('intermediate2.txt')
-    output_file = TextFile('output.txt', 'w')
-
-    reduce(reducer, intermediate_file, output_file)
-
-    intermediate_file.close()
-    output_file.close()
 
 def map(mapper, input_file, output_file):
     """Perform a map from the entries in input_file into output_file.
