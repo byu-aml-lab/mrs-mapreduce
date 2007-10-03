@@ -4,12 +4,12 @@ from itertools import islice
 class TextFile(object):
     """A file format for user interaction.
 
-    For reading, the key is the file offset, and the value is the contents of
-    the line.  For writing, the key and value are separated by spaces, with
-    one entry per line.
+    Initialize with a file object.  For reading, the key is the file offset,
+    and the value is the contents of the line.  For writing, the key and value
+    are separated by spaces, with one entry per line.
     """
-    def __init__(self, filename, mode='r'):
-        self.file = open(filename, mode)
+    def __init__(self, textfile):
+        self.file = textfile
 
     def read(self):
         """Return the next key-value pair from the HexFile or None if EOF."""

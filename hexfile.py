@@ -1,16 +1,19 @@
 #!/usr/bin/env python
 from itertools import islice
 
+# TODO: sort should just sort on the first field
+
 class HexFile(object):
     """A key-value store using ASCII hexadecimal encoding
 
-    This has the property that sorting the file will preserve the sort order.
+    Initialize with a file object.  The ASCII hexadecimal encoding of keys has
+    the property that sorting the file will preserve the sort order.
 
     TODO: we might as well base64-encode the value, rather than hex-encoding
     it, since it doesn't need to be sortable.
     """
-    def __init__(self, filename, mode='r'):
-        self.file = open(filename, mode)
+    def __init__(self, hexfile):
+        self.file = hexfile
 
     def read(self):
         """Return the next key-value pair from the HexFile or None if EOF."""
@@ -38,7 +41,9 @@ def sort(in_filename, out_filename):
     """Sort a HexFile."""
     from subprocess import Popen
     proc = Popen(('sort', '-o', out_filename, in_filename))
-    proc.wait()
+    retcode = proc.wait()
+    if retcode != 0:
+        raise RuntimeError("Sort failed.")
 
 def enhex(byteseq):
     """Encode an arbitrary byte sequence as an ASCII hexadecimal string.
