@@ -30,6 +30,38 @@ from textfile import TextFile
 # TODO: right now we assume that input files are pre-split.
 # TODO: start up and close down mappers and reducers.
 
+class Operation(object):
+    """Specifies a map phase followed by a reduce phase."""
+    pass
+
+class Job(object):
+    """Keeps track of the parameters of the MR job and carries out the work.
+
+    There are various ways to implement MapReduce:
+    - serial execution on one processor
+    - parallel execution on a shared-memory system
+    - parallel execution with shared storage on a POSIX filesystem (like NFS)
+    - parallel execution with a non-POSIX distributed filesystem
+    """
+    def __init__(self):
+        self.operations = []
+
+
+class SerialJob(Job):
+    """MapReduce execution on a single processor
+    """
+    pass
+
+class POSIXJob(Job):
+    """MapReduce execution on POSIX shared storage, such as NFS
+    
+    Specify a directory located in shared storage which can be used as scratch
+    space.
+    """
+    def __init__(self, shared_dir):
+        Job.__init__(self)
+        self.shared_dir = shared_dir
+
 def mapreduce(mapper, reducer, input_filename):
     """Serial mapreduce for filename input."""
     input_file = TextFile(input_filename)
