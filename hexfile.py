@@ -37,12 +37,21 @@ class HexFile(object):
     def close(self):
         self.file.close()
 
-def sort(in_filename, out_filename):
-    """Sort a HexFile."""
+def sort(in_filenames, out_filename):
+    """Sort one or more HexFiles into a new HexFile.
+    
+    Note that in_filenames can be the name of a single file or a list of names
+    of files.
+    """
     from subprocess import Popen
     # We give -s, which specifies a stable sort (only sort on the given key),
     # which empirically seems to be faster.
-    proc = Popen(('sort', '-s', '-k1,1', '-o', out_filename, in_filename))
+    args = ['sort', '-s', '-k1,1', '-o', out_filename]
+    if isinstance(in_filenames, str):
+        args.append(in_filenames)
+    else:
+        args += in_filenames
+    proc = Popen(args)
     retcode = proc.wait()
     if retcode != 0:
         raise RuntimeError("Sort failed.")
