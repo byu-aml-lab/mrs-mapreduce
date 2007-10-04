@@ -2,8 +2,6 @@
 
 import hexfile, textfile
 
-# TODO: make it so we can output from map into a different file for each
-# reducer.
 # TODO: right now we assume that input files are pre-split.
 # TODO: start up and close down mappers and reducers.
 
