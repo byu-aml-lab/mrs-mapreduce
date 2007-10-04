@@ -7,6 +7,11 @@ def mapper(key, value):
 def reducer(key, value_iter):
     yield str(sum(int(x) for x in value_iter))
 
+if __name__ == '__main__':
+    import mrs
+    mrs.main(mapper, reducer)
+
+"""
 def wordcount_serial():
     from mrs.mapreduce import Operation, SerialJob
     import sys
@@ -37,5 +42,6 @@ def wordcount_posix():
 if __name__ == '__main__':
     #wordcount_serial()
     wordcount_posix()
+"""
 
 # vim: et sw=4 sts=4
