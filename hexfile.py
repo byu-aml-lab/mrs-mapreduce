@@ -40,7 +40,9 @@ class HexFile(object):
 def sort(in_filename, out_filename):
     """Sort a HexFile."""
     from subprocess import Popen
-    proc = Popen(('sort', '-o', out_filename, in_filename))
+    # We give -s, which specifies a stable sort (only sort on the given key),
+    # which empirically seems to be faster.
+    proc = Popen(('sort', '-s', '-k1,1', '-o', out_filename, in_filename))
     retcode = proc.wait()
     if retcode != 0:
         raise RuntimeError("Sort failed.")
