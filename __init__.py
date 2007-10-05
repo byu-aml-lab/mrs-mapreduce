@@ -26,6 +26,12 @@ def main(mapper, reducer):
     version = 'Mrs %s' % VERSION
 
     parser = OptionParser()
+    parser.add_option('--shared', dest='shared',
+            help='Shared storage area (posix only)')
+    parser.add_option('-M', '--map-tasks', dest='map_tasks',
+            help='Number of map tasks (parallel only)')
+    parser.add_option('-R', '--reduce-tasks', dest='reduce_tasks',
+            help='Number of reduce tasks (parallel only)')
 
     (options, args) = parser.parse_args()
     if not len(args):
