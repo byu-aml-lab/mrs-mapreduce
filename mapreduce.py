@@ -33,7 +33,7 @@ class Operation(object):
     The output_format is a file format, such as HexFile or TextFile.
     """
     def __init__(self, mapper, reducer, map_tasks=1, reduce_tasks=1,
-            input_format=None, output_format=None, output_prefix=None):
+            input_format=None, output_format=None):
         self.mapper = mapper
         self.reducer = reducer
         self.map_tasks = map_tasks
@@ -43,7 +43,6 @@ class Operation(object):
             self.input_format = textfile.TextFile
         else:
             self.input_format = input_format
-        self.output_prefix = output_prefix
         if output_format is None:
             self.output_format = textfile.TextFile
         else:
@@ -80,9 +79,10 @@ class Job(object):
 class SerialJob(Job):
     """MapReduce execution on a single processor
     """
-    def __init__(self, output_dir):
+    def __init__(self, inputs, output):
         Job.__init__(self)
-        self.output_dir = output_dir
+        self.inputs = inputs
+        self.output = output
 
     def run(self, debug=False):
         """Run a MapReduce operation in serial.
@@ -117,13 +117,7 @@ class SerialJob(Job):
 
         # REDUCE PHASE
         sorted_file = hexfile.HexFile(open(sorted_name))
-        output_prefix = operation.output_prefix
-        if output_prefix is None:
-            output_prefix = 'mrs.output_'
-        fd, output_name = tempfile.mkstemp(prefix=output_prefix,
-                dir=self.output_dir)
-        output_tmp = os.fdopen(fd, 'w')
-        output_file = operation.output_format(output_tmp)
+        output_file = operation.output_format(open(self.output, 'w'))
 
         reduce(operation.reducer, sorted_file, output_file)
 
@@ -146,8 +140,10 @@ class POSIXJob(Job):
     Specify a directory located in shared storage which can be used as scratch
     space.
     """
-    def __init__(self, shared_dir, reduce_tasks=1):
+    def __init__(self, inputs, output_dir, shared_dir, reduce_tasks=1):
         Job.__init__(self)
+        self.inputs = inputs
+        self.output_dir = output_dir
         self.shared_dir = shared_dir
         self.partition = default_partition
 
@@ -205,11 +201,8 @@ class POSIXJob(Job):
 
             # REDUCE PHASE
             sorted_file = hexfile.HexFile(open(sorted_name))
-            output_prefix = operation.output_prefix
-            if output_prefix is None:
-                output_prefix = 'reducer_'
-            basename = output_prefix + str(reducer_id)
-            output_name = os.path.join(output_dir, basename)
+            basename = 'reducer_%s' % reducer_id
+            output_name = os.path.join(self.output_dir, basename)
             output_file = operation.output_format(open(output_name, 'w'))
 
             reduce(operation.reducer, sorted_file, output_file)
