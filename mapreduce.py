@@ -131,8 +131,6 @@ class SerialJob(Job):
             os.unlink(interm_name)
             os.unlink(sorted_name)
 
-        return [output_name]
-
 
 class POSIXJob(Job):
     """MapReduce execution on POSIX shared storage, such as NFS
@@ -216,8 +214,6 @@ class POSIXJob(Job):
         #    import os
         #    os.unlink(interm_name)
         #    os.unlink(sorted_name)
-
-        #return [output_name]
 
 
 

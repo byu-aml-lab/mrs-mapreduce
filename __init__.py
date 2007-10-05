@@ -47,14 +47,14 @@ def main(mapper, reducer):
     usage = 'usage: %prog implementation [args] input1 [input2 ...] output'
     version = 'Mrs %s' % VERSION
 
-    parser = OptionParser()
+    parser = OptionParser(usage=usage)
     parser.add_option('--shared', dest='shared',
             help='Shared storage area (posix only)')
     parser.add_option('-M', '--map-tasks', dest='map_tasks', type='int',
             help='Number of map tasks (parallel only)')
     parser.add_option('-R', '--reduce-tasks', dest='reduce_tasks', type='int',
             help='Number of reduce tasks (parallel only)')
-    parser.defaults(map_tasks=0, reduce_tasks=0)
+    parser.set_defaults(map_tasks=0, reduce_tasks=0)
     # TODO: other options:
     # input format
     # output format
@@ -62,8 +62,7 @@ def main(mapper, reducer):
     (options, args) = parser.parse_args()
 
     if len(args) < 3:
-        parser.error("You must specify which Mrs Implementation "
-                "and at least one input and output.")
+        parser.error("Requires an implementation, inputs, and an output.")
 
     try:
         implementation = IMPLEMENTATIONS[args[0]]
@@ -72,7 +71,7 @@ def main(mapper, reducer):
     inputs = args[1:-1]
     output = args[-1]
 
-    implementation(inputs, output, options)
+    implementation(mapper, reducer, inputs, output, options)
 
 
 def add_implementation(implementation_list):
@@ -82,7 +81,7 @@ def add_implementation(implementation_list):
     return decorator
 
 @add_implementation(IMPLEMENTATIONS)
-def posix(inputs, output, options):
+def posix(mapper, reducer, inputs, output, options):
     map_tasks = options.map_tasks
     if map_tasks == 0:
         map_tasks = len(inputs)
@@ -102,16 +101,12 @@ def posix(inputs, output, options):
 
 
 @add_implementation(IMPLEMENTATIONS)
-def serial(inputs, output, options):
+def serial(mapper, reducer, inputs, output, options):
     from mrs.mapreduce import Operation, SerialJob
     op = Operation(mapper, reducer)
     mrsjob = SerialJob(inputs, output)
-    mrsjob.inputs.append(filename)
     mrsjob.operations = [op]
     mrsjob.run()
 
-
-
-# vim: et sw=4 sts=4
 
 # vim: et sw=4 sts=4
