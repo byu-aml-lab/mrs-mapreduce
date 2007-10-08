@@ -54,6 +54,10 @@ class Job(object):
                 "I think you should have instantiated a subclass of Job.")
 
 
+# TODO: Since SerialJob is really just for debugging anyway, it might be a
+# good idea to have another version that does all of the sorting in memory
+# (without writing to an intermediate file) in addition to the current
+# implementation that writes to an intermediate file and uses UNIX sort.
 class SerialJob(Job):
     """MapReduce execution on a single processor
     """
