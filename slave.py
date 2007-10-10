@@ -1,5 +1,17 @@
 #!/usr/bin/env python
 
+import threading
+
+class Task(object):
+    def __init__(self, function, input, output):
+        self.function = function
+        self.input = input
+        self.output = output
+
+class Worker(threading.Thread):
+    def __init__(self, **kwds):
+        threading.Thread(self, **kwds)
+        self._task = None
 
 class SlaveRPC(object):
     def _listMethods(self):
