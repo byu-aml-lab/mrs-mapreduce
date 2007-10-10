@@ -23,7 +23,7 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
-class MasterRemoteFunctions(object):
+class MasterRPC(object):
     def _listMethods(self):
         return SimpleXMLRPCServer.list_public_methods(self)
 
@@ -36,7 +36,7 @@ class MasterRemoteFunctions(object):
     def ping(self):
         """Slave checking if we're still here.
         """
-        return 4
+        return True
 
 
 

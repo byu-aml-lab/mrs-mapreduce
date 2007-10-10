@@ -24,8 +24,6 @@
 
 VERSION = '0.1-pre'
 
-IMPLEMENTATIONS = {}
-
 def main(mapper, reducer):
     """Run a MapReduce program.
 
@@ -44,7 +42,8 @@ def main(mapper, reducer):
     from optparse import OptionParser
     import sys
 
-    usage = 'usage: %prog implementation [args] input1 [input2 ...] output'
+    usage = 'usage: %prog master-type [args] input1 [input2 ...] output\n' \
+            '       %prog slave [args] server_address server_port'
     version = 'Mrs %s' % VERSION
 
     parser = OptionParser(usage=usage)
@@ -60,27 +59,28 @@ def main(mapper, reducer):
     # output format
 
     (options, args) = parser.parse_args()
+    if len(args) < 1:
+        parser.error("Requires an subcommand.")
+    subcommand = args[0]
 
-    if len(args) < 3:
-        parser.error("Requires an implementation, inputs, and an output.")
+    if subcommand in ('posix', 'serial'):
+        if len(args) < 3:
+            parser.error("Requires inputs and an output.")
+        inputs = args[1:-1]
+        output = args[-1]
+        if subcommand == 'posix':
+            posix(mapper, reducer, inputs, output, options)
+        elif subcommand == 'serial':
+            serial(mapper, reducer, inputs, output, options)
+    elif subcommand == 'slave':
+        if len(args) != 3:
+            parser.error("Requires a server address and port.")
+        address, port = args[1:]
+        slave(master, reducer, address, port)
+    else:
+        parser.error("No such subcommand exists.")
 
-    try:
-        implementation = IMPLEMENTATIONS[args[0]]
-    except KeyError:
-        parser.error("No such implementation exists.")
-    inputs = args[1:-1]
-    output = args[-1]
 
-    implementation(mapper, reducer, inputs, output, options)
-
-
-def add_implementation(implementation_list):
-    def decorator(func):
-        implementation_list[func.__name__] = func
-        return func
-    return decorator
-
-@add_implementation(IMPLEMENTATIONS)
 def posix(mapper, reducer, inputs, output, options):
     map_tasks = options.map_tasks
     if map_tasks == 0:
@@ -100,7 +100,6 @@ def posix(mapper, reducer, inputs, output, options):
     mrsjob.run()
 
 
-@add_implementation(IMPLEMENTATIONS)
 def serial(mapper, reducer, inputs, output, options):
     from mrs.mapreduce import Operation, SerialJob
     op = Operation(mapper, reducer)
@@ -108,5 +107,7 @@ def serial(mapper, reducer, inputs, output, options):
     mrsjob.operations = [op]
     mrsjob.run()
 
+def slave(mapper, reducer, address, port):
+    pass
 
 # vim: et sw=4 sts=4
