@@ -115,7 +115,7 @@ def serial(mapper, reducer, inputs, output, options):
 def slave(mapper, reducer, url):
     import slave, rpc
     try:
-        server = rpc.rpc_server(slave.SlaveRPC, PORT)
+        server = rpc.new_server(slave.SlaveRPC, PORT)
         # TODO: start a worker thread
         # TODO: sign in with the master
         while True:
