@@ -32,6 +32,26 @@ import threading, SimpleXMLRPCServer
 # TODO: check for basic HTTP authentication?
 
 
+class RPCThread(threading.Thread):
+    """Thread for listening for incoming connections from slaves.
+    
+    Listen on port 8000 for slaves to connect:
+    server = RPCServer(functions, 8000)
+    server.start()
+
+    Note that functions is an "instance" to be given to SimpleXMLRPCServer.
+    """
+    def __init__(functions, port, **kwds):
+        threading.Thread(self, **kwds)
+        self.server = SimpleXMLRPCServer.SimpleXMLRPCServer(('', port),
+                requestHandler=MrsXMLRPCRequestHandler)
+        #self.server.register_introspection_functions()
+        self.server.register_instance(functions)
+
+    def run():
+        self.server.serve_forever()
+
+
 class MrsXMLRPCRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
     """Mrs Request Handler
 
@@ -65,38 +85,6 @@ class MrsXMLRPCRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
         kwds = dict(host=host, port=port)
         return function(*params, **kwds)
 
-
-class RPCThread(threading.Thread):
-    """Thread for listening for incoming connections from slaves.
-    
-    Listen on port 8000 for slaves to connect:
-    server = RPCServer(8000)
-    server.start()
-    """
-    def __init__(functions, port, **kwds):
-        threading.Thread(self, **kwds)
-        self.server = SimpleXMLRPCServer.SimpleXMLRPCServer(('', port),
-                requestHandler=MrsXMLRPCRequestHandler)
-        #self.server.register_introspection_functions()
-        self.server.register_instance(functions)
-
-    def run():
-        self.server.serve_forever()
-
-class MasterRemoteFunctions(object):
-    def _listMethods(self):
-        return SimpleXMLRPCServer.list_public_methods(self)
-
-    def signin(self, cookie, host=None, port=None):
-        """Slave reporting for duty.
-        """
-        print 'host: %s, port: %s' % (host, port)
-        return 4
-
-    def ping(self):
-        """Slave checking if we're still here.
-        """
-        return 4
 
 if __name__ == '__main__':
     # Testing standalone server.
