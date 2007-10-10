@@ -113,9 +113,9 @@ def serial(mapper, reducer, inputs, output, options):
     return 0
 
 def slave(mapper, reducer, url):
-    import slave, xmlrpc
+    import slave, rpc
     try:
-        server = xmlrpc.rpc_server(slave.SlaveRPC, PORT)
+        server = rpc.rpc_server(slave.SlaveRPC, PORT)
         # TODO: start a worker thread
         # TODO: sign in with the master
         while True:
