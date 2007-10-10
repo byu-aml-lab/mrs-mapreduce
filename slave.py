@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-
 # Copyright 2008 Brigham Young University
 #
 # This file is part of Mrs.
@@ -22,6 +21,19 @@
 # please contact the Copyright Licensing Office, Brigham Young University,
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
+
+import threading
+
+class Task(object):
+    def __init__(self, function, input, output):
+        self.function = function
+        self.input = input
+        self.output = output
+
+class Worker(threading.Thread):
+    def __init__(self, **kwds):
+        threading.Thread(self, **kwds)
+        self._task = None
 
 class SlaveRPC(object):
     def _listMethods(self):

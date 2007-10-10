@@ -23,6 +23,7 @@
 # copyright@byu.edu.
 
 VERSION = '0.1-pre'
+PORT = 8888
 
 def main(mapper, reducer):
     """Run a MapReduce program.
@@ -43,7 +44,7 @@ def main(mapper, reducer):
     import sys
 
     usage = 'usage: %prog master-type [args] input1 [input2 ...] output\n' \
-            '       %prog slave [args] server_address server_port'
+            '       %prog slave [args] server_url'
     version = 'Mrs %s' % VERSION
 
     parser = OptionParser(usage=usage)
@@ -69,16 +70,18 @@ def main(mapper, reducer):
         inputs = args[1:-1]
         output = args[-1]
         if subcommand == 'posix':
-            posix(mapper, reducer, inputs, output, options)
+            retcode = posix(mapper, reducer, inputs, output, options)
         elif subcommand == 'serial':
-            serial(mapper, reducer, inputs, output, options)
+            retcode = serial(mapper, reducer, inputs, output, options)
     elif subcommand == 'slave':
-        if len(args) != 3:
+        if len(args) != 2:
             parser.error("Requires a server address and port.")
-        address, port = args[1:]
-        slave(master, reducer, address, port)
+        url = args[1]
+        retcode = slave(master, reducer, url)
     else:
         parser.error("No such subcommand exists.")
+
+    return retcode
 
 
 def posix(mapper, reducer, inputs, output, options):
@@ -98,6 +101,7 @@ def posix(mapper, reducer, inputs, output, options):
     mrsjob = POSIXJob(inputs, output, options.shared)
     mrsjob.operations = [op]
     mrsjob.run()
+    return 0
 
 
 def serial(mapper, reducer, inputs, output, options):
@@ -106,8 +110,17 @@ def serial(mapper, reducer, inputs, output, options):
     mrsjob = SerialJob(inputs, output)
     mrsjob.operations = [op]
     mrsjob.run()
+    return 0
 
-def slave(mapper, reducer, address, port):
-    pass
+def slave(mapper, reducer, url):
+    import slave, xmlrpc
+    try:
+        server = xmlrpc.rpc_server(slave.SlaveRPC, PORT)
+        # TODO: start a worker thread
+        # TODO: sign in with the master
+        while True:
+            server.handle_request()
+    except KeyboardInterrupt:
+        return -1
 
 # vim: et sw=4 sts=4

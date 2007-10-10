@@ -32,14 +32,15 @@ import threading, SimpleXMLRPCServer
 # TODO: check for basic HTTP authentication?
 
 def rpc_server(functions, port):
-    """Listen for incoming RPC requests forever in the current thread.
+    """Return an RPC server for incoming RPC requests.
+
+    Note that functions is an "instance" to be given to SimpleXMLRPCServer.
     """
     server = SimpleXMLRPCServer.SimpleXMLRPCServer(('', port),
             requestHandler=MrsXMLRPCRequestHandler)
     #server.register_introspection_functions()
     server.register_instance(functions)
-    server.serve_forever()
-
+    return server
 
 class RPCThread(threading.Thread):
     """Thread for listening for incoming RPC requests.
@@ -50,14 +51,11 @@ class RPCThread(threading.Thread):
 
     Note that functions is an "instance" to be given to SimpleXMLRPCServer.
     """
-    def __init__(functions, port, **kwds):
+    def __init__(self, functions, port, **kwds):
         threading.Thread(self, **kwds)
-        self.server = SimpleXMLRPCServer.SimpleXMLRPCServer(('', port),
-                requestHandler=MrsXMLRPCRequestHandler)
-        #self.server.register_introspection_functions()
-        self.server.register_instance(functions)
+        self.server = rpc_server(functions, port)
 
-    def run():
+    def run(self):
         self.server.serve_forever()
 
 
