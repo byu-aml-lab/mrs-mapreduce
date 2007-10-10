@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+# TODO: if the cookie check fails too many times, we may want to shut down
+# with an error or do something else to make sure that the operator knows.
+
 import threading
 
 class Task(object):

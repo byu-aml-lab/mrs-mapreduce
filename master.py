@@ -5,7 +5,7 @@ class MasterRPC(object):
     def _listMethods(self):
         return SimpleXMLRPCServer.list_public_methods(self)
 
-    def signin(self, cookie, host=None, port=None):
+    def signin(self, cookie, slave_port, host=None, port=None):
         """Slave reporting for duty.
         """
         print 'host: %s, port: %s' % (host, port)

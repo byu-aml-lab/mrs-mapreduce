@@ -2,6 +2,7 @@
 
 VERSION = '0.1-pre'
 PORT = 8888
+COOKIE_LEN = 64
 
 def main(mapper, reducer):
     """Run a MapReduce program.
@@ -22,7 +23,7 @@ def main(mapper, reducer):
     import sys
 
     usage = 'usage: %prog master-type [args] input1 [input2 ...] output\n' \
-            '       %prog slave [args] server_url'
+            '       %prog slave [args] server_uri'
     version = 'Mrs %s' % VERSION
 
     parser = OptionParser(usage=usage)
@@ -54,8 +55,8 @@ def main(mapper, reducer):
     elif subcommand == 'slave':
         if len(args) != 2:
             parser.error("Requires a server address and port.")
-        url = args[1]
-        retcode = slave(master, reducer, url)
+        uri = args[1]
+        retcode = slave(master, reducer, uri)
     else:
         parser.error("No such subcommand exists.")
 
@@ -90,12 +91,21 @@ def serial(mapper, reducer, inputs, output, options):
     mrsjob.run()
     return 0
 
-def slave(mapper, reducer, url):
+def slave(mapper, reducer, uri):
+    """Mrs Slave
+
+    uri is scheme://host/target and may include username:password
+    """
     import slave, rpc
+    import random, string, xmlrpclib, 
+    master = xmlrpclib.ServerProxy(uri)
+    server = rpc.new_server(slave.SlaveRPC, PORT)
+    possible = string.letters + string.digits
+    cookie = random.sample(possible, COOKIE_LEN)
     try:
-        server = rpc.new_server(slave.SlaveRPC, PORT)
         # TODO: start a worker thread
         # TODO: sign in with the master
+        master.signin(cookie, GET PORT FROM server!!!)
         while True:
             server.handle_request()
     except KeyboardInterrupt:
