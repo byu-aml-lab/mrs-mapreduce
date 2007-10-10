@@ -9,9 +9,18 @@ import threading, SimpleXMLRPCServer
 
 # TODO: check for basic HTTP authentication?
 
+def rpc_server(functions, port):
+    """Listen for incoming RPC requests forever in the current thread.
+    """
+    server = SimpleXMLRPCServer.SimpleXMLRPCServer(('', port),
+            requestHandler=MrsXMLRPCRequestHandler)
+    #server.register_introspection_functions()
+    server.register_instance(functions)
+    server.serve_forever()
+
 
 class RPCThread(threading.Thread):
-    """Thread for listening for incoming connections from slaves.
+    """Thread for listening for incoming RPC requests.
     
     Listen on port 8000 for slaves to connect:
     server = RPCServer(functions, 8000)

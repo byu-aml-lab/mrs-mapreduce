@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 
-class MasterRemoteFunctions(object):
+class MasterRPC(object):
     def _listMethods(self):
         return SimpleXMLRPCServer.list_public_methods(self)
 
@@ -14,7 +14,7 @@ class MasterRemoteFunctions(object):
     def ping(self):
         """Slave checking if we're still here.
         """
-        return 4
+        return True
 
 
 
