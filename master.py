@@ -22,17 +22,31 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
+import threading
+
+class Slave(object):
+    def __init__(self, host, port, cookie):
+        self.host = host
+        self.port = port
+        self.cookie = cookie
+
 class Slaves(object):
     pass
 
 class MasterRPC(object):
+    def __init__(self):
+        self.slaves = []
+
     def _listMethods(self):
+        import SimpleXMLRPCServer
         return SimpleXMLRPCServer.list_public_methods(self)
 
     def signin(self, cookie, slave_port, host=None, port=None):
         """Slave reporting for duty.
         """
-        return 4
+        slave = Slave(host, slave_port, cookie)
+        self.slaves.append(slave)
+        return True
 
     def ping(self):
         """Slave checking if we're still here.

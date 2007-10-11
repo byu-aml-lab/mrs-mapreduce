@@ -25,6 +25,8 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
+COOKIE_LEN = 32
+
 import threading
 
 class Task(object):
@@ -35,30 +37,55 @@ class Task(object):
 
 class Worker(threading.Thread):
     def __init__(self, **kwds):
-        threading.Thread(self, **kwds)
+        threading.Thread.__init__(self, **kwds)
+        # Die when all other non-daemon threads have exited:
+        self.setDaemon(True)
+
         self._task = None
+        self.active = False
+        self.exception = None
+
+    def run(self):
+        pass
+
+class CookieValidationError(Exception):
+    pass
 
 class SlaveRPC(object):
+    def __init__(self, worker):
+        self.alive = True
+        self.worker = worker
+
+        # Generate a cookie so that mostly only authorized people can connect.
+        from random import choice
+        import string
+        possible = string.letters + string.digits
+        self.cookie = ''.join(choice(possible) for i in xrange(COOKIE_LEN))
+
     def _listMethods(self):
         return SimpleXMLRPCServer.list_public_methods(self)
 
-    def signin(self, cookie, host=None, port=None):
-        """Slave reporting for duty.
-        """
-        print 'host: %s, port: %s' % (host, port)
-        return 4
+    def _check_cookie(self, cookie):
+        if cookie != self.cookie:
+            raise CookieValidationError
 
     def start_map(input, output, cookie):
-        pass
+        self._check_cookie(cookie)
 
     def start_reduce(input, output, cookie):
-        pass
+        self._check_cookie(cookie)
+
+    def quit(cookie):
+        self._check_cookie(cookie)
+        self.alive = False
+        import sys
+        print >>sys.stderr, "Quitting as requested by an RPC call."
+        return True
 
     def ping(self):
         """Master checking if we're still here.
         """
         return True
-
 
 
 # vim: et sw=4 sts=4
