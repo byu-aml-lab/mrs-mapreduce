@@ -2,6 +2,9 @@
 
 import threading, SimpleXMLRPCServer
 
+# TODO: listen over SSL.  See
+# http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/496786
+
 # TODO: Switch to Twisted(?). Note that the current implementation uses a
 # synchronous server.  We'll probably want to change that at some point.  Look
 # at: http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/526625 and
@@ -33,7 +36,9 @@ class RPCThread(threading.Thread):
     Note that functions is an "instance" to be given to SimpleXMLRPCServer.
     """
     def __init__(self, functions, port, **kwds):
-        threading.Thread(self, **kwds)
+        threading.Thread.__init__(self, **kwds)
+        # Die when all other non-daemon threads have exited:
+        self.setDaemon(True)
         self.server = new_server(functions, port)
 
     def run(self):

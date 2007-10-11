@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 VERSION = '0.1-pre'
-SLAVE_PORT = 0
-COOKIE_LEN = 64
+DEFAULT_RPC_PORT = 0
+PING_INTERVAL = 5.0
 
 def main(mapper, reducer):
     """Run a MapReduce program.
@@ -27,13 +27,15 @@ def main(mapper, reducer):
     version = 'Mrs %s' % VERSION
 
     parser = OptionParser(usage=usage)
+    parser.add_option('-p', '--port', dest='port', type='int',
+            help='RPC Port for incoming requests')
     parser.add_option('--shared', dest='shared',
             help='Shared storage area (posix only)')
     parser.add_option('-M', '--map-tasks', dest='map_tasks', type='int',
             help='Number of map tasks (parallel only)')
     parser.add_option('-R', '--reduce-tasks', dest='reduce_tasks', type='int',
             help='Number of reduce tasks (parallel only)')
-    parser.set_defaults(map_tasks=0, reduce_tasks=0)
+    parser.set_defaults(map_tasks=0, reduce_tasks=0, port=DEFAULT_RPC_PORT)
     # TODO: other options:
     # input format
     # output format
@@ -43,23 +45,38 @@ def main(mapper, reducer):
         parser.error("Requires an subcommand.")
     subcommand = args[0]
 
-    if subcommand in ('posix', 'serial'):
+    if subcommand == 'master':
         if len(args) < 3:
             parser.error("Requires inputs and an output.")
         inputs = args[1:-1]
         output = args[-1]
-        if subcommand == 'posix':
-            retcode = posix(mapper, reducer, inputs, output, options)
-        elif subcommand == 'serial':
-            retcode = serial(mapper, reducer, inputs, output, options)
+        subcommand_args = (inputs, output, options)
+        subcommand_function = run_master
     elif subcommand == 'slave':
         if len(args) != 2:
             parser.error("Requires a server address and port.")
         uri = args[1]
-        retcode = slave(master, reducer, uri)
+        subcommand_function = run_slave
+        subcommand_args = (mapper, reducer, uri, options)
+    elif subcommand in ('posix', 'serial'):
+        if len(args) < 3:
+            parser.error("Requires inputs and an output.")
+        inputs = args[1:-1]
+        output = args[-1]
+        subcommand_args = (mapper, reducer, inputs, output, options)
+        if subcommand == 'posix':
+            subcommand_function = posix
+        elif subcommand == 'serial':
+            subcommand_function = run_serial
     else:
         parser.error("No such subcommand exists.")
 
+    try:
+        retcode = subcommand_function(*subcommand_args)
+    except KeyboardInterrupt:
+        import sys
+        print >>sys.stderr, "Interrupted."
+        retcode = -1
     return retcode
 
 
@@ -83,7 +100,7 @@ def posix(mapper, reducer, inputs, output, options):
     return 0
 
 
-def serial(mapper, reducer, inputs, output, options):
+def run_serial(mapper, reducer, inputs, output, options):
     from mrs.mapreduce import Operation, SerialJob
     op = Operation(mapper, reducer)
     mrsjob = SerialJob(inputs, output)
@@ -91,32 +108,63 @@ def serial(mapper, reducer, inputs, output, options):
     mrsjob.run()
     return 0
 
-def slave(mapper, reducer, uri):
+def run_master(inputs, output, options):
+    import sys
+    import master, rpc
+
+    master_rpc = master.MasterRPC()
+    rpc_thread = rpc.RPCThread(master_rpc, options.port)
+    rpc_thread.start()
+
+    port = rpc_thread.server.server_address[1]
+    print >>sys.stderr, "Listening on port %s" % port
+
+    from time import sleep
+    sleep(300)
+
+
+def run_slave(mapper, reducer, uri, options):
     """Mrs Slave
 
-    uri is scheme://host/target and may include username:password
+    The uri is of the form scheme://username:password@host/target with
+    username and password possibly omitted.
     """
     import slave, rpc
-    import random, string, xmlrpclib
+    import select, xmlrpclib
 
     # Create an RPC proxy to the master's RPC Server
     master = xmlrpclib.ServerProxy(uri)
 
+    # Start up a worker thread.  This thread will die when we do.
+    worker = slave.Worker()
+    worker.start()
+
     # Startup a slave RPC Server
-    server = rpc.new_server(slave.SlaveRPC, SLAVE_PORT)
+    slave_rpc = slave.SlaveRPC(worker)
+    server = rpc.new_server(slave_rpc, options.port)
+    server_fd = server.fileno()
     host, port = server.server_address
 
-    # Generate a cookie, so that mostly only authorized people can talk to us.
-    possible = string.letters + string.digits
-    cookie = ''.join(random.choice(possible) for i in xrange(COOKIE_LEN))
-
-    try:
-        # TODO: start a worker thread
-        # TODO: sign in with the master
-        master.signin(cookie, port)
-        while True:
-            server.handle_request()
-    except KeyboardInterrupt:
+    # Register with master.
+    if not master.signin(slave_rpc.cookie, port):
+        import sys
+        print >>sys.stderr, "Master rejected signin."
         return -1
+
+    while slave_rpc.alive:
+        rlist, wlist, xlist = select.select([server_fd], [], [], PING_INTERVAL)
+        if server_fd in rlist:
+            server.handle_request()
+        else:
+            # try to ping master
+            try:
+                # TODO: consider setting socket.setdefaulttimeout()
+                master_alive = master.ping()
+            except:
+                master_alive = False
+            if not master_alive:
+                print >>sys.stderr, "Master failed to respond to ping."
+                return -1
+    return 0
 
 # vim: et sw=4 sts=4
