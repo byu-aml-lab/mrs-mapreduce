@@ -31,12 +31,15 @@ import threading, SimpleXMLRPCServer
 
 # TODO: check for basic HTTP authentication?
 
-def new_server(functions, port):
+def new_server(functions, port, host=None):
     """Return an RPC server for incoming RPC requests.
 
     Note that functions is an "instance" to be given to SimpleXMLRPCServer.
     """
-    server = SimpleXMLRPCServer.SimpleXMLRPCServer(('', port),
+    if host is None:
+        # (Using socket.INADDR_ANY doesn't seem to work)
+        host = ''
+    server = SimpleXMLRPCServer.SimpleXMLRPCServer((host, port),
             requestHandler=MrsXMLRPCRequestHandler)
     #server.register_introspection_functions()
     server.register_instance(functions)
@@ -92,13 +95,5 @@ class MrsXMLRPCRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
         kwds = dict(host=host, port=port)
         return function(*params, **kwds)
 
-
-if __name__ == '__main__':
-    # Testing standalone server.
-    server = SimpleXMLRPCServer.SimpleXMLRPCServer(('localhost', 8000),
-            requestHandler=MrsXMLRPCRequestHandler)
-    instance = MasterRemoteFunctions()
-    server.register_instance(instance)
-    server.serve_forever()
 
 # vim: et sw=4 sts=4

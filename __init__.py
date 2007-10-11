@@ -23,7 +23,7 @@
 # copyright@byu.edu.
 
 VERSION = '0.1-pre'
-PORT = 8888
+SLAVE_PORT = 0
 COOKIE_LEN = 64
 
 def main(mapper, reducer):
@@ -119,15 +119,23 @@ def slave(mapper, reducer, uri):
     uri is scheme://host/target and may include username:password
     """
     import slave, rpc
-    import random, string, xmlrpclib, 
+    import random, string, xmlrpclib
+
+    # Create an RPC proxy to the master's RPC Server
     master = xmlrpclib.ServerProxy(uri)
-    server = rpc.new_server(slave.SlaveRPC, PORT)
+
+    # Startup a slave RPC Server
+    server = rpc.new_server(slave.SlaveRPC, SLAVE_PORT)
+    host, port = server.server_address
+
+    # Generate a cookie, so that mostly only authorized people can talk to us.
     possible = string.letters + string.digits
-    cookie = random.sample(possible, COOKIE_LEN)
+    cookie = ''.join(random.choice(possible) for i in xrange(COOKIE_LEN))
+
     try:
         # TODO: start a worker thread
         # TODO: sign in with the master
-        master.signin(cookie, GET PORT FROM server!!!)
+        master.signin(cookie, port)
         while True:
             server.handle_request()
     except KeyboardInterrupt:

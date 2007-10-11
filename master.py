@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-
 # Copyright 2008 Brigham Young University
 #
 # This file is part of Mrs.
@@ -23,6 +22,9 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
+class Slaves(object):
+    pass
+
 class MasterRPC(object):
     def _listMethods(self):
         return SimpleXMLRPCServer.list_public_methods(self)
@@ -30,7 +32,6 @@ class MasterRPC(object):
     def signin(self, cookie, slave_port, host=None, port=None):
         """Slave reporting for duty.
         """
-        print 'host: %s, port: %s' % (host, port)
         return 4
 
     def ping(self):
@@ -38,6 +39,15 @@ class MasterRPC(object):
         """
         return True
 
+
+if __name__ == '__main__':
+    # Testing standalone server.
+    import rpc
+    instance = MasterRPC()
+    PORT = 8000
+    #PORT = 0
+    server = rpc.new_server(instance, host='127.0.0.1', port=PORT)
+    server.serve_forever()
 
 
 # vim: et sw=4 sts=4
