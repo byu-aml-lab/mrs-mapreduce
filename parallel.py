@@ -136,7 +136,7 @@ class ParallelJob(Job):
             map_task = MapTask(taskid, operation.mapper, operation.partition,
                     input, reduce_tasks, interm_path)
             heappush(tasks, map_task)
-
+        
 
         # Create Reduce Tasks:
         # PLEASE WRITE ME
@@ -147,19 +147,10 @@ class ParallelJob(Job):
             master_rpc.activity.wait(PING_INTERVAL)
             master_rpc.activity.clear()
 
-            for slave in master_rpc.slaves.slave_list():
-                # Assign to all idle slaves:
-                while True:
-                    idler = master_rpc.slaves.pop_idle()
-                    if idler is None:
-                        break
-                    assignment = heappop(tasks)
-                    # TODO: MAKE ASSIGNMENT HERE
-                    slave.assign_task(assignment)
-                    # Repush with the new number of workers
-                    heappush(tasks, assignment)
+            self.make_assignments(master_rpc, tasks, assignments)
 
-                # Squeeze in a ping:
+            for slave in master_rpc.slaves.slave_list():
+                # Ping the next slave:
                 try:
                     slave_alive = slave.slave_rpc.ping()
                 except:
@@ -174,6 +165,23 @@ class ParallelJob(Job):
                     # resort:
                     heapify(tasks)
 
+                # Try to make all new assignments:
+                self.make_assignments(master_rpc, tasks, assignments)
+
+
+    def make_assignments(self, master_rpc, tasks, assignments):
+        print "Trying to make assignments."
+        from heapq import heappop, heappush
+        while True:
+            idler = master_rpc.slaves.pop_idle()
+            if idler is None:
+                break
+            newtask = heappop(tasks)
+            # TODO: MAKE ASSIGNMENT HERE
+            slave.assign_task(newtask)
+            assignments[idler.cookie] = newtask
+            # Repush with the new number of workers
+            heappush(tasks, newtask)
 
 
         ### IN PROGRESS ###
