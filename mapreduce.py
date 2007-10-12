@@ -56,9 +56,10 @@ class Job(threading.Thread):
                 "I think you should have instantiated a subclass of Job.")
 
 class MapTask(threading.Thread):
-    def __init__(self, mapper, partition, input, reduce_tasks,
+    def __init__(self, taskid, mapper, partition, input, reduce_tasks,
             interm_prefix, **kwds):
         threading.Thread.__init__(self, **kwds)
+        self.taskid = taskid
         self.mapper = mapper
         self.partition = partition
         self.input = input
@@ -66,15 +67,13 @@ class MapTask(threading.Thread):
         self.interm_prefix = interm_prefix
 
     def run(self):
-        # mapper_id, interm_dirs, partition
-
         input_format = formats.fileformat(self.input)
         input_file = input_format(open(self.input))
 
         # create a new interm_name for each reducer
         interm_dirs = [self.interm_prefix + str(i)
                 for i in xrange(reduce_tasks)]
-        interm_filenames = [os.path.join(d, 'from_%s.hexfile' % mapper_id)
+        interm_filenames = [os.path.join(d, 'from_%s.hexfile' % self.taskid)
                 for d in interm_dirs]
         interm_files = [formats.HexFile(open(name, 'w'))
                 for name in interm_filenames]

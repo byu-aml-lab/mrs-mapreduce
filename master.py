@@ -8,6 +8,8 @@ class MasterRPC(object):
     # underscore will be exposed to remote hosts.
 
     def __init__(self):
+        import threading
+        self.activity = threading.Event()
         self.slaves = Slaves()
 
     def _listMethods(self):
@@ -19,12 +21,14 @@ class MasterRPC(object):
         """
         slave = Slave(host, slave_port, cookie)
         self.slaves.add_slave(slave)
+        self.activity.set()
         return True
 
     def done(self, cookie, host=None, port=None):
         """Slave is done with whatever it was working on.
         """
-        pass
+        # MORE HERE
+        self.activity.set()
 
     def ping(self, **kwds):
         """Slave checking if we're still here.
