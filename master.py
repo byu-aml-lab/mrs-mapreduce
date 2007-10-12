@@ -32,6 +32,8 @@ class Slaves(object):
         """
         self._lock.acquire()
         if slave in self._idle_slaves:
+            # Note that we don't decrement the semaphore.  Tough luck for the
+            # sap that thinks the list has more entries than it does.
             self._idle_slaves.remove(slave)
         self._slaves.remove(slave)
         self._lock.release()
