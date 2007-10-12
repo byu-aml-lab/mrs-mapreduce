@@ -1,8 +1,14 @@
 #!/usr/bin/env python
 
 PING_INTERVAL = 5.0
+SOCKET_TIMEOUT = 1.0
 
+import socket
 from mapreduce import Job, MapTask
+
+# NOTE: This is a _global_ setting:
+socket.setdefaulttimeout(SOCKET_TIMEOUT)
+
 
 def run_master(mapper, reducer, partition, inputs, output, options):
     """Mrs Master
@@ -61,7 +67,6 @@ def run_slave(mapper, reducer, partition, uri, options):
         else:
             # try to ping master
             try:
-                # TODO: consider setting socket.setdefaulttimeout()
                 master_alive = master.ping()
             except:
                 master_alive = False
@@ -84,6 +89,7 @@ class ParallelJob(Job):
         self.port = port
         self.shared_dir = shared_dir
 
+    # TODO: break this function into several smaller ones:
     def run(self):
         ################################################################
         # TEMPORARY LIMITATIONS
@@ -109,8 +115,7 @@ class ParallelJob(Job):
         port = rpc_thread.server.server_address[1]
         print >>sys.stderr, "Listening on port %s" % port
 
-
-        # PREP
+        # Prep:
         jobdir = mkdtemp(prefix='mrs.job_', dir=self.shared_dir)
 
         interm_path = os.path.join(jobdir, 'interm_')
@@ -122,19 +127,53 @@ class ParallelJob(Job):
         os.mkdir(output_dir)
 
 
-        # MAP PHASE
-        map_tasks = []
+        from heapq import heapify, heappop, heappush
+        assignments = {}
+        tasks = []
+
+        # Create Map Tasks:
         for taskid, filename in enumerate(self.inputs):
             map_task = MapTask(taskid, operation.mapper, operation.partition,
                     input, reduce_tasks, interm_path)
-            map_tasks.append(map_task)
+            heappush(tasks, map_task)
 
-        reduce_tasks = []
 
+        # Create Reduce Tasks:
+        # PLEASE WRITE ME
+
+
+        # Drive Slaves:
         while True:
-            timeout = 1
-            master_rpc.activity.wait(timeout)
+            master_rpc.activity.wait(PING_INTERVAL)
             master_rpc.activity.clear()
+
+            for slave in master_rpc.slaves.slave_list():
+                # Assign to all idle slaves:
+                while True:
+                    idler = master_rpc.slaves.pop_idle()
+                    if idler is None:
+                        break
+                    assignment = heappop(tasks)
+                    # TODO: MAKE ASSIGNMENT HERE
+                    slave.assign_task(assignment)
+                    # Repush with the new number of workers
+                    heappush(tasks, assignment)
+
+                # Squeeze in a ping:
+                try:
+                    slave_alive = slave.slave_rpc.ping()
+                except:
+                    slave_alive = False
+                if not slave_alive:
+                    print >>sys.stderr, "Slave failed to respond to ping."
+                    master_rpc.slaves.remove_slave(slave)
+                    assignment = assignments.get(slave)
+                    if assignment:
+                        del assignments[slave]
+                        tasks[assignment.taskid].remove(slave)
+                    # resort:
+                    heapify(tasks)
+
 
 
         ### IN PROGRESS ###
