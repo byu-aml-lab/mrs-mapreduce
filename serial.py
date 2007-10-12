@@ -45,11 +45,10 @@ class SerialJob(Job):
         Job.__init__(self, **kwds)
         self.inputs = inputs
         self.output = output
+        self.debug = False
 
-    def run(self, debug=False):
+    def run(self):
         """Run a MapReduce operation in serial.
-        
-        If debug is specified, don't cleanup temporary files afterwards.
         """
         import os, tempfile
 
@@ -88,7 +87,7 @@ class SerialJob(Job):
 
         # CLEANUP
 
-        if not debug:
+        if not self.debug:
             import os
             os.unlink(interm_name)
             os.unlink(sorted_name)
@@ -107,7 +106,7 @@ class POSIXJob(Job):
         self.shared_dir = shared_dir
         self.partition = default_partition
 
-    def run(self, debug=False):
+    def run(self):
         import os
         from tempfile import mkstemp, mkdtemp
 
