@@ -85,7 +85,7 @@ class SlaveRPC(object):
         print >>sys.stderr, "Quitting as requested by an RPC call."
         return True
 
-    def ping(self):
+    def ping(self, **kwds):
         """Master checking if we're still here.
         """
         return True

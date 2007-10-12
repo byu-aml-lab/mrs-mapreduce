@@ -55,6 +55,7 @@ class MasterRPC(object):
     def ping(self, **kwds):
         """Slave checking if we're still here.
         """
+        # TODO: return False if they're not signed in
         return True
 
 
@@ -63,6 +64,23 @@ class Slave(object):
         self.host = host
         self.port = port
         self.cookie = cookie
+        import xmlrpclib
+        uri = "http://%s:%s" % (host, port)
+        self.slave_rpc = xmlrpclib.ServerProxy(uri)
+
+    def __hash__(self):
+        return hash(self.cookie)
+
+    def assign_task(self, task):
+        #self.slave_rpc.start_map()
+        print "ASSIGNING A TASK"
+        if isinstance(task, MapTask):
+            pass
+        elif isinstance(task, ReduceTask):
+            pass
+        else:
+            raise TypeError("Requires a MapTask or ReduceTask!")
+
 
 class Slaves(object):
     def __init__(self):

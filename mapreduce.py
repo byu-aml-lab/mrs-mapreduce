@@ -88,6 +88,14 @@ class MapTask(threading.Thread):
         self.reduce_tasks = reduce_tasks
         self.interm_prefix = interm_prefix
 
+        self.workers = []
+
+    def assign(self, worker):
+        self.workers.append(worker)
+
+    def remove(self, worker):
+        self.workers.remove(worker)
+
     def run(self):
         input_format = formats.fileformat(self.input)
         input_file = input_format(open(self.input))
@@ -106,6 +114,17 @@ class MapTask(threading.Thread):
         for f in interm_files:
             f.close()
 
+    def __cmp__(self, other):
+        # TODO: make this much more complex and robust
+        if isinstance(other, MapTask):
+            return cmp(len(self.workers), len(other.workers))
+        elif isinstance(other, ReduceTask):
+            return -1
+        else:
+            raise NotImplementedError
+
+class ReduceTask:
+    pass
 
 def default_partition(x, n):
     return hash(x) % n
