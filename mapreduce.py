@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+# TODO: right now we assume that input files are pre-split.
+# TODO: start up and close down mappers and reducers.
+
 # Copyright 2008 Brigham Young University
 #
 # This file is part of Mrs.
@@ -22,11 +25,6 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
-import hexfile, textfile
-
-# TODO: right now we assume that input files are pre-split.
-# TODO: start up and close down mappers and reducers.
-
 class Operation(object):
     """Specifies a map phase followed by a reduce phase.
     
@@ -40,11 +38,13 @@ class Operation(object):
         self.reduce_tasks = reduce_tasks
 
         if input_format is None:
-            self.input_format = textfile.TextFile
+            from textfile import TextFile
+            self.input_format = TextFile
         else:
             self.input_format = input_format
         if output_format is None:
-            self.output_format = textfile.TextFile
+            from textfile import TextFile
+            self.output_format = TextFile
         else:
             self.output_format = output_format
 
@@ -76,155 +76,10 @@ class Job(object):
                 "I think you should have instantiated a subclass of Job.")
 
 
-# TODO: Since SerialJob is really just for debugging anyway, it might be a
-# good idea to have another version that does all of the sorting in memory
-# (without writing to an intermediate file) in addition to the current
-# implementation that writes to an intermediate file and uses UNIX sort.
-class SerialJob(Job):
-    """MapReduce execution on a single processor
-    """
-    def __init__(self, inputs, output):
-        Job.__init__(self)
-        self.inputs = inputs
-        self.output = output
-
-    def run(self, debug=False):
-        """Run a MapReduce operation in serial.
-        
-        If debug is specified, don't cleanup temporary files afterwards.
-        """
-        import os, tempfile
-
-        if len(self.operations) != 1:
-            raise NotImplementedError("Requires exactly one operation.")
-        operation = self.operations[0]
-
-        if len(self.inputs) != 1:
-            raise NotImplementedError("Requires exactly one input file.")
-        input = self.inputs[0]
-
-        # MAP PHASE
-        input_file = textfile.TextFile(open(input))
-        fd, interm_name = tempfile.mkstemp(prefix='mrs.interm_')
-        interm_tmp = os.fdopen(fd, 'w')
-        interm_file = hexfile.HexFile(interm_tmp)
-
-        map(operation.mapper, input_file, interm_file)
-
-        input_file.close()
-        interm_file.close()
-
-        # SORT PHASE
-        fd, sorted_name = tempfile.mkstemp(prefix='mrs.sorted_')
-        os.close(fd)
-        hexfile.sort(interm_name, sorted_name)
-
-        # REDUCE PHASE
-        sorted_file = hexfile.HexFile(open(sorted_name))
-        output_file = operation.output_format(open(self.output, 'w'))
-
-        reduce(operation.reducer, sorted_file, output_file)
-
-        sorted_file.close()
-        output_file.close()
-
-        # CLEANUP
-
-        if not debug:
-            import os
-            os.unlink(interm_name)
-            os.unlink(sorted_name)
-
-
-class POSIXJob(Job):
-    """MapReduce execution on POSIX shared storage, such as NFS
-    
-    Specify a directory located in shared storage which can be used as scratch
-    space.
-    """
-    def __init__(self, inputs, output_dir, shared_dir, reduce_tasks=1):
-        Job.__init__(self)
-        self.inputs = inputs
-        self.output_dir = output_dir
-        self.shared_dir = shared_dir
-        self.partition = default_partition
-
-    def run(self, debug=False):
-        import os
-        from tempfile import mkstemp, mkdtemp
-
-        if len(self.operations) != 1:
-            raise NotImplementedError("Requires exactly one operation.")
-        operation = self.operations[0]
-
-        map_tasks = operation.map_tasks
-        if map_tasks != len(self.inputs):
-            raise NotImplementedError("Requires exactly 1 map_task per input.")
-
-        reduce_tasks = operation.reduce_tasks
-
-        # PREP
-        jobdir = mkdtemp(prefix='mrs.job_', dir=self.shared_dir)
-
-        interm_path = os.path.join(jobdir, 'interm_')
-        interm_dirs = [interm_path + str(i) for i in xrange(reduce_tasks)]
-        for name in interm_dirs:
-            os.mkdir(name)
-
-        output_dir = os.path.join(jobdir, 'output')
-        os.mkdir(output_dir)
-
-
-        # MAP PHASE
-        ## still serial
-        for mapper_id, filename in enumerate(self.inputs):
-            input_file = operation.input_format(open(filename))
-            # create a new interm_name for each reducer
-            interm_filenames = [os.path.join(d, 'from_%s' % mapper_id)
-                    for d in interm_dirs]
-            interm_files = [hexfile.HexFile(open(name, 'w'))
-                    for name in interm_filenames]
-
-            map(operation.mapper, input_file, interm_files,
-                    partition=self.partition)
-
-            input_file.close()
-            for f in interm_files:
-                f.close()
-
-        for reducer_id in xrange(operation.reduce_tasks):
-            # SORT PHASE
-            interm_directory = interm_path + str(reducer_id)
-            fd, sorted_name = mkstemp(prefix='mrs.sorted_')
-            os.close(fd)
-            interm_filenames = [os.path.join(interm_directory, s)
-                    for s in os.listdir(interm_directory)]
-            hexfile.sort(interm_filenames, sorted_name)
-
-            # REDUCE PHASE
-            sorted_file = hexfile.HexFile(open(sorted_name))
-            basename = 'reducer_%s' % reducer_id
-            output_name = os.path.join(self.output_dir, basename)
-            output_file = operation.output_format(open(output_name, 'w'))
-
-            reduce(operation.reducer, sorted_file, output_file)
-
-            sorted_file.close()
-            output_file.close()
-
-        # CLEANUP
-
-        #if not debug:
-        #    import os
-        #    os.unlink(interm_name)
-        #    os.unlink(sorted_name)
-
-
-
 def default_partition(x, n):
     return hash(x) % n
 
-def map(mapper, input_file, output_files, partition=None):
+def mrs_map(mapper, input_file, output_files, partition=None):
     """Perform a map from the entries in input_file into output_files.
 
     If partition is None, output_files should be a single file.  Otherwise,
@@ -278,7 +133,7 @@ def grouped_read(input_file):
     raise StopIteration
 
 
-def reduce(reducer, input_file, output_file):
+def mrs_reduce(reducer, input_file, output_file):
     """Perform a reduce from the entries in input_file into output_file.
 
     A reducer is an iterator taking a key and an iterator over values for that
