@@ -89,7 +89,7 @@ class Slaves(object):
         self._idle_slaves.append(slave)
         self._lock.release()
 
-    del remove_slave(self, slave):
+    def remove_slave(self, slave):
         """Remove a slave, whether it is busy or idle.
 
         Presumably, the slave has stopped responding.
