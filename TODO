@@ -1,3 +1,4 @@
 - RPC over HTTPS
 - logging
 - pass a dict of options from the application to the slaves
+- simplify job specification with an app_spec and job_spec (?)

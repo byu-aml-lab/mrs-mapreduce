@@ -75,7 +75,7 @@ def main(mapper, reducer, partition=None):
             parser.error("Requires inputs and an output.")
         inputs = args[1:-1]
         output = args[-1]
-        subcommand_args = (inputs, output, options)
+        subcommand_args = (mapper, reducer, partition, inputs, output, options)
         from parallel import run_master
         subcommand_function = run_master
     elif subcommand == 'slave':
