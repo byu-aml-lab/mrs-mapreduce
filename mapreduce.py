@@ -32,21 +32,17 @@ class Operation(object):
     
     The output_format is a file format, such as HexFile or TextFile.
     """
-    def __init__(self, mapper, reducer, map_tasks=1, reduce_tasks=1,
-            input_format=None, output_format=None):
+    def __init__(self, mapper, reducer, partition, map_tasks=1, reduce_tasks=1,
+            output_format=None):
         self.mapper = mapper
         self.reducer = reducer
+        self.partition = partition
         self.map_tasks = map_tasks
         self.reduce_tasks = reduce_tasks
 
-        if input_format is None:
-            from textfile import TextFile
-            self.input_format = TextFile
-        else:
-            self.input_format = input_format
         if output_format is None:
-            from textfile import TextFile
-            self.output_format = TextFile
+            import formats
+            self.output_format = formats.TextFile
         else:
             self.output_format = output_format
 
@@ -80,6 +76,36 @@ class Job(threading.Thread):
     def run(self):
         raise NotImplementedError(
                 "I think you should have instantiated a subclass of Job.")
+
+class MapTask(threading.Thread):
+    def __init__(self, mapper, partition, input, reduce_tasks,
+            interm_prefix, **kwds):
+        threading.Thread.__init__(self, **kwds)
+        self.mapper = mapper
+        self.partition = partition
+        self.input = input
+        self.reduce_tasks = reduce_tasks
+        self.interm_prefix = interm_prefix
+
+    def run(self):
+        # mapper_id, interm_dirs, partition
+
+        input_format = formats.fileformat(self.input)
+        input_file = input_format(open(self.input))
+
+        # create a new interm_name for each reducer
+        interm_dirs = [self.interm_prefix + str(i)
+                for i in xrange(reduce_tasks)]
+        interm_filenames = [os.path.join(d, 'from_%s.hexfile' % mapper_id)
+                for d in interm_dirs]
+        interm_files = [formats.HexFile(open(name, 'w'))
+                for name in interm_filenames]
+
+        map(self.mapper, self.partition, input_file, interm_files)
+
+        input_file.close()
+        for f in interm_files:
+            f.close()
 
 
 def default_partition(x, n):

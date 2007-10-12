@@ -59,7 +59,7 @@ class HexFile(object):
     def close(self):
         self.file.close()
 
-def sort(in_filenames, out_filename):
+def hexfile_sort(in_filenames, out_filename):
     """Sort one or more HexFiles into a new HexFile.
     
     Note that in_filenames can be the name of a single file or a list of names
