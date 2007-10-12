@@ -123,6 +123,8 @@ def posix(mapper, reducer, inputs, output, options):
 
 
 def run_serial(mapper, reducer, inputs, output, options):
+    """Mrs Serial
+    """
     from mrs.mapreduce import Operation, SerialJob
     op = Operation(mapper, reducer)
     mrsjob = SerialJob(inputs, output)
@@ -131,6 +133,17 @@ def run_serial(mapper, reducer, inputs, output, options):
     return 0
 
 def run_master(inputs, output, options):
+    """Mrs Master
+    """
+    map_tasks = options.map_tasks
+    if map_tasks == 0:
+        map_tasks = len(inputs)
+    if reduce_tasks == 0:
+        reduce_tasks = 1
+    if options.map_tasks != len(inputs):
+        raise NotImplementedError("For now, the number of map tasks "
+                "must equal the number of input files.")
+
     import sys
     import master, rpc
 
@@ -144,6 +157,7 @@ def run_master(inputs, output, options):
     from time import sleep
     sleep(300)
 
+    return 0
 
 def run_slave(mapper, reducer, uri, options):
     """Mrs Slave
