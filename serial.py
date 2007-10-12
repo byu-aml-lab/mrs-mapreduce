@@ -41,8 +41,8 @@ def run_serial(mapper, reducer, inputs, output, options):
 class SerialJob(Job):
     """MapReduce execution on a single processor
     """
-    def __init__(self, inputs, output):
-        Job.__init__(self)
+    def __init__(self, inputs, output, **kwds):
+        Job.__init__(self, **kwds)
         self.inputs = inputs
         self.output = output
 
@@ -100,8 +100,8 @@ class POSIXJob(Job):
     Specify a directory located in shared storage which can be used as scratch
     space.
     """
-    def __init__(self, inputs, output_dir, shared_dir, reduce_tasks=1):
-        Job.__init__(self)
+    def __init__(self, inputs, output_dir, shared_dir, reduce_tasks=1, **kwds):
+        Job.__init__(self, **kwds)
         self.inputs = inputs
         self.output_dir = output_dir
         self.shared_dir = shared_dir
