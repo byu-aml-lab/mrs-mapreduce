@@ -48,7 +48,7 @@ class MasterRPC(object):
         """
         pass
 
-    def ping(self):
+    def ping(self, **kwds):
         """Slave checking if we're still here.
         """
         return True
