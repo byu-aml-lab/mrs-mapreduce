@@ -3,7 +3,34 @@
 # TODO: Switch to using "with" for locks when we stop supporting pre-2.5.
 # from __future__ import with_statement
 
-import threading
+class MasterRPC(object):
+    # Be careful how you name your methods.  Any method not beginning with an
+    # underscore will be exposed to remote hosts.
+
+    def __init__(self):
+        self.slaves = Slaves()
+
+    def _listMethods(self):
+        import SimpleXMLRPCServer
+        return SimpleXMLRPCServer.list_public_methods(self)
+
+    def signin(self, cookie, slave_port, host=None, port=None):
+        """Slave reporting for duty.
+        """
+        slave = Slave(host, slave_port, cookie)
+        self.slaves.add_slave(slave)
+        return True
+
+    def done(self, cookie, host=None, port=None):
+        """Slave is done with whatever it was working on.
+        """
+        pass
+
+    def ping(self):
+        """Slave checking if we're still here.
+        """
+        return True
+
 
 class Slave(object):
     def __init__(self, host, port, cookie):
@@ -13,15 +40,30 @@ class Slave(object):
 
 class Slaves(object):
     def __init__(self):
-        self._slaves = []
+        self._slaves = {}
         self._idle_slaves = []
 
+        import threading
         self._lock = threading.Lock()
         self._idle_sem = threading.Semaphore()
 
-    def add_slave(self, slave):
+    def get_slave(cookie, host=None):
+        """Find the slave associated with the given cookie.
+        """
+
+    def slave_list(self):
+        """Get a snapshot of the current slaves.
+        """
         self._lock.acquire()
-        self._slaves.append(slave)
+        lst = self._slaves.values()
+        self._lock.release()
+        return lst
+
+    def add_slave(self, slave):
+        """Add a new idle slave.
+        """
+        self._lock.acquire()
+        self._slaves[slave.cookie] = slave
         self._idle_slaves.append(slave)
         self._lock.release()
 
@@ -35,7 +77,7 @@ class Slaves(object):
             # Note that we don't decrement the semaphore.  Tough luck for the
             # sap that thinks the list has more entries than it does.
             self._idle_slaves.remove(slave)
-        self._slaves.remove(slave)
+        del self._slaves[slave.cookie]
         self._lock.release()
 
     def push_idle(self, slave):
@@ -67,32 +109,6 @@ class Slaves(object):
                     pass
                 self._lock.release()
         return idler
-
-
-class MasterRPC(object):
-    def __init__(self):
-        self.slaves = Slaves()
-
-    def _listMethods(self):
-        import SimpleXMLRPCServer
-        return SimpleXMLRPCServer.list_public_methods(self)
-
-    def signin(self, cookie, slave_port, host=None, port=None):
-        """Slave reporting for duty.
-        """
-        slave = Slave(host, slave_port, cookie)
-        self.slaves.add_slave(slave)
-        return True
-
-    def done(self, cookie, host=None, port=None):
-        """Slave is done with whatever it was working on.
-        """
-        pass
-
-    def ping(self):
-        """Slave checking if we're still here.
-        """
-        return True
 
 
 if __name__ == '__main__':

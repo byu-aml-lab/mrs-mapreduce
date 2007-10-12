@@ -30,6 +30,9 @@ class CookieValidationError(Exception):
     pass
 
 class SlaveRPC(object):
+    # Be careful how you name your methods.  Any method not beginning with an
+    # underscore will be exposed to remote hosts.
+
     def __init__(self, worker):
         self.alive = True
         self.worker = worker
