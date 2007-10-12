@@ -25,6 +25,8 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
+import threading
+
 class Operation(object):
     """Specifies a map phase followed by a reduce phase.
     
@@ -49,7 +51,7 @@ class Operation(object):
             self.output_format = output_format
 
 
-class Job(object):
+class Job(threading.Thread):
     """Keeps track of the parameters of the MR job and carries out the work.
 
     There are various ways to implement MapReduce:
@@ -61,8 +63,12 @@ class Job(object):
     To execute, make sure to do:
     job.inputs.append(input_filename)
     job.operations.append(mrs_operation)
+
+    By the way, since Job inherits from threading.Thread, you can execute a
+    MapReduce operation as a thread.  Slick, eh?
     """
-    def __init__(self):
+    def __init__(self, **kwds):
+        threading.Thread.__init__(self, **kwds)
         self.inputs = []
         self.operations = []
 
