@@ -42,6 +42,7 @@ class Slave(object):
         self.host = host
         self.port = port
         self.cookie = cookie
+        self.task = None
         import xmlrpclib
         uri = "http://%s:%s" % (host, port)
         self.slave_rpc = xmlrpclib.ServerProxy(uri)
@@ -50,14 +51,16 @@ class Slave(object):
         return hash(self.cookie)
 
     def assign_task(self, task):
-        #self.slave_rpc.start_map()
+        from mapreduce import MapTask, ReduceTask
         print "ASSIGNING A TASK"
         if isinstance(task, MapTask):
-            pass
+            self.slave_rpc.start_map(task.taskid, task.input, task.outprefix,
+                    task.reduce_tasks, self.cookie)
         elif isinstance(task, ReduceTask):
             pass
         else:
             raise TypeError("Requires a MapTask or ReduceTask!")
+        self.task = task
 
 
 class Slaves(object):
@@ -66,6 +69,8 @@ class Slaves(object):
         self._idle_slaves = []
 
         import threading
+        # TODO: consider reimplementing _lock and _idle_sem as a single
+        # Condition variable.
         self._lock = threading.Lock()
         self._idle_sem = threading.Semaphore()
 
@@ -86,8 +91,9 @@ class Slaves(object):
         """
         self._lock.acquire()
         self._slaves[slave.cookie] = slave
-        self._idle_slaves.append(slave)
         self._lock.release()
+
+        self.push_idle(slave)
 
     def remove_slave(self, slave):
         """Remove a slave, whether it is busy or idle.
@@ -105,8 +111,9 @@ class Slaves(object):
     def push_idle(self, slave):
         """Set a slave as idle.
         """
+        print "Calling push_idle."
         self._lock.acquire()
-        if slave not in self._slaves:
+        if slave.cookie not in self._slaves:
             self._lock.release()
             raise RuntimeError("Slave does not exist!")
         if slave not in self._idle_slaves:
@@ -121,7 +128,7 @@ class Slaves(object):
         blocking parameter.  If you set blocking, we will never return None.
         """
         idler = None
-        while blocking and idler is None:
+        while idler is None:
             if self._idle_sem.acquire(blocking):
                 self._lock.acquire()
                 try:
@@ -130,6 +137,8 @@ class Slaves(object):
                     # This can happen if remove_slave was called.  So sad.
                     pass
                 self._lock.release()
+            if not blocking:
+                break
         return idler
 
 

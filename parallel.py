@@ -45,14 +45,14 @@ def run_slave(mapper, reducer, partition, uri, options):
     master = xmlrpclib.ServerProxy(uri)
 
     # Start up a worker thread.  This thread will die when we do.
-    worker = slave.Worker()
+    worker = slave.Worker(mapper, reducer, partition)
     worker.start()
 
     # Startup a slave RPC Server
     slave_rpc = slave.SlaveRPC(worker)
     server = rpc.new_server(slave_rpc, options.port)
     server_fd = server.fileno()
-    host, port = server.server_address
+    host, port = server.socket.getsockname()
 
     # Register with master.
     if not master.signin(slave_rpc.cookie, port):
@@ -112,7 +112,7 @@ class ParallelJob(Job):
         master_rpc = master.MasterRPC()
         rpc_thread = rpc.RPCThread(master_rpc, self.port)
         rpc_thread.start()
-        port = rpc_thread.server.server_address[1]
+        port = rpc_thread.server.socket.getsockname()[1]
         print >>sys.stderr, "Listening on port %s" % port
 
         # Prep:
@@ -134,7 +134,7 @@ class ParallelJob(Job):
         # Create Map Tasks:
         for taskid, filename in enumerate(self.inputs):
             map_task = MapTask(taskid, operation.mapper, operation.partition,
-                    input, reduce_tasks, interm_path)
+                    input, interm_path, reduce_tasks)
             heappush(tasks, map_task)
         
 
@@ -176,9 +176,10 @@ class ParallelJob(Job):
             idler = master_rpc.slaves.pop_idle()
             if idler is None:
                 break
+            print "Got an idle slave."
             newtask = heappop(tasks)
             # TODO: MAKE ASSIGNMENT HERE
-            slave.assign_task(newtask)
+            idler.assign_task(newtask)
             assignments[idler.cookie] = newtask
             # Repush with the new number of workers
             heappush(tasks, newtask)

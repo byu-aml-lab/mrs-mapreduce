@@ -7,24 +7,49 @@ COOKIE_LEN = 32
 
 import threading
 
-class Task(object):
-    def __init__(self, function, input, output):
-        self.function = function
-        self.input = input
-        self.output = output
-
 class Worker(threading.Thread):
-    def __init__(self, **kwds):
+    def __init__(self, mapper, reducer, partition, **kwds):
         threading.Thread.__init__(self, **kwds)
         # Die when all other non-daemon threads have exited:
         self.setDaemon(True)
 
+        self.mapper = mapper
+        self.reducer = reducer
+        self.partition = partition
+
+        # TODO: Should we have a queue of work to be done rather than
+        # to just store a single item?
         self._task = None
+        self._cond = threading.Condition()
         self.active = False
         self.exception = None
 
+    def start_map(self, taskid, input, outprefix, reduce_tasks):
+        from mapreduce import MapTask
+        print "Calling start_map."
+        self._cond.acquire()
+        if self._task is not None:
+            self._task = MapTask(taskid, self.mapper, self.partition, input,
+                    outprefix, reduce_tasks)
+            print "Just created a new task."
+            self._cond.notify()
+        self._cond.release()
+
     def run(self):
-        pass
+        while True:
+            self._cond.acquire()
+            while self._task is None:
+                self._cond.wait()
+            task = self._task
+            self._cond.release()
+
+            print "About to run a new task."
+            task.run()
+
+            self._cond.acquire()
+            self._task = None
+            # TODO: notify server that we're done
+            self._cond.release()
 
 class CookieValidationError(Exception):
     pass
@@ -50,13 +75,14 @@ class SlaveRPC(object):
         if cookie != self.cookie:
             raise CookieValidationError
 
-    def start_map(input, output, cookie):
+    def start_map(taskid, input, outprefix, reduce_tasks, cookie, **kwds):
+        self._check_cookie(cookie)
+        self.worker.start_map(taskid, input, outprefix, reduce_tasks)
+
+    def start_reduce(input, output, cookie, **kwds):
         self._check_cookie(cookie)
 
-    def start_reduce(input, output, cookie):
-        self._check_cookie(cookie)
-
-    def quit(cookie):
+    def quit(cookie, **kwds):
         self._check_cookie(cookie)
         self.alive = False
         import sys
