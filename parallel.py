@@ -42,14 +42,15 @@ def run_slave(mapper, reducer, partition, uri, options):
     import select, xmlrpclib
 
     # Create an RPC proxy to the master's RPC Server
+    cookie = slave.rand_cookie()
     master = xmlrpclib.ServerProxy(uri)
 
     # Start up a worker thread.  This thread will die when we do.
-    worker = slave.Worker(mapper, reducer, partition)
+    worker = slave.Worker(master, cookie, mapper, reducer, partition)
     worker.start()
 
     # Startup a slave RPC Server
-    slave_rpc = slave.SlaveRPC(worker)
+    slave_rpc = slave.SlaveRPC(cookie, worker)
     server = rpc.new_server(slave_rpc, options.port)
     server_fd = server.fileno()
     host, port = server.socket.getsockname()
@@ -131,6 +132,8 @@ class ParallelJob(Job):
         assignments = {}
         tasks = []
 
+        # TODO: Make tasks a simple list instead of a heap (?)
+
         # Create Map Tasks:
         for taskid, filename in enumerate(self.inputs):
             map_task = MapTask(taskid, operation.mapper, operation.partition,
@@ -175,6 +178,10 @@ class ParallelJob(Job):
             idler = master_rpc.slaves.pop_idle()
             if idler is None:
                 break
+            if idler.done:
+                # FINISH THIS PART!!!
+                task = idler.task
+                idler.done = False
             newtask = heappop(tasks)
             idler.assign_task(newtask)
             assignments[idler.cookie] = newtask

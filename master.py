@@ -24,11 +24,14 @@ class MasterRPC(object):
         self.activity.set()
         return True
 
-    def done(self, cookie, host=None, port=None):
+    def done(self, cookie, **kwds):
         """Slave is done with whatever it was working on.
         """
-        # MORE HERE
+        slave = self.slaves.get_slave(cookie)
+        slave.done = True
+        self.slaves.push_idle(slave)
         self.activity.set()
+        return True
 
     def ping(self, **kwds):
         """Slave checking if we're still here.
@@ -43,6 +46,7 @@ class Slave(object):
         self.port = port
         self.cookie = cookie
         self.task = None
+        self.done = False
         import xmlrpclib
         uri = "http://%s:%s" % (host, port)
         self.slave_rpc = xmlrpclib.ServerProxy(uri)
@@ -76,6 +80,7 @@ class Slaves(object):
     def get_slave(cookie, host=None):
         """Find the slave associated with the given cookie.
         """
+        return self._slaves[cookie]
 
     def slave_list(self):
         """Get a snapshot of the current slaves.

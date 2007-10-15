@@ -5,14 +5,16 @@
 
 COOKIE_LEN = 32
 
-import threading
+import threading, xmlrpclib
 
 class Worker(threading.Thread):
-    def __init__(self, mapper, reducer, partition, **kwds):
+    def __init__(self, master, cookie, mapper, reducer, partition, **kwds):
         threading.Thread.__init__(self, **kwds)
         # Die when all other non-daemon threads have exited:
         self.setDaemon(True)
 
+        self.master = master
+        self.cookie = cookie
         self.mapper = mapper
         self.reducer = reducer
         self.partition = partition
@@ -48,25 +50,30 @@ class Worker(threading.Thread):
 
             self._cond.acquire()
             self._task = None
-            # TODO: notify server that we're done
             self._cond.release()
+            # TODO: notify server that we're done
+            self.master.done(self.cookie)
+
+def rand_cookie():
+    # Generate a cookie so that mostly only authorized people can connect.
+    from random import choice
+    import string
+    possible = string.letters + string.digits
+    return ''.join(choice(possible) for i in xrange(COOKIE_LEN))
+
 
 class CookieValidationError(Exception):
     pass
+
 
 class SlaveRPC(object):
     # Be careful how you name your methods.  Any method not beginning with an
     # underscore will be exposed to remote hosts.
 
-    def __init__(self, worker):
+    def __init__(self, cookie, worker):
         self.alive = True
+        self.cookie = cookie
         self.worker = worker
-
-        # Generate a cookie so that mostly only authorized people can connect.
-        from random import choice
-        import string
-        possible = string.letters + string.digits
-        self.cookie = ''.join(choice(possible) for i in xrange(COOKIE_LEN))
 
     def _listMethods(self):
         return SimpleXMLRPCServer.list_public_methods(self)
@@ -80,7 +87,7 @@ class SlaveRPC(object):
         self._check_cookie(cookie)
         return self.worker.start_map(taskid, input, outprefix, reduce_tasks)
 
-    def start_reduce(self, input, output, cookie, **kwds):
+    def start_reduce(self, taskid, input, output, cookie, **kwds):
         self._check_cookie(cookie)
         return False
 
