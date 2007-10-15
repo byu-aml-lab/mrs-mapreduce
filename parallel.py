@@ -156,7 +156,7 @@ class ParallelJob(Job):
         # Create Map Tasks:
         for taskid, filename in enumerate(self.inputs):
             map_task = MapTask(taskid, operation.mapper, operation.partition,
-                    input, interm_path, reduce_tasks)
+                    filename, interm_path, reduce_tasks)
             heappush(tasks, map_task)
         
 
@@ -192,15 +192,12 @@ class ParallelJob(Job):
 
 
     def make_assignments(self, master_rpc, tasks, assignments):
-        print "Trying to make assignments."
         from heapq import heappop, heappush
         while True:
             idler = master_rpc.slaves.pop_idle()
             if idler is None:
                 break
-            print "Got an idle slave."
             newtask = heappop(tasks)
-            # TODO: MAKE ASSIGNMENT HERE
             idler.assign_task(newtask)
             assignments[idler.cookie] = newtask
             # Repush with the new number of workers
