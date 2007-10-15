@@ -11,7 +11,7 @@ default_format = TextFile
 
 def fileformat(filename):
     import os
-    extension = os.path.split_ext(filename)[1]
+    extension = os.path.splitext(filename)[1]
     return format_map.get(extension, default_format)
 
 __all__ = ['TextFile', 'HexFile', 'hexfile_sort', 'fileformat']
