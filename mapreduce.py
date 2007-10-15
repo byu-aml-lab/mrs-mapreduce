@@ -78,15 +78,16 @@ class Job(threading.Thread):
                 "I think you should have instantiated a subclass of Job.")
 
 class MapTask(threading.Thread):
-    def __init__(self, taskid, mapper, partition, input, reduce_tasks,
-            interm_prefix, **kwds):
+    def __init__(self, taskid, mapper, partition, input,
+            outprefix, reduce_tasks, **kwds):
         threading.Thread.__init__(self, **kwds)
         self.taskid = taskid
         self.mapper = mapper
         self.partition = partition
         self.input = input
         self.reduce_tasks = reduce_tasks
-        self.interm_prefix = interm_prefix
+        # Prefix for intermediate output:
+        self.outprefix = outprefix
 
         self.workers = []
 
