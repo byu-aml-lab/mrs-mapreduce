@@ -98,18 +98,21 @@ class MapTask(threading.Thread):
         self.workers.remove(worker)
 
     def run(self):
+        import os
+        import formats
         input_format = formats.fileformat(self.input)
         input_file = input_format(open(self.input))
 
         # create a new interm_name for each reducer
-        interm_dirs = [self.interm_prefix + str(i)
-                for i in xrange(reduce_tasks)]
+        interm_dirs = [self.outprefix + str(i)
+                for i in xrange(self.reduce_tasks)]
         interm_filenames = [os.path.join(d, 'from_%s.hexfile' % self.taskid)
                 for d in interm_dirs]
         interm_files = [formats.HexFile(open(name, 'w'))
                 for name in interm_filenames]
 
-        map(self.mapper, self.partition, input_file, interm_files)
+        mrs_map(self.mapper, input_file, interm_files,
+                partition=self.partition)
 
         input_file.close()
         for f in interm_files:

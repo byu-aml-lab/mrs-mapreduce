@@ -48,7 +48,7 @@ def run_master(mapper, reducer, partition, inputs, output, options):
 
     from mrs.mapreduce import Operation
     op = Operation(mapper, reducer, partition, map_tasks=map_tasks,
-            reduce_tasks=options.reduce_tasks)
+            reduce_tasks=reduce_tasks)
     mrsjob = ParallelJob(inputs, output, options.port, options.shared)
     mrsjob.operations = [op]
     mrsjob.run()

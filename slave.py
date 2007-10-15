@@ -62,14 +62,10 @@ class Worker(threading.Thread):
         while True:
             self._cond.acquire()
             while self._task is None:
-                print "About to wait in worker:"
                 self._cond.wait()
-                print "Returned from wait."
             task = self._task
-            print "task:", task
             self._cond.release()
 
-            print "About to run a new task."
             task.run()
 
             self._cond.acquire()

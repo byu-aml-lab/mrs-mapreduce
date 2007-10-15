@@ -132,7 +132,6 @@ class Slaves(object):
     def push_idle(self, slave):
         """Set a slave as idle.
         """
-        print "Calling push_idle."
         self._lock.acquire()
         if slave.cookie not in self._slaves:
             self._lock.release()
