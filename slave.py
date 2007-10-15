@@ -26,21 +26,25 @@ class Worker(threading.Thread):
 
     def start_map(self, taskid, input, outprefix, reduce_tasks):
         from mapreduce import MapTask
-        print "Calling start_map."
+        success = False
         self._cond.acquire()
-        if self._task is not None:
+        if self._task is None:
             self._task = MapTask(taskid, self.mapper, self.partition, input,
                     outprefix, reduce_tasks)
-            print "Just created a new task."
+            success = True
             self._cond.notify()
         self._cond.release()
+        return success
 
     def run(self):
         while True:
             self._cond.acquire()
             while self._task is None:
+                print "About to wait in worker:"
                 self._cond.wait()
+                print "Returned from wait."
             task = self._task
+            print "task:", task
             self._cond.release()
 
             print "About to run a new task."
@@ -75,14 +79,16 @@ class SlaveRPC(object):
         if cookie != self.cookie:
             raise CookieValidationError
 
-    def start_map(taskid, input, outprefix, reduce_tasks, cookie, **kwds):
+    def start_map(self, taskid, input, outprefix, reduce_tasks, cookie,
+            **kwds):
         self._check_cookie(cookie)
-        self.worker.start_map(taskid, input, outprefix, reduce_tasks)
+        return self.worker.start_map(taskid, input, outprefix, reduce_tasks)
 
-    def start_reduce(input, output, cookie, **kwds):
+    def start_reduce(self, input, output, cookie, **kwds):
         self._check_cookie(cookie)
+        return False
 
-    def quit(cookie, **kwds):
+    def quit(self, cookie, **kwds):
         self._check_cookie(cookie)
         self.alive = False
         import sys

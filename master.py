@@ -52,7 +52,6 @@ class Slave(object):
 
     def assign_task(self, task):
         from mapreduce import MapTask, ReduceTask
-        print "ASSIGNING A TASK"
         if isinstance(task, MapTask):
             self.slave_rpc.start_map(task.taskid, task.input, task.outprefix,
                     task.reduce_tasks, self.cookie)
