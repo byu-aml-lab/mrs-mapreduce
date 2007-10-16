@@ -101,9 +101,9 @@ class Slave(object):
         # Handle requests on the RPC server.
         while self.slave_rpc.alive:
             if not self.handle_request():
-                # try to ping master
+                # TODO: limit the sorts of exceptions that get caught:
                 try:
-                    master_alive = master.ping()
+                    master_alive = self.master.ping()
                 except:
                     master_alive = False
                 if not master_alive:
