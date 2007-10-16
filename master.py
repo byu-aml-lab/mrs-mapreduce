@@ -76,11 +76,14 @@ class Slave(object):
             self.slave_rpc.start_map(task.taskid, task.input, task.jobdir,
                     task.reduce_tasks, self.cookie)
         elif assignment.reduce:
-            self.slave_rpc.start_reduce(task.taskid, task.output, task.jobdir,
+            self.slave_rpc.start_reduce(task.taskid, task.outdir, task.jobdir,
                     self.cookie)
         else:
             raise RuntimeError
         self.assignment = assignment
+
+    def quit(self):
+        self.slave_rpc.quit(self.cookie)
 
 
 # TODO: Reimplement _idle_sem as a Condition variable.
@@ -173,7 +176,10 @@ class Slaves(object):
 
     def pop_done(self):
         self._lock.acquire()
-        done_slave = self._done_slaves.pop()
+        try:
+            done_slave = self._done_slaves.pop()
+        except IndexError:
+            done_slave = None
         self._lock.release()
         return done_slave
 
