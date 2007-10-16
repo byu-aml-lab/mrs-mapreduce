@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-PING_INTERVAL = 5.0
+WAIT_LIMIT = 2.0
 SOCKET_TIMEOUT = 1.0
 
 import socket
@@ -62,7 +62,7 @@ def run_slave(mapper, reducer, partition, uri, options):
         return -1
 
     while slave_rpc.alive:
-        rlist, wlist, xlist = select.select([server_fd], [], [], PING_INTERVAL)
+        rlist, wlist, xlist = select.select([server_fd], [], [], WAIT_LIMIT)
         if server_fd in rlist:
             server.handle_request()
         else:
@@ -116,6 +116,7 @@ class ParallelJob(Job):
         import sys, os
         import formats, master, rpc
         from tempfile import mkstemp, mkdtemp
+        from datetime import datetime
 
         slaves = master.Slaves()
         tasks = Supervisor(slaves)
@@ -147,8 +148,10 @@ class ParallelJob(Job):
 
         # Drive Slaves:
         while not tasks.job_complete():
-            slaves.activity.wait(PING_INTERVAL)
+            slaves.activity.wait(WAIT_LIMIT)
             slaves.activity.clear()
+
+            now = datetime.utcnow()
 
             # TODO: check for done slaves!
             # slaves.pop_done()
@@ -158,12 +161,8 @@ class ParallelJob(Job):
 
             for slave in slaves.slave_list():
                 # Ping the next slave:
-                try:
-                    slave_alive = slave.slave_rpc.ping()
-                except:
-                    slave_alive = False
-                if not slave_alive:
-                    print >>sys.stderr, "Slave failed to respond to ping."
+                if not slave.alive(now):
+                    print >>sys.stderr, "Slave not responding."
                     tasks.remove_slave(slave)
 
                 # Try to make all new assignments:
@@ -264,6 +263,10 @@ class Supervisor(object):
             slave = self.slaves.pop_done()
             if slave is None:
                 return
+
+            print "Active Tasks:", len(self.active)
+            print "Map Tasks Left:", self.map_tasks_remaining
+            print "Todo Tasks:", len(self.todo)
 
             assignment = slave.assignment
             if assignment.map:

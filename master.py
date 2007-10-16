@@ -3,6 +3,8 @@
 # TODO: Switch to using "with" for locks when we stop supporting pre-2.5.
 # from __future__ import with_statement
 
+PING_INTERVAL = 5.0
+
 class MasterRPC(object):
     # Be careful how you name your methods.  Any method not beginning with an
     # underscore will be exposed to remote hosts.
@@ -41,9 +43,12 @@ class Slave(object):
         self.port = port
         self.cookie = cookie
         self.assignment = None
+
         import xmlrpclib
         uri = "http://%s:%s" % (host, port)
         self.slave_rpc = xmlrpclib.ServerProxy(uri)
+
+        self.update_timestamp()
 
     def __hash__(self):
         return hash(self.cookie)
@@ -59,6 +64,34 @@ class Slave(object):
         else:
             raise RuntimeError
         self.assignment = assignment
+
+    def update_timestamp(self):
+        from datetime import datetime
+        self.timestamp = datetime.utcnow()
+
+    def alive(self, now=None):
+        """Checks whether the Slave has been checked on recently.
+
+        Note that PING_INTERVAL defines "recently."  We will ping the
+        slave if we haven't heard from them in that amount of time.  If now is
+        given (as a result from datetime.datetime.utcnow()), use it to avoid
+        having to check too often.
+        """
+        import datetime
+        ping_delta = datetime.timedelta(seconds=PING_INTERVAL)
+        if now is None:
+            now = datetime.datetime.utcnow()
+        delta = now - self.timestamp
+        if delta < ping_delta:
+            return True
+        else:
+            try:
+                alive = master.ping()
+            except:
+                alive = False
+            if alive:
+                self.update_timestamp()
+            return alive
 
     def quit(self):
         self.slave_rpc.quit(self.cookie)
