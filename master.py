@@ -50,8 +50,10 @@ class MasterRPC(object):
         """
         slave = self.slaves.get_slave(cookie)
         self.slaves.add_done(slave)
+        slave.update_timestamp()
         return True
 
+    # TODO: Find out which slave is pinging us and update_timestamp().
     def ping(self, **kwds):
         """Slave checking if we're still here.
         """
@@ -108,7 +110,7 @@ class Slave(object):
             return True
         else:
             try:
-                alive = master.ping()
+                alive = self.slave_rpc.ping()
             except:
                 alive = False
             if alive:
