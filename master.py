@@ -25,7 +25,7 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
-PING_INTERVAL = 5.0
+MASTER_PING_INTERVAL = 5.0
 
 class MasterRPC(object):
     # Be careful how you name your methods.  Any method not beginning with an
@@ -96,13 +96,13 @@ class RemoteSlave(object):
     def alive(self, now=None):
         """Checks whether the Slave has been checked on recently.
 
-        Note that PING_INTERVAL defines "recently."  We will ping the
+        Note that MASTER_PING_INTERVAL defines "recently."  We will ping the
         slave if we haven't heard from them in that amount of time.  If now is
         given (as a result from datetime.datetime.utcnow()), use it to avoid
         having to check too often.
         """
         import datetime
-        ping_delta = datetime.timedelta(seconds=PING_INTERVAL)
+        ping_delta = datetime.timedelta(seconds=MASTER_PING_INTERVAL)
         if now is None:
             now = datetime.datetime.utcnow()
         delta = now - self.timestamp

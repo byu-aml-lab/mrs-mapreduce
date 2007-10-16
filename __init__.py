@@ -81,7 +81,7 @@ def main(mapper, reducer, partition=None):
         if len(args) != 2:
             parser.error("Requires a server address and port.")
         uri = args[1]
-        from parallel import run_slave
+        from slave import run_slave
         subcommand_function = run_slave
         subcommand_args = (mrs_prog, uri, options)
     elif subcommand in ('posix', 'serial'):
