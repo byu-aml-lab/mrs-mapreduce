@@ -2,7 +2,6 @@
 
 WAIT_LIMIT = 2.0
 SOCKET_TIMEOUT = 1.0
-COOKIE_LEN = 8
 
 import socket
 from mapreduce import Job, MapTask, ReduceTask, interm_dir, interm_file
@@ -32,87 +31,8 @@ def run_master(mrs_prog, inputs, output, options):
     mrsjob.run()
     return 0
 
-def run_slave(mrs_prog, uri, options):
-    """Mrs Slave
-
-    The uri is of the form scheme://username:password@host/target with
-    username and password possibly omitted.
-    """
-    import xmlrpclib
-
-    # Create an RPC proxy to the master's RPC Server
-    master = xmlrpclib.ServerProxy(uri)
-    slave = Slave(master, mrs_prog, options.port)
-
-    slave.run()
-    return 0
-
-class Slave(object):
-    def __init__(self, master, mrs_prog, port):
-        import slave, rpc
-
-        self.cookie = self.rand_cookie()
-        self.master = master
-        self.mrs_prog = mrs_prog
-        self.port = port
-
-        # Create a worker thread.  This thread will die when we do.
-        self.worker = slave.Worker(master, self.cookie, mrs_prog)
-
-        # Create a slave RPC Server
-        # TODO: rename slave_rpc to (server, interface, etc.)
-        self.slave_rpc = slave.SlaveRPC(self.cookie, self.worker)
-        self.server = rpc.new_server(self.slave_rpc, port)
-
-        self.host, self.port = self.server.socket.getsockname()
-
-    @classmethod
-    def rand_cookie(cls):
-        # Generate a cookie so that mostly only authorized people can connect.
-        from random import choice
-        import string
-        possible = string.letters + string.digits
-        return ''.join(choice(possible) for i in xrange(COOKIE_LEN))
-
-    def handle_request(self):
-        """Try to handle a request on the RPC connection.
-
-        Timeout after WAIT_LIMIT seconds.
-        """
-        import select
-        server_fd = self.server.fileno()
-        rlist, wlist, xlist = select.select([server_fd], [], [], WAIT_LIMIT)
-        if server_fd in rlist:
-            self.server.handle_request()
-            return True
-        else:
-            return False
-
-    def run(self):
-        # Spin off the worker thread.
-        self.worker.start()
-
-        # Register with master.
-        if not self.master.signin(self.cookie, self.port):
-            import sys
-            print >>sys.stderr, "Master rejected signin."
-            return -1
-
-        # Handle requests on the RPC server.
-        while self.slave_rpc.alive:
-            if not self.handle_request():
-                # TODO: limit the sorts of exceptions that get caught:
-                try:
-                    master_alive = self.master.ping()
-                except:
-                    master_alive = False
-                if not master_alive:
-                    import sys
-                    print >>sys.stderr, "Master failed to respond to ping."
-                    return -1
-
-
 def try_makedirs(path):
+    """Do the equivalent of mkdir -p."""
     import os
     try:
         os.makedirs(path)
