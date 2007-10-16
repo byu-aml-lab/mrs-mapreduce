@@ -77,6 +77,7 @@ class Job(threading.Thread):
         raise NotImplementedError(
                 "I think you should have instantiated a subclass of Job.")
 
+
 class MapTask(threading.Thread):
     def __init__(self, taskid, mapper, partition, input,
             outprefix, reduce_tasks, **kwds):
@@ -88,14 +89,6 @@ class MapTask(threading.Thread):
         self.reduce_tasks = reduce_tasks
         # Prefix for intermediate output:
         self.outprefix = outprefix
-
-        self.workers = []
-
-    def assign(self, worker):
-        self.workers.append(worker)
-
-    def remove(self, worker):
-        self.workers.remove(worker)
 
     def run(self):
         import os
@@ -118,14 +111,6 @@ class MapTask(threading.Thread):
         for f in interm_files:
             f.close()
 
-    def __cmp__(self, other):
-        # TODO: make this much more complex and robust
-        if isinstance(other, MapTask):
-            return cmp(len(self.workers), len(other.workers))
-        elif isinstance(other, ReduceTask):
-            return -1
-        else:
-            raise NotImplementedError
 
 class ReduceTask:
     pass

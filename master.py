@@ -29,10 +29,8 @@ class MasterRPC(object):
     # Be careful how you name your methods.  Any method not beginning with an
     # underscore will be exposed to remote hosts.
 
-    def __init__(self):
-        import threading
-        self.activity = threading.Event()
-        self.slaves = Slaves()
+    def __init__(self, slaves):
+        self.slaves = slaves
 
     def _listMethods(self):
         import SimpleXMLRPCServer
@@ -43,16 +41,13 @@ class MasterRPC(object):
         """
         slave = Slave(host, slave_port, cookie)
         self.slaves.add_slave(slave)
-        self.activity.set()
         return True
 
     def done(self, cookie, **kwds):
         """Slave is done with whatever it was working on.
         """
         slave = self.slaves.get_slave(cookie)
-        slave.done = True
-        self.slaves.push_idle(slave)
-        self.activity.set()
+        self.slaves.add_done(slave)
         return True
 
     def ping(self, **kwds):
@@ -68,7 +63,6 @@ class Slave(object):
         self.port = port
         self.cookie = cookie
         self.task = None
-        self.done = False
         import xmlrpclib
         uri = "http://%s:%s" % (host, port)
         self.slave_rpc = xmlrpclib.ServerProxy(uri)
@@ -88,14 +82,16 @@ class Slave(object):
         self.task = task
 
 
+# TODO: Reimplement _idle_sem as a Condition variable.
 class Slaves(object):
     def __init__(self):
+        import threading
+        self.activity = threading.Event()
+
         self._slaves = {}
         self._idle_slaves = []
+        self._done_slaves = []
 
-        import threading
-        # TODO: consider reimplementing _lock and _idle_sem as a single
-        # Condition variable.
         self._lock = threading.Lock()
         self._idle_sem = threading.Semaphore()
 
@@ -120,6 +116,7 @@ class Slaves(object):
         self._lock.release()
 
         self.push_idle(slave)
+        self.activity.set()
 
     def remove_slave(self, slave):
         """Remove a slave, whether it is busy or idle.
@@ -165,6 +162,19 @@ class Slaves(object):
             if not blocking:
                 break
         return idler
+
+    def add_done(self, slave):
+        self._lock.acquire()
+        self._done_slaves.append(slave)
+        self._lock.release()
+
+        self.activity.set()
+
+    def pop_done(self):
+        self._lock.acquire()
+        done_slave = self._done_slaves.pop()
+        self._lock.release()
+        return done_slave
 
 
 if __name__ == '__main__':

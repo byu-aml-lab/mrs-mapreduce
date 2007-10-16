@@ -131,14 +131,21 @@ class ParallelJob(Job):
         import formats, master, rpc
         from tempfile import mkstemp, mkdtemp
 
+        slaves = master.Slaves()
         # Start RPC master server thread
-        master_rpc = master.MasterRPC()
+        master_rpc = master.MasterRPC(slaves)
         rpc_thread = rpc.RPCThread(master_rpc, self.port)
         rpc_thread.start()
         port = rpc_thread.server.socket.getsockname()[1]
         print >>sys.stderr, "Listening on port %s" % port
 
         # Prep:
+        try:
+            os.makedirs(self.shared_dir)
+        except OSError, e:
+            import errno
+            if e.errno != errno.EEXIST:
+                raise
         jobdir = mkdtemp(prefix='mrs.job_', dir=self.shared_dir)
 
         interm_path = os.path.join(jobdir, 'interm_')
@@ -150,18 +157,14 @@ class ParallelJob(Job):
         os.mkdir(output_dir)
 
 
-        from heapq import heapify, heappop, heappush
-        assignments = {}
-        tasks = []
-
-        # TODO: Make tasks a simple list instead of a heap (?)
+        tasks = TaskManager(slaves)
 
         # Create Map Tasks:
         for taskid, filename in enumerate(self.inputs):
             map_task = MapTask(taskid, operation.mapper, operation.partition,
                     filename, interm_path, reduce_tasks)
-            heappush(tasks, map_task)
-        
+            tasks.push_todo(map_task)
+
 
         # Create Reduce Tasks:
         # PLEASE WRITE ME
@@ -169,12 +172,15 @@ class ParallelJob(Job):
 
         # Drive Slaves:
         while True:
-            master_rpc.activity.wait(PING_INTERVAL)
-            master_rpc.activity.clear()
+            slaves.activity.wait(PING_INTERVAL)
+            slaves.activity.clear()
 
-            self.make_assignments(master_rpc, tasks, assignments)
+            # TODO: check for done slaves!
+            # slaves.pop_done()
 
-            for slave in master_rpc.slaves.slave_list():
+            tasks.make_assignments()
+
+            for slave in slaves.slave_list():
                 # Ping the next slave:
                 try:
                     slave_alive = slave.slave_rpc.ping()
@@ -182,33 +188,11 @@ class ParallelJob(Job):
                     slave_alive = False
                 if not slave_alive:
                     print >>sys.stderr, "Slave failed to respond to ping."
-                    master_rpc.slaves.remove_slave(slave)
-                    assignment = assignments.get(slave)
-                    if assignment:
-                        del assignments[slave]
-                        tasks[assignment.taskid].remove(slave)
-                    # resort:
-                    heapify(tasks)
+                    tasks.remove_slave(slave)
 
                 # Try to make all new assignments:
-                self.make_assignments(master_rpc, tasks, assignments)
+                tasks.make_assignments()
 
-
-    def make_assignments(self, master_rpc, tasks, assignments):
-        from heapq import heappop, heappush
-        while True:
-            idler = master_rpc.slaves.pop_idle()
-            if idler is None:
-                break
-            if idler.done:
-                # FINISH THIS PART!!!
-                task = idler.task
-                idler.done = False
-            newtask = heappop(tasks)
-            idler.assign_task(newtask)
-            assignments[idler.cookie] = newtask
-            # Repush with the new number of workers
-            heappush(tasks, newtask)
 
 
         ### IN PROGRESS ###
@@ -234,6 +218,95 @@ class ParallelJob(Job):
 #
 #            sorted_file.close()
 #            output_file.close()
+
+class ParallelTask(object):
+    def __init__(self, serial_task):
+        self.map = isinstance(serial_task, MapTask)
+        self.reduce = isinstance(serial_task, ReduceTask)
+        self.task = serial_task
+
+        self.done = False
+        self.workers = []
+
+    def __cmp__(self, other):
+        if self.map and other.reduce:
+            return -1
+        elif self.reduce and other.map:
+            return 1
+        else:
+            # both map or both reduce: make this more complex later:
+            return 0
+
+class TaskManager(object):
+    """Keep track of tasks and workers.
+
+    Initialize with a Slaves object.
+    """
+    def __init__(self, slaves):
+        self.todo = []
+        self.active = []
+        self.completed = []
+
+        self.assignments = {}
+        self.slaves = slaves
+
+    def push_todo(self, parallel_task):
+        """Add a new task that needs to be completed."""
+        from heapq import heappush
+        heappush(self.todo, parallel_task)
+
+    def pop_todo(self):
+        """Pop the next task to be assigned."""
+        from heapq import heappop
+        if self.todo_tasks:
+            return heappop(self.todo)
+        else:
+            return None
+
+    def set_active(self, parallel_task):
+        """Remove a task from the todo queue and add it to the active list."""
+        from heapq import heappush
+        self.active.append(parallel_task)
+
+    def assign(self, slave):
+        """Assign a task to the given slave.
+
+        Return the task if the assignment is made or None if there are no
+        available tasks.
+        """
+        if slave.task is not None:
+            raise RuntimeError
+        nexttask = self.pop_todo()
+        if nexttask is not None:
+            slave.assign_task(nexttask)
+            nexttask.workers.append(slave)
+            self.set_active(nexttask)
+        return nexttask
+
+    def remove_slave(self, slave):
+        """Remove a slave that may be currently working on a task.
+
+        Add the task to the todo queue if it is no longer being worked on.
+        """
+        self.slaves.remove_slave(slave)
+        task = slave.task
+        if not task:
+            return
+        task.workers.remove(slave)
+        if not task.workers:
+            self.active.remove(task)
+            self.push_todo(task)
+
+    def make_assignments(self):
+        """Go through the slaves list and make any possible task assignments.
+        """
+        while True:
+            idler = self.slaves.pop_idle()
+            if idler is None:
+                return
+            newtask = self.assign(idler)
+            if newtask is None:
+                return
 
 
 # vim: et sw=4 sts=4
