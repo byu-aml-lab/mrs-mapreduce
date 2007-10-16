@@ -77,18 +77,29 @@ class Job(threading.Thread):
         raise NotImplementedError(
                 "I think you should have instantiated a subclass of Job.")
 
+def interm_dir(basedir, reduce_id):
+    """Pathname for the directory for intermediate output to reduce_id.
+    """
+    import os
+    return os.path.join(basedir, 'interm_%s' % reduce_id)
+
+def interm_file(basedir, map_id, reduce_id):
+    """Pathname for intermediate output from map_id to reduce_id.
+    """
+    import os
+    return os.path.join(basedir, 'interm_%s' % reduce_id, 'from_%s' % map_id)
+
 
 class MapTask(threading.Thread):
-    def __init__(self, taskid, mapper, partition, input,
-            outprefix, reduce_tasks, **kwds):
+    def __init__(self, taskid, mapper, partition, input, jobdir, reduce_tasks,
+            **kwds):
         threading.Thread.__init__(self, **kwds)
         self.taskid = taskid
         self.mapper = mapper
         self.partition = partition
         self.input = input
+        self.jobdir = jobdir
         self.reduce_tasks = reduce_tasks
-        # Prefix for intermediate output:
-        self.outprefix = outprefix
 
     def run(self):
         import os
@@ -97,7 +108,7 @@ class MapTask(threading.Thread):
         input_file = input_format(open(self.input))
 
         # create a new interm_name for each reducer
-        interm_dirs = [self.outprefix + str(i)
+        interm_dirs = [interm_dir(self.jobdir, i)
                 for i in xrange(self.reduce_tasks)]
         interm_filenames = [os.path.join(d, 'from_%s.hexfile' % self.taskid)
                 for d in interm_dirs]
@@ -112,8 +123,38 @@ class MapTask(threading.Thread):
             f.close()
 
 
-class ReduceTask:
-    pass
+# TODO: allow configuration of output format
+class ReduceTask(threading.Thread):
+    def __init__(self, taskid, reducer, outdir, jobdir, **kwds):
+        threading.Thread.__init__(self, **kwds)
+        self.taskid = taskid
+        self.reducer = reducer
+        self.outdir = outdir
+        self.jobdir = jobdir
+
+    def run(self):
+        import formats
+        import os
+
+        # SORT PHASE
+        fd, sorted_name = mkstemp(prefix='mrs.sorted_')
+        os.close(fd)
+        indir = interm_dir(self.jobdir, self.taskid)
+        interm_names = [os.path.join(indir, s) for s in os.listdir(indir)]
+        formats.hexfile_sort(interm_names, sorted_name)
+
+        # REDUCE PHASE
+        sorted_file = formats.HexFile(open(sorted_name))
+        basename = 'reducer_%s' % self.taskid
+        output_name = os.path.join(self.outdir, basename)
+        #output_file = op.output_format(open(output_name, 'w'))
+        output_file = formats.TextFile(open(output_name, 'w'))
+
+        mrs_reduce(self.reducer, sorted_file, output_file)
+
+        sorted_file.close()
+        output_file.close()
+
 
 def default_partition(x, n):
     return hash(x) % n
