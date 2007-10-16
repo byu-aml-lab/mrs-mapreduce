@@ -19,7 +19,7 @@ def main(mapper, reducer, partition=None):
         mrs.main(mapper, reducer)
     """
     from optparse import OptionParser
-    import sys
+    import sys, os
 
     usage = 'usage: %prog master-type [args] input1 [input2 ...] output\n' \
             '       %prog slave [args] server_uri'
@@ -34,10 +34,8 @@ def main(mapper, reducer, partition=None):
             help='Number of map tasks (parallel only)')
     parser.add_option('-R', '--reduce-tasks', dest='reduce_tasks', type='int',
             help='Number of reduce tasks (parallel only)')
-    parser.set_defaults(map_tasks=0, reduce_tasks=0, port=DEFAULT_RPC_PORT)
-    # TODO: other options:
-    # input format
-    # output format
+    parser.set_defaults(map_tasks=0, reduce_tasks=0, port=DEFAULT_RPC_PORT,
+            shared=os.getcwd())
 
     (options, args) = parser.parse_args()
     if len(args) < 1:
