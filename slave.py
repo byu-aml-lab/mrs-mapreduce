@@ -46,10 +46,15 @@ def run_slave(mrs_prog, uri, options):
     return 0
 
 
+class CookieValidationError(Exception):
+    pass
+
+
 class Slave(object):
     def __init__(self, master, mrs_prog, port):
         import rpc
 
+        self.alive = True
         self.cookie = self.rand_cookie()
         self.master = master
         self.mrs_prog = mrs_prog
@@ -59,7 +64,7 @@ class Slave(object):
         self.worker = Worker(master, self.cookie, mrs_prog)
 
         # Create a slave RPC Server
-        self.interface = SlaveInterface(self.cookie, self.worker)
+        self.interface = SlaveInterface(self)
         self.server = rpc.new_server(self.interface, port)
 
         self.host, self.port = self.server.socket.getsockname()
@@ -71,6 +76,10 @@ class Slave(object):
         import string
         possible = string.letters + string.digits
         return ''.join(choice(possible) for i in xrange(COOKIE_LEN))
+
+    def check_cookie(self, cookie):
+        if cookie != self.cookie:
+            raise CookieValidationError
 
     def handle_request(self):
         """Try to handle a request on the RPC connection.
@@ -98,7 +107,7 @@ class Slave(object):
             return -1
 
         # Handle requests on the RPC server.
-        while self.interface.alive:
+        while self.alive:
             if not self.handle_request():
                 # TODO: limit the sorts of exceptions that get caught:
                 try:
@@ -182,38 +191,28 @@ class Worker(threading.Thread):
             self.master.done(self.cookie)
 
 
-class CookieValidationError(Exception):
-    pass
-
-
 class SlaveInterface(object):
     # Be careful how you name your methods.  Any method not beginning with an
     # underscore will be exposed to remote hosts.
 
-    def __init__(self, cookie, worker):
-        self.alive = True
-        self.cookie = cookie
-        self.worker = worker
+    def __init__(self, slave):
+        self.slave = slave
 
     def _listMethods(self):
         return SimpleXMLRPCServer.list_public_methods(self)
 
-    def _check_cookie(self, cookie):
-        if cookie != self.cookie:
-            raise CookieValidationError
-
     def start_map(self, taskid, input, jobdir, reduce_tasks, cookie,
             **kwds):
-        self._check_cookie(cookie)
-        return self.worker.start_map(taskid, input, jobdir, reduce_tasks)
+        self.slave.check_cookie(cookie)
+        return self.slave.worker.start_map(taskid, input, jobdir, reduce_tasks)
 
     def start_reduce(self, taskid, output, jobdir, cookie, **kwds):
-        self._check_cookie(cookie)
-        return self.worker.start_reduce(taskid, output, jobdir)
+        self.slave.check_cookie(cookie)
+        return self.slave.worker.start_reduce(taskid, output, jobdir)
 
     def quit(self, cookie, **kwds):
-        self._check_cookie(cookie)
-        self.alive = False
+        self.slave.check_cookie(cookie)
+        self.slave.alive = False
         import sys
         print >>sys.stderr, "Quitting as requested by an RPC call."
         return True
