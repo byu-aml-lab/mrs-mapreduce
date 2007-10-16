@@ -77,8 +77,8 @@ class ParallelJob(Job):
         tasks = Supervisor(slaves)
 
         # Start RPC master server thread
-        master_rpc = master.MasterRPC(slaves)
-        rpc_thread = rpc.RPCThread(master_rpc, self.port)
+        interface = master.MasterInterface(slaves)
+        rpc_thread = rpc.RPCThread(interface, self.port)
         rpc_thread.start()
         port = rpc_thread.server.socket.getsockname()[1]
         print >>sys.stderr, "Listening on port %s" % port

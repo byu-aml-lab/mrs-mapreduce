@@ -26,7 +26,7 @@ def run_slave(mrs_prog, uri, options):
 
 class Slave(object):
     def __init__(self, master, mrs_prog, port):
-        import slave, rpc
+        import rpc
 
         self.cookie = self.rand_cookie()
         self.master = master
@@ -34,12 +34,11 @@ class Slave(object):
         self.port = port
 
         # Create a worker thread.  This thread will die when we do.
-        self.worker = slave.Worker(master, self.cookie, mrs_prog)
+        self.worker = Worker(master, self.cookie, mrs_prog)
 
         # Create a slave RPC Server
-        # TODO: rename slave_rpc to (server, interface, etc.)
-        self.slave_rpc = slave.SlaveRPC(self.cookie, self.worker)
-        self.server = rpc.new_server(self.slave_rpc, port)
+        self.interface = SlaveInterface(self.cookie, self.worker)
+        self.server = rpc.new_server(self.interface, port)
 
         self.host, self.port = self.server.socket.getsockname()
 
@@ -77,7 +76,7 @@ class Slave(object):
             return -1
 
         # Handle requests on the RPC server.
-        while self.slave_rpc.alive:
+        while self.interface.alive:
             if not self.handle_request():
                 # TODO: limit the sorts of exceptions that get caught:
                 try:
@@ -165,7 +164,7 @@ class CookieValidationError(Exception):
     pass
 
 
-class SlaveRPC(object):
+class SlaveInterface(object):
     # Be careful how you name your methods.  Any method not beginning with an
     # underscore will be exposed to remote hosts.
 
