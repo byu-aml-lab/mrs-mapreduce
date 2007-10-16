@@ -1,23 +1,24 @@
 #!/usr/bin/env python
 
-# TODO: if the cookie check fails too many times, we may want to shut down
-# with an error or do something else to make sure that the operator knows.
-
-COOKIE_LEN = 32
+# TODO: if the cookie check fails too many times, we may want to alert the
+# user somehow.
 
 import threading, xmlrpclib
 
 class Worker(threading.Thread):
-    def __init__(self, master, cookie, mapper, reducer, partition, **kwds):
+    """Execute map tasks and reduce tasks.
+
+    The worker waits for other threads to make assignments by calling
+    start_map and start_reduce.
+    """
+    def __init__(self, master, cookie, mrs_prog, **kwds):
         threading.Thread.__init__(self, **kwds)
         # Die when all other non-daemon threads have exited:
         self.setDaemon(True)
 
         self.master = master
         self.cookie = cookie
-        self.mapper = mapper
-        self.reducer = reducer
-        self.partition = partition
+        self.mrs_prog = mrs_prog
 
         # TODO: Should we have a queue of work to be done rather than
         # to just store a single item?
@@ -27,18 +28,26 @@ class Worker(threading.Thread):
         self.exception = None
 
     def start_map(self, taskid, input, jobdir, reduce_tasks):
+        """Tell this worker to start working on a map task.
+
+        This will ordinarily be called from some other thread.
+        """
         from mapreduce import MapTask
         success = False
         self._cond.acquire()
         if self._task is None:
-            self._task = MapTask(taskid, self.mapper, self.partition, input,
-                    jobdir, reduce_tasks)
+            self._task = MapTask(taskid, self.mrs_prog, input, jobdir,
+                    reduce_tasks)
             success = True
             self._cond.notify()
         self._cond.release()
         return success
 
     def start_reduce(self, taskid, output, jobdir):
+        """Tell this worker to start working on a reduce task.
+
+        This will ordinarily be called from some other thread.
+        """
         from mapreduce import ReduceTask
         success = False
         self._cond.acquire()
@@ -50,6 +59,7 @@ class Worker(threading.Thread):
         return success
 
     def run(self):
+        """Run the worker thread."""
         while True:
             self._cond.acquire()
             while self._task is None:
@@ -64,13 +74,6 @@ class Worker(threading.Thread):
             self._cond.release()
             # TODO: notify server that we're done
             self.master.done(self.cookie)
-
-def rand_cookie():
-    # Generate a cookie so that mostly only authorized people can connect.
-    from random import choice
-    import string
-    possible = string.letters + string.digits
-    return ''.join(choice(possible) for i in xrange(COOKIE_LEN))
 
 
 class CookieValidationError(Exception):

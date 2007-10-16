@@ -2,6 +2,7 @@
 
 WAIT_LIMIT = 2.0
 SOCKET_TIMEOUT = 1.0
+COOKIE_LEN = 8
 
 import socket
 from mapreduce import Job, MapTask, ReduceTask, interm_dir, interm_file
@@ -10,7 +11,7 @@ from mapreduce import Job, MapTask, ReduceTask, interm_dir, interm_file
 socket.setdefaulttimeout(SOCKET_TIMEOUT)
 
 
-def run_master(mapper, reducer, partition, inputs, output, options):
+def run_master(mrs_prog, inputs, output, options):
     """Mrs Master
     """
     map_tasks = options.map_tasks
@@ -25,57 +26,91 @@ def run_master(mapper, reducer, partition, inputs, output, options):
                 "must equal the number of input files.")
 
     from mrs.mapreduce import Operation
-    op = Operation(mapper, reducer, partition, map_tasks=map_tasks,
-            reduce_tasks=reduce_tasks)
+    op = Operation(mrs_prog, map_tasks=map_tasks, reduce_tasks=reduce_tasks)
     mrsjob = ParallelJob(inputs, output, options.port, options.shared)
     mrsjob.operations = [op]
     mrsjob.run()
     return 0
 
-def run_slave(mapper, reducer, partition, uri, options):
+def run_slave(mrs_prog, uri, options):
     """Mrs Slave
 
     The uri is of the form scheme://username:password@host/target with
     username and password possibly omitted.
     """
-    import slave, rpc
-    import select, xmlrpclib
+    import xmlrpclib
 
     # Create an RPC proxy to the master's RPC Server
-    cookie = slave.rand_cookie()
     master = xmlrpclib.ServerProxy(uri)
+    slave = Slave(master, mrs_prog, options.port)
 
-    # Start up a worker thread.  This thread will die when we do.
-    worker = slave.Worker(master, cookie, mapper, reducer, partition)
-    worker.start()
+    slave.run()
+    return 0
 
-    # Startup a slave RPC Server
-    slave_rpc = slave.SlaveRPC(cookie, worker)
-    server = rpc.new_server(slave_rpc, options.port)
-    server_fd = server.fileno()
-    host, port = server.socket.getsockname()
+class Slave(object):
+    def __init__(self, master, mrs_prog, port):
+        import slave, rpc
 
-    # Register with master.
-    if not master.signin(slave_rpc.cookie, port):
-        import sys
-        print >>sys.stderr, "Master rejected signin."
-        return -1
+        self.cookie = self.rand_cookie()
+        self.master = master
+        self.mrs_prog = mrs_prog
+        self.port = port
 
-    while slave_rpc.alive:
+        # Create a worker thread.  This thread will die when we do.
+        self.worker = slave.Worker(master, self.cookie, mrs_prog)
+
+        # Create a slave RPC Server
+        # TODO: rename slave_rpc to (server, interface, etc.)
+        self.slave_rpc = slave.SlaveRPC(self.cookie, self.worker)
+        self.server = rpc.new_server(self.slave_rpc, port)
+
+        self.host, self.port = self.server.socket.getsockname()
+
+    @classmethod
+    def rand_cookie(cls):
+        # Generate a cookie so that mostly only authorized people can connect.
+        from random import choice
+        import string
+        possible = string.letters + string.digits
+        return ''.join(choice(possible) for i in xrange(COOKIE_LEN))
+
+    def handle_request(self):
+        """Try to handle a request on the RPC connection.
+
+        Timeout after WAIT_LIMIT seconds.
+        """
+        import select
+        server_fd = self.server.fileno()
         rlist, wlist, xlist = select.select([server_fd], [], [], WAIT_LIMIT)
         if server_fd in rlist:
-            server.handle_request()
+            self.server.handle_request()
+            return True
         else:
-            # try to ping master
-            try:
-                master_alive = master.ping()
-            except:
-                master_alive = False
-            if not master_alive:
-                import sys
-                print >>sys.stderr, "Master failed to respond to ping."
-                return -1
-    return 0
+            return False
+
+    def run(self):
+        # Spin off the worker thread.
+        self.worker.start()
+
+        # Register with master.
+        if not self.master.signin(self.cookie, self.port):
+            import sys
+            print >>sys.stderr, "Master rejected signin."
+            return -1
+
+        # Handle requests on the RPC server.
+        while self.slave_rpc.alive:
+            if not self.handle_request():
+                # try to ping master
+                try:
+                    master_alive = master.ping()
+                except:
+                    master_alive = False
+                if not master_alive:
+                    import sys
+                    print >>sys.stderr, "Master failed to respond to ping."
+                    return -1
+
 
 def try_makedirs(path):
     import os
@@ -137,13 +172,13 @@ class ParallelJob(Job):
 
         # Create Map Tasks:
         for taskid, filename in enumerate(self.inputs):
-            map_task = MapTask(taskid, op.mapper, op.partition, filename,
-                    jobdir, reduce_tasks)
+            map_task = MapTask(taskid, op.mrs_prog, filename, jobdir,
+                    reduce_tasks)
             tasks.push_todo(Assignment(map_task))
 
         # Create Reduce Tasks:
         for taskid in xrange(op.reduce_tasks):
-            reduce_task = ReduceTask(taskid, op.reducer, self.outdir, jobdir)
+            reduce_task = ReduceTask(taskid, op.mrs_prog, self.outdir, jobdir)
             tasks.push_todo(Assignment(reduce_task))
 
         # Drive Slaves:
@@ -167,6 +202,9 @@ class ParallelJob(Job):
 
                 # Try to make all new assignments:
                 tasks.make_assignments()
+
+            print "Active Tasks:", len(tasks.active)
+            print "Unassigned Tasks:", len(tasks.todo)
 
         for slave in slaves.slave_list():
             slave.quit()
@@ -263,10 +301,6 @@ class Supervisor(object):
             slave = self.slaves.pop_done()
             if slave is None:
                 return
-
-            #print "Active Tasks:", len(self.active)
-            #print "Map Tasks Left:", self.map_tasks_remaining
-            #print "Todo Tasks:", len(self.todo)
 
             assignment = slave.assignment
             if assignment.map:

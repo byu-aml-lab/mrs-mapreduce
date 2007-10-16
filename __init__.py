@@ -42,16 +42,17 @@ def main(mapper, reducer, partition=None):
         parser.error("Requires an subcommand.")
     subcommand = args[0]
 
+    import mapreduce
     if partition is None:
-        from mapreduce import default_partition
-        partition = default_partition
+        partition = mapreduce.default_partition
+    mrs_prog = mapreduce.Program(mapper, reducer, partition)
 
     if subcommand == 'master':
         if len(args) < 3:
             parser.error("Requires inputs and an output.")
         inputs = args[1:-1]
         output = args[-1]
-        subcommand_args = (mapper, reducer, partition, inputs, output, options)
+        subcommand_args = (mrs_prog, inputs, output, options)
         from parallel import run_master
         subcommand_function = run_master
     elif subcommand == 'slave':
@@ -60,13 +61,13 @@ def main(mapper, reducer, partition=None):
         uri = args[1]
         from parallel import run_slave
         subcommand_function = run_slave
-        subcommand_args = (mapper, reducer, partition, uri, options)
+        subcommand_args = (mrs_prog, uri, options)
     elif subcommand in ('posix', 'serial'):
         if len(args) < 3:
             parser.error("Requires inputs and an output.")
         inputs = args[1:-1]
         output = args[-1]
-        subcommand_args = (mapper, reducer, partition, inputs, output, options)
+        subcommand_args = (mrs_prog, inputs, output, options)
         if subcommand == 'posix':
             from serial import run_posix
             subcommand_function = run_posix
