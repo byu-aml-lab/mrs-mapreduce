@@ -157,13 +157,13 @@ class ParallelJob(Job):
         os.mkdir(output_dir)
 
 
-        tasks = TaskManager(slaves)
+        tasks = Supervisor(slaves)
 
         # Create Map Tasks:
         for taskid, filename in enumerate(self.inputs):
             map_task = MapTask(taskid, operation.mapper, operation.partition,
                     filename, interm_path, reduce_tasks)
-            tasks.push_todo(map_task)
+            tasks.push_todo(Assignment(map_task))
 
 
         # Create Reduce Tasks:
@@ -219,11 +219,12 @@ class ParallelJob(Job):
 #            sorted_file.close()
 #            output_file.close()
 
-class ParallelTask(object):
-    def __init__(self, serial_task):
-        self.map = isinstance(serial_task, MapTask)
-        self.reduce = isinstance(serial_task, ReduceTask)
-        self.task = serial_task
+class Assignment(object):
+    def __init__(self, task):
+        from mapreduce import MapTask, ReduceTask
+        self.map = isinstance(task, MapTask)
+        self.reduce = isinstance(task, ReduceTask)
+        self.task = task
 
         self.done = False
         self.workers = []
@@ -237,7 +238,7 @@ class ParallelTask(object):
             # both map or both reduce: make this more complex later:
             return 0
 
-class TaskManager(object):
+class Supervisor(object):
     """Keep track of tasks and workers.
 
     Initialize with a Slaves object.
@@ -250,52 +251,52 @@ class TaskManager(object):
         self.assignments = {}
         self.slaves = slaves
 
-    def push_todo(self, parallel_task):
-        """Add a new task that needs to be completed."""
+    def push_todo(self, assignment):
+        """Add a new assignment that needs to be completed."""
         from heapq import heappush
-        heappush(self.todo, parallel_task)
+        heappush(self.todo, assignment)
 
     def pop_todo(self):
-        """Pop the next task to be assigned."""
+        """Pop the next available assignment."""
         from heapq import heappop
-        if self.todo_tasks:
+        if self.todo:
             return heappop(self.todo)
         else:
             return None
 
-    def set_active(self, parallel_task):
-        """Remove a task from the todo queue and add it to the active list."""
+    def set_active(self, assignment):
+        """Move an assignment from the todo queue and to the active list."""
         from heapq import heappush
-        self.active.append(parallel_task)
+        self.active.append(assignment)
 
     def assign(self, slave):
         """Assign a task to the given slave.
 
-        Return the task if the assignment is made or None if there are no
-        available tasks.
+        Return the assignment, if made, or None if there are no available
+        tasks.
         """
-        if slave.task is not None:
+        if slave.assignment is not None:
             raise RuntimeError
-        nexttask = self.pop_todo()
-        if nexttask is not None:
-            slave.assign_task(nexttask)
-            nexttask.workers.append(slave)
-            self.set_active(nexttask)
-        return nexttask
+        next = self.pop_todo()
+        if next is not None:
+            slave.assign(next)
+            next.workers.append(slave)
+            self.set_active(next)
+        return next
 
     def remove_slave(self, slave):
         """Remove a slave that may be currently working on a task.
 
-        Add the task to the todo queue if it is no longer being worked on.
+        Add the assignment to the todo queue if it is no longer active.
         """
         self.slaves.remove_slave(slave)
-        task = slave.task
-        if not task:
+        assignment = slave.assignment
+        if not assignment:
             return
-        task.workers.remove(slave)
-        if not task.workers:
-            self.active.remove(task)
-            self.push_todo(task)
+        assignment.workers.remove(slave)
+        if not assignment.workers:
+            self.active.remove(assignment)
+            self.push_todo(assignment)
 
     def make_assignments(self):
         """Go through the slaves list and make any possible task assignments.
@@ -304,8 +305,8 @@ class TaskManager(object):
             idler = self.slaves.pop_idle()
             if idler is None:
                 return
-            newtask = self.assign(idler)
-            if newtask is None:
+            assignment = self.assign(idler)
+            if assignment is None:
                 return
 
 

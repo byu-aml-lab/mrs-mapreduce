@@ -62,7 +62,7 @@ class Slave(object):
         self.host = host
         self.port = port
         self.cookie = cookie
-        self.task = None
+        self.assignment = None
         import xmlrpclib
         uri = "http://%s:%s" % (host, port)
         self.slave_rpc = xmlrpclib.ServerProxy(uri)
@@ -70,16 +70,16 @@ class Slave(object):
     def __hash__(self):
         return hash(self.cookie)
 
-    def assign_task(self, task):
-        from mapreduce import MapTask, ReduceTask
-        if isinstance(task, MapTask):
+    def assign(self, assignment):
+        task = assignment.task
+        if assignment.map:
             self.slave_rpc.start_map(task.taskid, task.input, task.outprefix,
                     task.reduce_tasks, self.cookie)
-        elif isinstance(task, ReduceTask):
+        elif assignment.reduce:
             pass
         else:
-            raise TypeError("Requires a MapTask or ReduceTask!")
-        self.task = task
+            raise RuntimeError
+        self.assignment = assignment
 
 
 # TODO: Reimplement _idle_sem as a Condition variable.
@@ -95,7 +95,7 @@ class Slaves(object):
         self._lock = threading.Lock()
         self._idle_sem = threading.Semaphore()
 
-    def get_slave(cookie, host=None):
+    def get_slave(self, cookie, host=None):
         """Find the slave associated with the given cookie.
         """
         return self._slaves[cookie]
