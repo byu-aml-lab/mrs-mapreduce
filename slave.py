@@ -26,13 +26,24 @@ class Worker(threading.Thread):
         self.active = False
         self.exception = None
 
-    def start_map(self, taskid, input, outprefix, reduce_tasks):
+    def start_map(self, taskid, input, jobdir, reduce_tasks):
         from mapreduce import MapTask
         success = False
         self._cond.acquire()
         if self._task is None:
             self._task = MapTask(taskid, self.mapper, self.partition, input,
-                    outprefix, reduce_tasks)
+                    jobdir, reduce_tasks)
+            success = True
+            self._cond.notify()
+        self._cond.release()
+        return success
+
+    def start_reduce(self, taskid, output, jobdir):
+        from mapreduce import ReduceTask
+        success = False
+        self._cond.acquire()
+        if self._task is None:
+            self._task = ReduceTask(taskid, self.reducer, output, jobdir)
             success = True
             self._cond.notify()
         self._cond.release()
@@ -82,14 +93,14 @@ class SlaveRPC(object):
         if cookie != self.cookie:
             raise CookieValidationError
 
-    def start_map(self, taskid, input, outprefix, reduce_tasks, cookie,
+    def start_map(self, taskid, input, jobdir, reduce_tasks, cookie,
             **kwds):
         self._check_cookie(cookie)
-        return self.worker.start_map(taskid, input, outprefix, reduce_tasks)
+        return self.worker.start_map(taskid, input, jobdir, reduce_tasks)
 
-    def start_reduce(self, taskid, input, output, cookie, **kwds):
+    def start_reduce(self, taskid, output, jobdir, cookie, **kwds):
         self._check_cookie(cookie)
-        return False
+        return self.worker.start_reduce(taskid, output, jobdir)
 
     def quit(self, cookie, **kwds):
         self._check_cookie(cookie)

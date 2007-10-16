@@ -4,7 +4,7 @@ PING_INTERVAL = 5.0
 SOCKET_TIMEOUT = 1.0
 
 import socket
-from mapreduce import Job, MapTask
+from mapreduce import Job, MapTask, ReduceTask, interm_dir, interm_file
 
 # NOTE: This is a _global_ setting:
 socket.setdefaulttimeout(SOCKET_TIMEOUT)
@@ -77,32 +77,40 @@ def run_slave(mapper, reducer, partition, uri, options):
                 return -1
     return 0
 
+def try_makedirs(path):
+    import os
+    try:
+        os.makedirs(path)
+    except OSError, e:
+        import errno
+        if e.errno != errno.EEXIST:
+            raise
+
 
 class ParallelJob(Job):
     """MapReduce execution in parallel, with a master and slaves.
 
     For right now, we require POSIX shared storage (e.g., NFS).
     """
-    def __init__(self, inputs, output_dir, port, shared_dir, **kwds):
+    def __init__(self, inputs, outdir, port, shared_dir, **kwds):
         Job.__init__(self, **kwds)
         self.inputs = inputs
-        self.output_dir = output_dir
+        self.outdir = outdir
         self.port = port
         self.shared_dir = shared_dir
 
-    # TODO: break this function into several smaller ones:
     def run(self):
         ################################################################
         # TEMPORARY LIMITATIONS
         if len(self.operations) != 1:
             raise NotImplementedError("Requires exactly one operation.")
-        operation = self.operations[0]
+        op = self.operations[0]
 
-        map_tasks = operation.map_tasks
+        map_tasks = op.map_tasks
         if map_tasks != len(self.inputs):
             raise NotImplementedError("Requires exactly 1 map_task per input.")
 
-        reduce_tasks = operation.reduce_tasks
+        reduce_tasks = op.reduce_tasks
         ################################################################
 
         import sys, os
@@ -110,6 +118,8 @@ class ParallelJob(Job):
         from tempfile import mkstemp, mkdtemp
 
         slaves = master.Slaves()
+        tasks = Supervisor(slaves)
+
         # Start RPC master server thread
         master_rpc = master.MasterRPC(slaves)
         rpc_thread = rpc.RPCThread(master_rpc, self.port)
@@ -118,35 +128,22 @@ class ParallelJob(Job):
         print >>sys.stderr, "Listening on port %s" % port
 
         # Prep:
-        try:
-            os.makedirs(self.shared_dir)
-        except OSError, e:
-            import errno
-            if e.errno != errno.EEXIST:
-                raise
+        try_makedirs(self.outdir)
+        try_makedirs(self.shared_dir)
         jobdir = mkdtemp(prefix='mrs.job_', dir=self.shared_dir)
-
-        interm_path = os.path.join(jobdir, 'interm_')
-        interm_dirs = [interm_path + str(i) for i in xrange(reduce_tasks)]
-        for name in interm_dirs:
-            os.mkdir(name)
-
-        output_dir = os.path.join(jobdir, 'output')
-        os.mkdir(output_dir)
-
-
-        tasks = Supervisor(slaves)
+        for i in xrange(reduce_tasks):
+            os.mkdir(interm_dir(jobdir, i))
 
         # Create Map Tasks:
         for taskid, filename in enumerate(self.inputs):
-            map_task = MapTask(taskid, operation.mapper, operation.partition,
-                    filename, interm_path, reduce_tasks)
+            map_task = MapTask(taskid, op.mapper, op.partition, filename,
+                    jobdir, reduce_tasks)
             tasks.push_todo(Assignment(map_task))
 
-
         # Create Reduce Tasks:
-        # PLEASE WRITE ME
-
+        for taskid in xrange(op.reduce_tasks):
+            reduce_task = ReduceTask(taskid, op.reducer, self.outdir, jobdir)
+            tasks.push_todo(Assignment(reduce_task))
 
         # Drive Slaves:
         while True:
@@ -172,34 +169,8 @@ class ParallelJob(Job):
                 tasks.make_assignments()
 
 
-
-        ### IN PROGRESS ###
-
-            ######################
-
-#        for reducer_id in xrange(operation.reduce_tasks):
-#            # SORT PHASE
-#            interm_directory = interm_path + str(reducer_id)
-#            fd, sorted_name = mkstemp(prefix='mrs.sorted_')
-#            os.close(fd)
-#            interm_filenames = [os.path.join(interm_directory, s)
-#                    for s in os.listdir(interm_directory)]
-#            formats.hexfile_sort(interm_filenames, sorted_name)
-#
-#            # REDUCE PHASE
-#            sorted_file = formats.HexFile(open(sorted_name))
-#            basename = 'reducer_%s' % reducer_id
-#            output_name = os.path.join(self.output_dir, basename)
-#            output_file = operation.output_format(open(output_name, 'w'))
-#
-#            reduce(operation.reducer, sorted_file, output_file)
-#
-#            sorted_file.close()
-#            output_file.close()
-
 class Assignment(object):
     def __init__(self, task):
-        from mapreduce import MapTask, ReduceTask
         self.map = isinstance(task, MapTask)
         self.reduce = isinstance(task, ReduceTask)
         self.task = task
@@ -216,6 +187,7 @@ class Assignment(object):
             # both map or both reduce: make this more complex later:
             return 0
 
+
 class Supervisor(object):
     """Keep track of tasks and workers.
 
@@ -229,6 +201,9 @@ class Supervisor(object):
         self.assignments = {}
         self.slaves = slaves
 
+        # For now, you can't start a reduce task until all maps are done:
+        self.maps_done = False
+
     def push_todo(self, assignment):
         """Add a new assignment that needs to be completed."""
         from heapq import heappush
@@ -237,7 +212,7 @@ class Supervisor(object):
     def pop_todo(self):
         """Pop the next available assignment."""
         from heapq import heappop
-        if self.todo:
+        if self.todo and (self.todo[0].map or self.maps_done):
             return heappop(self.todo)
         else:
             return None

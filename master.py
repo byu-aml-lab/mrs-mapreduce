@@ -51,10 +51,11 @@ class Slave(object):
     def assign(self, assignment):
         task = assignment.task
         if assignment.map:
-            self.slave_rpc.start_map(task.taskid, task.input, task.outprefix,
+            self.slave_rpc.start_map(task.taskid, task.input, task.jobdir,
                     task.reduce_tasks, self.cookie)
         elif assignment.reduce:
-            pass
+            self.slave_rpc.start_reduce(task.taskid, task.output, task.jobdir,
+                    self.cookie)
         else:
             raise RuntimeError
         self.assignment = assignment
