@@ -43,9 +43,10 @@ def new_server(functions, port, host=None):
         # (Using socket.INADDR_ANY doesn't seem to work)
         host = ''
     server = SimpleXMLRPCServer.SimpleXMLRPCServer((host, port),
-            requestHandler=MrsXMLRPCRequestHandler)
+            requestHandler=MrsXMLRPCRequestHandler, logRequests=False)
     #server.register_introspection_functions()
     server.register_instance(functions)
+
     return server
 
 class RPCThread(threading.Thread):
