@@ -264,9 +264,9 @@ class Supervisor(object):
             if slave is None:
                 return
 
-            print "Active Tasks:", len(self.active)
-            print "Map Tasks Left:", self.map_tasks_remaining
-            print "Todo Tasks:", len(self.todo)
+            #print "Active Tasks:", len(self.active)
+            #print "Map Tasks Left:", self.map_tasks_remaining
+            #print "Todo Tasks:", len(self.todo)
 
             assignment = slave.assignment
             if assignment.map:
