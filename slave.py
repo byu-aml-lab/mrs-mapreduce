@@ -74,7 +74,7 @@ class Worker(threading.Thread):
         success = False
         self._cond.acquire()
         if self._task is None:
-            self._task = ReduceTask(taskid, self.reducer, output, jobdir)
+            self._task = ReduceTask(taskid, self.mrs_prog, output, jobdir)
             success = True
             self._cond.notify()
         self._cond.release()
