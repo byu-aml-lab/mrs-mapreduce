@@ -112,10 +112,10 @@ class ReduceTask(threading.Thread):
 
     def run(self):
         import formats
-        import os
+        import os, tempfile
 
         # SORT PHASE
-        fd, sorted_name = mkstemp(prefix='mrs.sorted_')
+        fd, sorted_name = tempfile.mkstemp(prefix='mrs.sorted_')
         os.close(fd)
         indir = interm_dir(self.jobdir, self.taskid)
         interm_names = [os.path.join(indir, s) for s in os.listdir(indir)]

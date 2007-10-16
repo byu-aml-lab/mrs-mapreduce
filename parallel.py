@@ -146,13 +146,14 @@ class ParallelJob(Job):
             tasks.push_todo(Assignment(reduce_task))
 
         # Drive Slaves:
-        while True:
+        while not tasks.job_complete():
             slaves.activity.wait(PING_INTERVAL)
             slaves.activity.clear()
 
             # TODO: check for done slaves!
             # slaves.pop_done()
 
+            tasks.check_done()
             tasks.make_assignments()
 
             for slave in slaves.slave_list():
@@ -167,6 +168,9 @@ class ParallelJob(Job):
 
                 # Try to make all new assignments:
                 tasks.make_assignments()
+
+        for slave in slaves.slave_list():
+            slave.quit()
 
 
 class Assignment(object):
@@ -202,17 +206,19 @@ class Supervisor(object):
         self.slaves = slaves
 
         # For now, you can't start a reduce task until all maps are done:
-        self.maps_done = False
+        self.map_tasks_remaining = 0
 
     def push_todo(self, assignment):
         """Add a new assignment that needs to be completed."""
         from heapq import heappush
         heappush(self.todo, assignment)
+        if assignment.map:
+            self.map_tasks_remaining += 1
 
     def pop_todo(self):
         """Pop the next available assignment."""
         from heapq import heappop
-        if self.todo and (self.todo[0].map or self.maps_done):
+        if self.todo and (self.todo[0].map or self.map_tasks_remaining == 0):
             return heappop(self.todo)
         else:
             return None
@@ -251,6 +257,23 @@ class Supervisor(object):
             self.active.remove(assignment)
             self.push_todo(assignment)
 
+    def check_done(self):
+        """Check for slaves that have completed their assignments.
+        """
+        while True:
+            slave = self.slaves.pop_done()
+            if slave is None:
+                return
+
+            assignment = slave.assignment
+            if assignment.map:
+                self.map_tasks_remaining -= 1
+            self.active.remove(assignment)
+            self.completed.append(assignment)
+
+            slave.assignment = None
+            self.slaves.push_idle(slave)
+
     def make_assignments(self):
         """Go through the slaves list and make any possible task assignments.
         """
@@ -261,6 +284,12 @@ class Supervisor(object):
             assignment = self.assign(idler)
             if assignment is None:
                 return
+
+    def job_complete(self):
+        if self.todo or self.active:
+            return False
+        else:
+            return True
 
 
 # vim: et sw=4 sts=4
