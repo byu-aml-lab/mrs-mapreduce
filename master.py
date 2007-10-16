@@ -27,7 +27,8 @@
 
 MASTER_PING_INTERVAL = 5.0
 
-class MasterRPC(object):
+class MasterInterface(object):
+    """Public XML-RPC Interface"""
     # Be careful how you name your methods.  Any method not beginning with an
     # underscore will be exposed to remote hosts.
 
@@ -222,7 +223,7 @@ class Slaves(object):
 if __name__ == '__main__':
     # Testing standalone server.
     import rpc
-    instance = MasterRPC()
+    instance = MasterInterface()
     PORT = 8000
     #PORT = 0
     server = rpc.new_server(instance, host='127.0.0.1', port=PORT)
