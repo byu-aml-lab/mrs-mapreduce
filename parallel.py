@@ -262,6 +262,7 @@ class Supervisor(object):
                 return
             assignment = self.assign(idler)
             if assignment is None:
+                self.slaves.push_idle(idler)
                 return
 
     def job_complete(self):
