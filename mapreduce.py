@@ -27,16 +27,21 @@
 
 import threading
 
+class Program(object):
+    """Mrs Program (mapper, reducer, etc.)"""
+    def __init__(self, mapper, reducer, partition):
+        self.mapper = mapper
+        self.reducer = reducer
+        self.partition = partition
+
 class Operation(object):
     """Specifies a map phase followed by a reduce phase.
     
     The output_format is a file format, such as HexFile or TextFile.
     """
-    def __init__(self, mapper, reducer, partition, map_tasks=1, reduce_tasks=1,
+    def __init__(self, mrs_prog, map_tasks=1, reduce_tasks=1,
             output_format=None):
-        self.mapper = mapper
-        self.reducer = reducer
-        self.partition = partition
+        self.mrs_prog = mrs_prog
         self.map_tasks = map_tasks
         self.reduce_tasks = reduce_tasks
 
@@ -91,12 +96,11 @@ def interm_file(basedir, map_id, reduce_id):
 
 
 class MapTask(threading.Thread):
-    def __init__(self, taskid, mapper, partition, input, jobdir, reduce_tasks,
+    def __init__(self, taskid, mrs_prog, input, jobdir, reduce_tasks,
             **kwds):
         threading.Thread.__init__(self, **kwds)
         self.taskid = taskid
-        self.mapper = mapper
-        self.partition = partition
+        self.mrs_prog = mrs_prog
         self.input = input
         self.jobdir = jobdir
         self.reduce_tasks = reduce_tasks
@@ -115,8 +119,8 @@ class MapTask(threading.Thread):
         interm_files = [formats.HexFile(open(name, 'w'))
                 for name in interm_filenames]
 
-        mrs_map(self.mapper, input_file, interm_files,
-                partition=self.partition)
+        mrs_map(self.mrs_prog.mapper, input_file, interm_files,
+                partition=self.mrs_prog.partition)
 
         input_file.close()
         for f in interm_files:
@@ -125,10 +129,10 @@ class MapTask(threading.Thread):
 
 # TODO: allow configuration of output format
 class ReduceTask(threading.Thread):
-    def __init__(self, taskid, reducer, outdir, jobdir, **kwds):
+    def __init__(self, taskid, mrs_prog, outdir, jobdir, **kwds):
         threading.Thread.__init__(self, **kwds)
         self.taskid = taskid
-        self.reducer = reducer
+        self.mrs_prog = mrs_prog
         self.outdir = outdir
         self.jobdir = jobdir
 
@@ -150,7 +154,7 @@ class ReduceTask(threading.Thread):
         #output_file = op.output_format(open(output_name, 'w'))
         output_file = formats.TextFile(open(output_name, 'w'))
 
-        mrs_reduce(self.reducer, sorted_file, output_file)
+        mrs_reduce(self.mrs_prog.reducer, sorted_file, output_file)
 
         sorted_file.close()
         output_file.close()

@@ -25,7 +25,7 @@
 import hexfile, textfile
 from mapreduce import Job, mrs_map, mrs_reduce
 
-def run_posix(mapper, reducer, inputs, output, options):
+def run_posix(mrs_prog, inputs, output, options):
     map_tasks = options.map_tasks
     if map_tasks == 0:
         map_tasks = len(inputs)
@@ -37,7 +37,7 @@ def run_posix(mapper, reducer, inputs, output, options):
                 "must equal the number of input files.")
 
     from mrs.mapreduce import Operation
-    op = Operation(mapper, reducer, map_tasks=map_tasks,
+    op = Operation(mrs_prog, map_tasks=map_tasks,
             reduce_tasks=options.reduce_tasks)
     mrsjob = POSIXJob(inputs, output, options.shared)
     mrsjob.operations = [op]
@@ -45,11 +45,11 @@ def run_posix(mapper, reducer, inputs, output, options):
     return 0
 
 
-def run_serial(mapper, reducer, inputs, output, options):
+def run_serial(mrs_prog, inputs, output, options):
     """Mrs Serial
     """
     from mrs.mapreduce import Operation
-    op = Operation(mapper, reducer)
+    op = Operation(mrs_prog)
     mrsjob = SerialJob(inputs, output)
     mrsjob.operations = [op]
     mrsjob.run()

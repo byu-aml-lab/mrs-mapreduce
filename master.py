@@ -41,7 +41,7 @@ class MasterRPC(object):
     def signin(self, cookie, slave_port, host=None, port=None):
         """Slave reporting for duty.
         """
-        slave = Slave(host, slave_port, cookie)
+        slave = RemoteSlave(host, slave_port, cookie)
         self.slaves.add_slave(slave)
         return True
 
@@ -61,7 +61,7 @@ class MasterRPC(object):
         return True
 
 
-class Slave(object):
+class RemoteSlave(object):
     def __init__(self, host, port, cookie):
         self.host = host
         self.port = port
