@@ -28,10 +28,11 @@
 MASTER_PING_INTERVAL = 5.0
 
 class MasterInterface(object):
-    """Public XML-RPC Interface"""
-    # Be careful how you name your methods.  Any method not beginning with an
-    # underscore will be exposed to remote hosts.
+    """Public XML-RPC Interface
 
+    Note that any method not beginning with an underscore will be exposed to
+    remote hosts.
+    """
     def __init__(self, slaves):
         self.slaves = slaves
 
