@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import hexfile, textfile
+import formats
 from mapreduce import Job, mrs_map, mrs_reduce
 
 def run_posix(mrs_prog, inputs, output, options):
@@ -50,47 +50,31 @@ class SerialJob(Job):
     def run(self):
         """Run a MapReduce operation in serial.
         """
-        import os, tempfile
-
+        # TEMPORARY LIMITATIONS
         if len(self.operations) != 1:
             raise NotImplementedError("Requires exactly one operation.")
         operation = self.operations[0]
+        mrs_prog = operation.mrs_prog
 
         if len(self.inputs) != 1:
             raise NotImplementedError("Requires exactly one input file.")
         input = self.inputs[0]
 
         # MAP PHASE
-        input_file = textfile.TextFile(open(input))
-        fd, interm_name = tempfile.mkstemp(prefix='mrs.interm_')
-        interm_tmp = os.fdopen(fd, 'w')
-        interm_file = hexfile.HexFile(interm_tmp)
-
-        mrs_map(operation.mapper, input_file, interm_file)
-
+        input_file = formats.TextFile(open(input))
+        def mapper(x):
+            return mrs_prog.mapper(*x)
+        interm = map(mapper, input_file)
         input_file.close()
-        interm_file.close()
 
         # SORT PHASE
-        fd, sorted_name = tempfile.mkstemp(prefix='mrs.sorted_')
-        os.close(fd)
-        hexfile.sort(interm_name, sorted_name)
+        import operator
+        interm.sort(key=operator.itemgetter(0))
 
         # REDUCE PHASE
-        sorted_file = hexfile.HexFile(open(sorted_name))
-        output_file = operation.output_format(open(self.output, 'w'))
-
-        mrs_reduce(operation.reducer, sorted_file, output_file)
-
-        sorted_file.close()
+        output_file = operation.output_format(open(output_name, 'w'))
+        mrs_reduce(mrs_prog.reducer, interm, output_file)
         output_file.close()
-
-        # CLEANUP
-
-        if not self.debug:
-            import os
-            os.unlink(interm_name)
-            os.unlink(sorted_name)
 
 
 class POSIXJob(Job):
@@ -139,7 +123,7 @@ class POSIXJob(Job):
             # create a new interm_name for each reducer
             interm_filenames = [os.path.join(d, 'from_%s' % mapper_id)
                     for d in interm_dirs]
-            interm_files = [hexfile.HexFile(open(name, 'w'))
+            interm_files = [formats.HexFile(open(name, 'w'))
                     for name in interm_filenames]
 
             map(operation.mapper, input_file, interm_files,
@@ -156,10 +140,10 @@ class POSIXJob(Job):
             os.close(fd)
             interm_filenames = [os.path.join(interm_directory, s)
                     for s in os.listdir(interm_directory)]
-            hexfile.sort(interm_filenames, sorted_name)
+            formats.hexfile_sort(interm_filenames, sorted_name)
 
             # REDUCE PHASE
-            sorted_file = hexfile.HexFile(open(sorted_name))
+            sorted_file = formats.HexFile(open(sorted_name))
             basename = 'reducer_%s' % reducer_id
             output_name = os.path.join(self.output_dir, basename)
             output_file = operation.output_format(open(output_name, 'w'))

@@ -70,7 +70,7 @@ class ParallelJob(Job):
         ################################################################
 
         import sys, os
-        import formats, master, rpc
+        import master, rpc
         from tempfile import mkstemp, mkdtemp
 
         slaves = master.Slaves()
