@@ -81,6 +81,13 @@ class Slave(object):
 
         self.host, self.port = self.server.socket.getsockname()
 
+        # Register with master.
+        self.id = self.master.signin(self.cookie, self.port)
+        if self.id < 0:
+            import sys
+            print >>sys.stderr, "Master rejected signin."
+            raise RuntimeError
+
     @classmethod
     def rand_cookie(cls):
         # Generate a cookie so that mostly only authorized people can connect.
@@ -112,11 +119,8 @@ class Slave(object):
         # Spin off the worker thread.
         self.worker.start()
 
-        # Register with master.
-        if not self.master.signin(self.cookie, self.port):
-            import sys
-            print >>sys.stderr, "Master rejected signin."
-            return -1
+        # Report for duty.
+        self.master.ready(self.id, self.cookie)
 
         # Handle requests on the RPC server.
         while self.alive:

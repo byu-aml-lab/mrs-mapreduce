@@ -5,6 +5,7 @@
 
 MASTER_PING_INTERVAL = 5.0
 
+
 class MasterInterface(object):
     """Public XML-RPC Interface
 
@@ -20,9 +21,20 @@ class MasterInterface(object):
 
     def signin(self, cookie, slave_port, host=None, port=None):
         """Slave reporting for duty.
+
+        Returns -1 if the signin is rejected.
         """
-        slave = RemoteSlave(host, slave_port, cookie)
+        # TODO: make the slave id be the entry in the slaves list.
+        next_id = self.slaves.next_id()
+        slave = RemoteSlave(next_id, host, slave_port, cookie)
         self.slaves.add_slave(slave)
+        return next_id
+
+    def ready(self, slave_id, cookie, **kwds):
+        """Slave is ready for work."""
+        slave = self.slaves.get_slave(cookie)
+        self.slaves.push_idle(slave)
+        self.slaves.activity.set()
         return True
 
     def done(self, cookie, **kwds):
@@ -42,11 +54,12 @@ class MasterInterface(object):
 
 
 class RemoteSlave(object):
-    def __init__(self, host, port, cookie):
+    def __init__(self, slave_id, host, port, cookie):
         self.host = host
         self.port = port
-        self.cookie = cookie
         self.assignment = None
+        self.id = slave_id
+        self.cookie = cookie
 
         import xmlrpclib
         uri = "http://%s:%s" % (host, port)
@@ -110,9 +123,19 @@ class Slaves(object):
         self._slaves = {}
         self._idle_slaves = []
         self._done_slaves = []
+        self._next_id = 0
 
         self._lock = threading.Lock()
         self._idle_sem = threading.Semaphore()
+
+    def next_id(self):
+        """Get the next slave id."""
+        # TODO: make the slave id be the entry in the slaves list.
+        self._lock.acquire()
+        value = self._next_id
+        self._next_id += 1
+        self._lock.release()
+        return value
 
     def get_slave(self, cookie, host=None):
         """Find the slave associated with the given cookie.
@@ -128,14 +151,13 @@ class Slaves(object):
         return lst
 
     def add_slave(self, slave):
-        """Add a new idle slave.
+        """Add a new slave.
+
+        It will not be added to the idle queue until push_idle is called.
         """
         self._lock.acquire()
         self._slaves[slave.cookie] = slave
         self._lock.release()
-
-        self.push_idle(slave)
-        self.activity.set()
 
     def remove_slave(self, slave):
         """Remove a slave, whether it is busy or idle.
