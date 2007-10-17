@@ -73,7 +73,7 @@ class Slave(object):
         self.port = port
 
         # Create a worker thread.  This thread will die when we do.
-        self.worker = Worker(master, self.cookie, mrs_prog)
+        self.worker = Worker(self, master)
 
         # Create a slave RPC Server
         self.interface = SlaveInterface(self)
@@ -142,14 +142,13 @@ class Worker(threading.Thread):
     The worker waits for other threads to make assignments by calling
     start_map and start_reduce.
     """
-    def __init__(self, master, cookie, mrs_prog, **kwds):
+    def __init__(self, slave, master, **kwds):
         threading.Thread.__init__(self, **kwds)
         # Die when all other non-daemon threads have exited:
         self.setDaemon(True)
 
+        self.slave = slave
         self.master = master
-        self.cookie = cookie
-        self.mrs_prog = mrs_prog
 
         # TODO: Should we have a queue of work to be done rather than
         # to just store a single item?
@@ -167,7 +166,7 @@ class Worker(threading.Thread):
         success = False
         self._cond.acquire()
         if self._task is None:
-            self._task = MapTask(taskid, self.mrs_prog, input, jobdir,
+            self._task = MapTask(taskid, self.slave.mrs_prog, input, jobdir,
                     reduce_tasks)
             success = True
             self._cond.notify()
@@ -183,7 +182,8 @@ class Worker(threading.Thread):
         success = False
         self._cond.acquire()
         if self._task is None:
-            self._task = ReduceTask(taskid, self.mrs_prog, output, jobdir)
+            self._task = ReduceTask(taskid, self.slave.mrs_prog, output,
+                    jobdir)
             success = True
             self._cond.notify()
         self._cond.release()
@@ -204,7 +204,7 @@ class Worker(threading.Thread):
             self._task = None
             self._cond.release()
             # TODO: notify server that we're done
-            self.master.done(self.cookie)
+            self.master.done(self.slave.id, self.slave.cookie)
 
 
 # vim: et sw=4 sts=4
