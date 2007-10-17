@@ -8,6 +8,44 @@ SLAVE_PING_INTERVAL = 5.0
 
 import threading, xmlrpclib
 
+class SlaveInterface(object):
+    """Public XML-RPC Interface
+    
+    Note that any method not beginning with an underscore will be exposed to
+    remote hosts.
+    """
+    def __init__(self, slave):
+        self.slave = slave
+
+    def _listMethods(self):
+        return SimpleXMLRPCServer.list_public_methods(self)
+
+    def start_map(self, taskid, input, jobdir, reduce_tasks, cookie,
+            **kwds):
+        self.slave.check_cookie(cookie)
+        return self.slave.worker.start_map(taskid, input, jobdir, reduce_tasks)
+
+    def start_reduce(self, taskid, output, jobdir, cookie, **kwds):
+        self.slave.check_cookie(cookie)
+        return self.slave.worker.start_reduce(taskid, output, jobdir)
+
+    def quit(self, cookie, **kwds):
+        self.slave.check_cookie(cookie)
+        self.slave.alive = False
+        import sys
+        print >>sys.stderr, "Quitting as requested by an RPC call."
+        return True
+
+    def ping(self, **kwds):
+        """Master checking if we're still here.
+        """
+        return True
+
+
+class CookieValidationError(Exception):
+    pass
+
+
 def run_slave(mrs_prog, uri, options):
     """Mrs Slave
 
@@ -22,10 +60,6 @@ def run_slave(mrs_prog, uri, options):
 
     slave.run()
     return 0
-
-
-class CookieValidationError(Exception):
-    pass
 
 
 class Slave(object):
@@ -167,38 +201,6 @@ class Worker(threading.Thread):
             self._cond.release()
             # TODO: notify server that we're done
             self.master.done(self.cookie)
-
-
-class SlaveInterface(object):
-    # Be careful how you name your methods.  Any method not beginning with an
-    # underscore will be exposed to remote hosts.
-
-    def __init__(self, slave):
-        self.slave = slave
-
-    def _listMethods(self):
-        return SimpleXMLRPCServer.list_public_methods(self)
-
-    def start_map(self, taskid, input, jobdir, reduce_tasks, cookie,
-            **kwds):
-        self.slave.check_cookie(cookie)
-        return self.slave.worker.start_map(taskid, input, jobdir, reduce_tasks)
-
-    def start_reduce(self, taskid, output, jobdir, cookie, **kwds):
-        self.slave.check_cookie(cookie)
-        return self.slave.worker.start_reduce(taskid, output, jobdir)
-
-    def quit(self, cookie, **kwds):
-        self.slave.check_cookie(cookie)
-        self.slave.alive = False
-        import sys
-        print >>sys.stderr, "Quitting as requested by an RPC call."
-        return True
-
-    def ping(self, **kwds):
-        """Master checking if we're still here.
-        """
-        return True
 
 
 # vim: et sw=4 sts=4
