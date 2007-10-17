@@ -23,6 +23,9 @@
 
 from itertools import islice
 
+# TODO: Fix the key returned when iterating over a TextFile.  Right now it
+# computes an offset with tell(), but the current values are incorrect.
+
 class TextFile(object):
     """A file format for user interaction.
 
@@ -32,6 +35,9 @@ class TextFile(object):
     """
     def __init__(self, textfile):
         self.file = textfile
+
+    def __iter__(self):
+        return self
 
     def read(self):
         """Return the next key-value pair from the HexFile or None if EOF."""
@@ -53,5 +59,6 @@ class TextFile(object):
 
     def close(self):
         self.file.close()
+
 
 # vim: et sw=4 sts=4

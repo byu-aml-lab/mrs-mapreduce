@@ -37,6 +37,9 @@ class HexFile(object):
     def __init__(self, hexfile):
         self.file = hexfile
 
+    def __iter__(self):
+        return self
+
     def read(self):
         """Return the next key-value pair from the HexFile or None if EOF."""
         line = self.file.readline()
@@ -58,6 +61,7 @@ class HexFile(object):
 
     def close(self):
         self.file.close()
+
 
 def hexfile_sort(in_filenames, out_filename):
     """Sort one or more HexFiles into a new HexFile.

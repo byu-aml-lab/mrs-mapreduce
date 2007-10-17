@@ -221,21 +221,10 @@ def mrs_reduce(reducer, input_file, output_file):
     """Perform a reduce from the entries in input_file into output_file.
 
     A reducer is an iterator taking a key and an iterator over values for that
-    key.  It yields values for that key.  Optionally, the reducer can have a
-    switch_keys attribute set to True, in which case it yields key-value
-    pairs rather than just values.
+    key.  It yields values for that key.
     """
-    try:
-        switch_keys = reducer.switch_keys
-    except AttributeError:
-        switch_keys = False
-
     for key, iterator in grouped_read(input_file):
-        if switch_keys:
-            for new_key, value in reducer(key, iterator):
-                output_file.write(new_key, value)
-        else:
-            for value in reducer(key, iterator):
-                output_file.write(key, value)
+        for value in reducer(key, iterator):
+            output_file.write(key, value)
 
 # vim: et sw=4 sts=4
