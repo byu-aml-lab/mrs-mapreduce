@@ -117,6 +117,7 @@ class ParallelJob(Job):
             map_task = MapTask(taskid, op.mrs_prog, filename, jobdir,
                     reduce_tasks)
             tasks.push_todo(Assignment(map_task))
+            tasks.map_tasks_remaining += 1
 
         # Create Reduce Tasks:
         for taskid in xrange(op.reduce_tasks):
@@ -147,6 +148,7 @@ class ParallelJob(Job):
 
             print "Active Tasks:", len(tasks.active)
             print "Unassigned Tasks:", len(tasks.todo)
+            print "Map Tasks Remaining:", tasks.map_tasks_remaining
 
         for slave in slaves.slave_list():
             slave.quit()
@@ -191,8 +193,6 @@ class Supervisor(object):
         """Add a new assignment that needs to be completed."""
         from heapq import heappush
         heappush(self.todo, assignment)
-        if assignment.map:
-            self.map_tasks_remaining += 1
 
     def pop_todo(self):
         """Pop the next available assignment."""

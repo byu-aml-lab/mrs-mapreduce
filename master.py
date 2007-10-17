@@ -27,6 +27,7 @@
 
 MASTER_PING_INTERVAL = 5.0
 
+# TODO: The master should do cookie checks with every incoming RPC call.
 
 class MasterInterface(object):
     """Public XML-RPC Interface
@@ -46,26 +47,34 @@ class MasterInterface(object):
 
         Returns -1 if the signin is rejected.
         """
-        # TODO: make the slave id be the entry in the slaves list.
-        next_id = self.slaves.next_id()
-        slave = RemoteSlave(next_id, host, slave_port, cookie)
-        self.slaves.add_slave(slave)
-        return next_id
+        slave = self.slaves.new_slave(host, slave_port, cookie)
+        if slave is None:
+            return -1
+        else:
+            return slave.id
 
     def ready(self, slave_id, cookie, **kwds):
         """Slave is ready for work."""
-        slave = self.slaves.get_slave(cookie)
-        self.slaves.push_idle(slave)
-        self.slaves.activity.set()
-        return True
+        slave = self.slaves.get_slave(slave_id)
+        if slave is not None:
+            self.slaves.push_idle(slave)
+            self.slaves.activity.set()
+            return True
+        else:
+            print "In ready(), slave with id %s not found." % slave_id
+            return False
 
-    def done(self, cookie, **kwds):
+    def done(self, slave_id, cookie, **kwds):
         """Slave is done with whatever it was working on.
         """
-        slave = self.slaves.get_slave(cookie)
-        self.slaves.add_done(slave)
-        slave.update_timestamp()
-        return True
+        slave = self.slaves.get_slave(slave_id)
+        if slave is not None:
+            self.slaves.add_done(slave)
+            slave.update_timestamp()
+            return True
+        else:
+            print "In done(), slave with id %s not found." % slave_id
+            return False
 
     # TODO: Find out which slave is pinging us and update_timestamp().
     def ping(self, **kwds):
@@ -142,63 +151,61 @@ class Slaves(object):
         import threading
         self.activity = threading.Event()
 
-        self._slaves = {}
+        self._slaves = []
         self._idle_slaves = []
         self._done_slaves = []
-        self._next_id = 0
 
         self._lock = threading.Lock()
         self._idle_sem = threading.Semaphore()
 
-    def next_id(self):
-        """Get the next slave id."""
-        # TODO: make the slave id be the entry in the slaves list.
-        self._lock.acquire()
-        value = self._next_id
-        self._next_id += 1
-        self._lock.release()
-        return value
-
-    def get_slave(self, cookie, host=None):
+    def get_slave(self, slave_id):
         """Find the slave associated with the given cookie.
         """
-        return self._slaves[cookie]
+        if slave_id >= len(self._slaves):
+            return None
+        else:
+            return self._slaves[slave_id]
 
     def slave_list(self):
-        """Get a snapshot of the current slaves.
-        """
+        """Get a list of current slaves (_not_ a table keyed by slave_id)."""
         self._lock.acquire()
-        lst = self._slaves.values()
+        lst = [slave for slave in self._slaves if slave is not None]
         self._lock.release()
         return lst
 
-    def add_slave(self, slave):
-        """Add a new slave.
+    def new_slave(self, host, slave_port, cookie):
+        """Add and return a new slave.
 
-        It will not be added to the idle queue until push_idle is called.
+        Also set slave.id for the new slave.  Note that the slave will not be
+        added to the idle queue until push_idle is called.
         """
         self._lock.acquire()
-        self._slaves[slave.cookie] = slave
+        slave_id = len(self._slaves)
+        slave = RemoteSlave(slave_id, host, slave_port, cookie)
+        self._slaves.append(slave)
         self._lock.release()
+        return slave
 
     def remove_slave(self, slave):
         """Remove a slave, whether it is busy or idle.
 
         Presumably, the slave has stopped responding.
         """
+        # TODO: Should we allow the slave to report in again later if it
+        # really is still alive?
         self._lock.acquire()
         if slave in self._idle_slaves:
             # Note that we don't decrement the semaphore.  Tough luck for the
             # sap that thinks the list has more entries than it does.
             self._idle_slaves.remove(slave)
-        del self._slaves[slave.cookie]
+        self._slaves[slave.id] = None
         self._lock.release()
 
     def push_idle(self, slave):
         """Set a slave as idle.
         """
         self._lock.acquire()
-        if slave.cookie not in self._slaves:
+        if slave.id >= len(self._slaves) or self._slaves[slave.id] is None:
             self._lock.release()
             raise RuntimeError("Slave does not exist!")
         if slave not in self._idle_slaves:
