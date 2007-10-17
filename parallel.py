@@ -91,16 +91,19 @@ class ParallelJob(Job):
             os.mkdir(interm_dir(jobdir, i))
 
         # Create Map Tasks:
+        map_stage = Stage()
         for taskid, filename in enumerate(self.inputs):
             map_task = MapTask(taskid, op.mrs_prog, filename, jobdir,
                     reduce_tasks)
-            tasks.push_todo(Assignment(map_task))
-            tasks.map_tasks_remaining += 1
+            map_stage.push_todo(Assignment(map_task))
+        tasks.stages.append(map_stage)
 
         # Create Reduce Tasks:
+        reduce_stage = Stage()
         for taskid in xrange(op.reduce_tasks):
             reduce_task = ReduceTask(taskid, op.mrs_prog, self.outdir, jobdir)
-            tasks.push_todo(Assignment(reduce_task))
+            reduce_stage.push_todo(Assignment(reduce_task))
+        tasks.stages.append(reduce_stage)
 
         # Drive Slaves:
         while not tasks.job_complete():
@@ -108,9 +111,6 @@ class ParallelJob(Job):
             slaves.activity.clear()
 
             now = datetime.utcnow()
-
-            # TODO: check for done slaves!
-            # slaves.pop_done()
 
             tasks.check_done()
             tasks.make_assignments()
@@ -124,9 +124,7 @@ class ParallelJob(Job):
                 # Try to make all new assignments:
                 tasks.make_assignments()
 
-            print "Active Tasks:", len(tasks.active)
-            print "Unassigned Tasks:", len(tasks.todo)
-            print "Map Tasks Remaining:", tasks.map_tasks_remaining
+            tasks.print_status()
 
         for slave in slaves.slave_list():
             slave.quit()
@@ -150,22 +148,16 @@ class Assignment(object):
             # both map or both reduce: make this more complex later:
             return 0
 
+class Stage(object):
+    """Mrs Stage (Map Stage or Reduce Stage)
 
-class Supervisor(object):
-    """Keep track of tasks and workers.
-
-    Initialize with a Slaves object.
+    The stage describes the dependency structure for a whole set of tasks.
     """
-    def __init__(self, slaves):
+    # TODO: allow stages to be a dependency graph instead of a queue.
+    def __init__(self):
         self.todo = []
         self.active = []
-        self.completed = []
-
-        self.assignments = {}
-        self.slaves = slaves
-
-        # For now, you can't start a reduce task until all maps are done:
-        self.map_tasks_remaining = 0
+        self.done = []
 
     def push_todo(self, assignment):
         """Add a new assignment that needs to be completed."""
@@ -174,16 +166,50 @@ class Supervisor(object):
 
     def pop_todo(self):
         """Pop the next available assignment."""
-        from heapq import heappop
-        if self.todo and (self.todo[0].map or self.map_tasks_remaining == 0):
+        if self.todo:
+            from heapq import heappop
             return heappop(self.todo)
         else:
             return None
 
-    def set_active(self, assignment):
-        """Move an assignment from the todo queue and to the active list."""
-        from heapq import heappush
+    def add_active(self, assignment):
+        """Add an assignment to the active list."""
         self.active.append(assignment)
+
+    def print_status(self):
+        active = len(self.active)
+        todo = len(self.todo)
+        done = len(self.done)
+        total = active + todo + done
+        print 'Current Stage.  Active: %s; Complete: %s/%s' % (active, done,
+                total)
+
+class Supervisor(object):
+    """Keep track of tasks and workers.
+
+    Initialize with a Slaves object.
+    """
+    def __init__(self, slaves):
+        self.stages = []
+        self.completed = []
+
+        self.assignments = {}
+        self.slaves = slaves
+
+    def print_status(self):
+        if self.stages:
+            self.stages[0].print_status()
+
+    def check_stages(self):
+        """See if any stages have finished so a new one can start running.
+
+        For now, we assume that only one stage can run at a time, and that
+        each stage is dependent on all previous ones.
+        """
+        current = self.stages[0]
+        if not (current.todo or current.active):
+            self.stages.remove(current)
+            self.completed.append(current)
 
     def assign(self, slave):
         """Assign a task to the given slave.
@@ -193,11 +219,15 @@ class Supervisor(object):
         """
         if slave.assignment is not None:
             raise RuntimeError
-        next = self.pop_todo()
+        if self.stages:
+            current_stage = self.stages[0]
+            next = current_stage.pop_todo()
+        else:
+            next = None
         if next is not None:
             slave.assign(next)
             next.workers.append(slave)
-            self.set_active(next)
+            current_stage.add_active(next)
         return next
 
     def remove_slave(self, slave):
@@ -211,8 +241,9 @@ class Supervisor(object):
             return
         assignment.workers.remove(slave)
         if not assignment.workers:
-            self.active.remove(assignment)
-            self.push_todo(assignment)
+            current_stage = self.stages[0]
+            current_stage.active.remove(assignment)
+            current_stage.push_todo(assignment)
 
     def check_done(self):
         """Check for slaves that have completed their assignments.
@@ -221,15 +252,15 @@ class Supervisor(object):
             slave = self.slaves.pop_done()
             if slave is None:
                 return
+            current_stage = self.stages[0]
 
             assignment = slave.assignment
-            if assignment.map:
-                self.map_tasks_remaining -= 1
-            self.active.remove(assignment)
-            self.completed.append(assignment)
+            current_stage.active.remove(assignment)
+            current_stage.done.append(assignment)
 
             slave.assignment = None
             self.slaves.push_idle(slave)
+            self.check_stages()
 
     def make_assignments(self):
         """Go through the slaves list and make any possible task assignments.
@@ -244,7 +275,7 @@ class Supervisor(object):
                 return
 
     def job_complete(self):
-        if self.todo or self.active:
+        if self.stages:
             return False
         else:
             return True
