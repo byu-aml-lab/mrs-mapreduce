@@ -132,6 +132,7 @@ class Slaves(object):
         self._slaves = []
         self._idle_slaves = []
         self._done_slaves = []
+        self._gone_slaves = []
 
         self._lock = threading.Lock()
         self._idle_sem = threading.Semaphore()
@@ -220,12 +221,28 @@ class Slaves(object):
 
     def pop_done(self):
         self._lock.acquire()
-        try:
-            done_slave = self._done_slaves.pop()
-        except IndexError:
-            done_slave = None
+        if self._done_slaves:
+            slave = self._done_slaves.pop()
+        else:
+            slave = None
         self._lock.release()
-        return done_slave
+        return slave
+
+    def add_gone(self, slave):
+        self._lock.acquire()
+        self._gone_slaves.append(slave)
+        self._lock.release()
+
+        self.activity.set()
+
+    def pop_gone(self):
+        self._lock.acquire()
+        if self._gone_slaves:
+            slave = self._gone_slaves.pop()
+        else:
+            slave = None
+        self._lock.release()
+        return slave
 
 
 if __name__ == '__main__':

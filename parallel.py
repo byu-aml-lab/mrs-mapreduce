@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
-WAIT_LIMIT = 2.0
+MAIN_LOOP_WAIT = 2.0
 SOCKET_TIMEOUT = 1.0
+PING_LOOP_WAIT = 1.0
 
-import socket
+import socket, threading
 from mapreduce import Job, MapTask, ReduceTask, interm_dir, interm_file
 
 # NOTE: This is a _global_ setting:
@@ -71,7 +72,6 @@ class ParallelJob(Job):
         import sys, os
         import formats, master, rpc
         from tempfile import mkstemp, mkdtemp
-        from datetime import datetime
 
         slaves = master.Slaves()
         tasks = Supervisor(slaves)
@@ -82,6 +82,10 @@ class ParallelJob(Job):
         rpc_thread.start()
         port = rpc_thread.server.socket.getsockname()[1]
         print >>sys.stderr, "Listening on port %s" % port
+
+        # Start pinging thread
+        ping_thread = PingThread(slaves)
+        ping_thread.start()
 
         # Prep:
         try_makedirs(self.outdir)
@@ -107,28 +111,49 @@ class ParallelJob(Job):
 
         # Drive Slaves:
         while not tasks.job_complete():
-            slaves.activity.wait(WAIT_LIMIT)
+            slaves.activity.wait(MAIN_LOOP_WAIT)
             slaves.activity.clear()
 
-            now = datetime.utcnow()
-
+            tasks.check_gone()
             tasks.check_done()
             tasks.make_assignments()
-
-            for slave in slaves.slave_list():
-                # Ping the next slave:
-                if not slave.alive(now):
-                    print >>sys.stderr, "Slave not responding."
-                    tasks.remove_slave(slave)
-
-                # Try to make all new assignments:
-                tasks.make_assignments()
-
             tasks.print_status()
 
         for slave in slaves.slave_list():
             slave.quit()
 
+
+class PingThread(threading.Thread):
+    """Occasionally ping slaves that need a little extra attention."""
+
+    def __init__(self, slaves, **kwds):
+        threading.Thread.__init__(self, **kwds)
+        # Die when all other non-daemon threads have exited:
+        self.setDaemon(True)
+        self.slaves = slaves
+
+    @classmethod
+    def seconds(cls, delta):
+        return ((delta.days * 24 * 3600) + delta.seconds +
+                (delta.microseconds / 1000000.0))
+
+    def run(self):
+        from datetime import datetime
+        import time
+        now = datetime.utcnow()
+
+        while True:
+            last = now
+            for slave in self.slaves.slave_list():
+                if not slave.alive(now):
+                    import sys
+                    print >>sys.stderr, "Slave not responding."
+                    self.slaves.add_gone(slave)
+                    self.slaves.activity.set()
+            now = datetime.utcnow()
+            delta = self.seconds(now - last)
+            if delta < PING_LOOP_WAIT:
+                time.sleep(PING_LOOP_WAIT - delta)
 
 class Assignment(object):
     def __init__(self, task):
@@ -139,14 +164,9 @@ class Assignment(object):
         self.done = False
         self.workers = []
 
-    def __cmp__(self, other):
-        if self.map and other.reduce:
-            return -1
-        elif self.reduce and other.map:
-            return 1
-        else:
-            # both map or both reduce: make this more complex later:
-            return 0
+    # At some point, this function should define priority of tasks:
+    #def __lt__(self, other):
+        #return False
 
 class Stage(object):
     """Mrs Stage (Map Stage or Reduce Stage)
@@ -239,7 +259,10 @@ class Supervisor(object):
         assignment = slave.assignment
         if not assignment:
             return
-        assignment.workers.remove(slave)
+        try:
+            assignment.workers.remove(slave)
+        except ValueError:
+            print "Slave wasn't in the worker list.  Is this a problem?"
         if not assignment.workers:
             current_stage = self.stages[0]
             current_stage.active.remove(assignment)
@@ -261,6 +284,15 @@ class Supervisor(object):
             slave.assignment = None
             self.slaves.push_idle(slave)
             self.check_stages()
+
+    def check_gone(self):
+        """Check for slaves that have disappeared.
+        """
+        while True:
+            slave = self.slaves.pop_gone()
+            if slave is None:
+                return
+            self.remove_slave(slave)
 
     def make_assignments(self):
         """Go through the slaves list and make any possible task assignments.
