@@ -1,23 +1,24 @@
 #!/usr/bin/env python
 
 import formats
-from mapreduce import Job, mrs_map, mrs_reduce
+from mapreduce import Job, mrs_reduce, MapTask, ReduceTask, interm_dir
+from util import try_makedirs
 
-def run_posix(mrs_prog, inputs, output, options):
+def run_mockparallel(mrs_prog, inputs, output, options):
     map_tasks = options.map_tasks
+    reduce_tasks = options.reduce_tasks
     if map_tasks == 0:
         map_tasks = len(inputs)
     if reduce_tasks == 0:
         reduce_tasks = 1
 
-    if options.map_tasks != len(inputs):
+    if map_tasks != len(inputs):
         raise NotImplementedError("For now, the number of map tasks "
                 "must equal the number of input files.")
 
     from mrs.mapreduce import Operation
-    op = Operation(mrs_prog, map_tasks=map_tasks,
-            reduce_tasks=options.reduce_tasks)
-    mrsjob = POSIXJob(inputs, output, options.shared)
+    op = Operation(mrs_prog, map_tasks=map_tasks, reduce_tasks=reduce_tasks)
+    mrsjob = MockParallelJob(inputs, output, options.shared)
     mrsjob.operations = [op]
     mrsjob.run()
     return 0
@@ -77,87 +78,56 @@ class SerialJob(Job):
         output_file.close()
 
 
-class POSIXJob(Job):
+class MockParallelJob(Job):
     """MapReduce execution on POSIX shared storage, such as NFS
     
     Specify a directory located in shared storage which can be used as scratch
     space.
     """
-    def __init__(self, inputs, output_dir, shared_dir, reduce_tasks=1, **kwds):
+    def __init__(self, inputs, outdir, shared_dir, **kwds):
         Job.__init__(self, **kwds)
         self.inputs = inputs
-        self.output_dir = output_dir
+        self.outdir = outdir
         self.shared_dir = shared_dir
-        self.partition = default_partition
 
     def run(self):
-        import os
-        from tempfile import mkstemp, mkdtemp
-
+        ################################################################
+        # TEMPORARY LIMITATIONS
         if len(self.operations) != 1:
             raise NotImplementedError("Requires exactly one operation.")
-        operation = self.operations[0]
+        op = self.operations[0]
 
-        map_tasks = operation.map_tasks
+        map_tasks = op.map_tasks
         if map_tasks != len(self.inputs):
             raise NotImplementedError("Requires exactly 1 map_task per input.")
 
-        reduce_tasks = operation.reduce_tasks
+        reduce_tasks = op.reduce_tasks
+        ################################################################
 
-        # PREP
+        import sys, os
+        from tempfile import mkstemp, mkdtemp
+
+        # Prep:
+        try_makedirs(self.outdir)
+        try_makedirs(self.shared_dir)
         jobdir = mkdtemp(prefix='mrs.job_', dir=self.shared_dir)
+        for i in xrange(reduce_tasks):
+            os.mkdir(interm_dir(jobdir, i))
 
-        interm_path = os.path.join(jobdir, 'interm_')
-        interm_dirs = [interm_path + str(i) for i in xrange(reduce_tasks)]
-        for name in interm_dirs:
-            os.mkdir(name)
+        # Create Map Tasks:
+        tasks = []
+        for taskid, filename in enumerate(self.inputs):
+            map_task = MapTask(taskid, op.mrs_prog, filename, jobdir,
+                    reduce_tasks)
+            tasks.append(map_task)
 
-        output_dir = os.path.join(jobdir, 'output')
-        os.mkdir(output_dir)
+        # Create Reduce Tasks:
+        for taskid in xrange(op.reduce_tasks):
+            reduce_task = ReduceTask(taskid, op.mrs_prog, self.outdir, jobdir)
+            tasks.append(reduce_task)
 
+        for task in tasks:
+            task.run()
 
-        # MAP PHASE
-        ## still serial
-        for mapper_id, filename in enumerate(self.inputs):
-            input_file = operation.input_format(open(filename))
-            # create a new interm_name for each reducer
-            interm_filenames = [os.path.join(d, 'from_%s' % mapper_id)
-                    for d in interm_dirs]
-            interm_files = [formats.HexFile(open(name, 'w'))
-                    for name in interm_filenames]
-
-            map(operation.mapper, input_file, interm_files,
-                    partition=self.partition)
-
-            input_file.close()
-            for f in interm_files:
-                f.close()
-
-        for reducer_id in xrange(operation.reduce_tasks):
-            # SORT PHASE
-            interm_directory = interm_path + str(reducer_id)
-            fd, sorted_name = mkstemp(prefix='mrs.sorted_')
-            os.close(fd)
-            interm_filenames = [os.path.join(interm_directory, s)
-                    for s in os.listdir(interm_directory)]
-            formats.hexfile_sort(interm_filenames, sorted_name)
-
-            # REDUCE PHASE
-            sorted_file = formats.HexFile(open(sorted_name))
-            basename = 'reducer_%s' % reducer_id
-            output_name = os.path.join(self.output_dir, basename)
-            output_file = operation.output_format(open(output_name, 'w'))
-
-            reduce(operation.reducer, sorted_file, output_file)
-
-            sorted_file.close()
-            output_file.close()
-
-        # CLEANUP
-
-        #if not debug:
-        #    import os
-        #    os.unlink(interm_name)
-        #    os.unlink(sorted_name)
 
 # vim: et sw=4 sts=4
