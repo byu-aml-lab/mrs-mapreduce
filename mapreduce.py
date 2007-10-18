@@ -170,7 +170,8 @@ def grouped_read(input_file):
     This is very similar to itertools.groupby, except that we assume that the
     input_file is sorted, and we assume key-value pairs.
     """
-    input = input_file.next()
+    input_itr = iter(input_file)
+    input = input_itr.next()
     next_pair = list(input)
 
     def subiterator():
@@ -180,7 +181,7 @@ def grouped_read(input_file):
         while True:
             yield value
             try:
-                input = input_file.next()
+                input = input_itr.next()
             except StopIteration:
                 next_pair[0] = None
                 return

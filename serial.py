@@ -61,10 +61,10 @@ class SerialJob(Job):
         input = self.inputs[0]
 
         # MAP PHASE
+        from itertools import starmap
         input_file = formats.TextFile(open(input))
-        def mapper(x):
-            return mrs_prog.mapper(*x)
-        interm = map(mapper, input_file)
+        map_itr = starmap(mrs_prog.mapper, input_file)
+        interm = [item for subitr in map_itr for item in subitr]
         input_file.close()
 
         # SORT PHASE
@@ -72,7 +72,7 @@ class SerialJob(Job):
         interm.sort(key=operator.itemgetter(0))
 
         # REDUCE PHASE
-        output_file = operation.output_format(open(output_name, 'w'))
+        output_file = operation.output_format(open(self.output, 'w'))
         mrs_reduce(mrs_prog.reducer, interm, output_file)
         output_file.close()
 
