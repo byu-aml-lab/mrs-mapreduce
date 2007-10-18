@@ -27,7 +27,8 @@ SOCKET_TIMEOUT = 1.0
 PING_LOOP_WAIT = 1.0
 
 import socket, threading
-from mapreduce import Job, MapTask, ReduceTask, interm_dir, interm_file
+from mapreduce import Job, MapTask, ReduceTask, interm_dir
+from util import try_makedirs
 
 # NOTE: This is a _global_ setting:
 socket.setdefaulttimeout(SOCKET_TIMEOUT)
@@ -53,16 +54,6 @@ def run_master(mrs_prog, inputs, output, options):
     mrsjob.operations = [op]
     mrsjob.run()
     return 0
-
-def try_makedirs(path):
-    """Do the equivalent of mkdir -p."""
-    import os
-    try:
-        os.makedirs(path)
-    except OSError, e:
-        import errno
-        if e.errno != errno.EEXIST:
-            raise
 
 
 class ParallelJob(Job):

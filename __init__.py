@@ -84,15 +84,15 @@ def main(mapper, reducer, partition=None):
         from slave import run_slave
         subcommand_function = run_slave
         subcommand_args = (mrs_prog, uri, options)
-    elif subcommand in ('posix', 'serial'):
+    elif subcommand in ('mockparallel', 'serial'):
         if len(args) < 3:
             parser.error("Requires inputs and an output.")
         inputs = args[1:-1]
         output = args[-1]
         subcommand_args = (mrs_prog, inputs, output, options)
-        if subcommand == 'posix':
-            from serial import run_posix
-            subcommand_function = run_posix
+        if subcommand == 'mockparallel':
+            from serial import run_mockparallel
+            subcommand_function = run_mockparallel
         elif subcommand == 'serial':
             from serial import run_serial
             subcommand_function = run_serial
