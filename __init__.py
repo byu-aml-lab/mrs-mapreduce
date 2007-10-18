@@ -21,8 +21,13 @@ def main(mapper, reducer, partition=None):
     from optparse import OptionParser
     import sys, os
 
-    usage = 'usage: %prog master-type [args] input1 [input2 ...] output\n' \
-            '       %prog slave [args] server_uri'
+    usage = \
+"""usage: %prog IMPLEMENTATION [OPTIONS] INPUT1 [INPUT2 ...] OUTPUT
+       %prog slave [ARGS] SERVER_URI
+
+IMPLEMENTATION may be serial, master, or mockparallel.  A slave will attempt
+to connect to a master listening at SERVER_URI.
+"""
     version = 'Mrs %s' % VERSION
 
     parser = OptionParser(usage=usage)
