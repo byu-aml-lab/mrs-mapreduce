@@ -133,10 +133,14 @@ class RemoteSlave(object):
         if delta < ping_delta:
             return True
         else:
+            #timestamp = datetime.datetime.utcnow()
             try:
                 alive = self.slave_rpc.ping()
-            except:
+            except Exception, e:
+                print 'Ping failed with exception:', e
                 alive = False
+            #elapsed = datetime.datetime.utcnow() - timestamp
+            #print 'Elapsed time for ping (alive=%s):' % alive, elapsed
             if alive:
                 self.update_timestamp()
             return alive
