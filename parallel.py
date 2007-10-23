@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 MAIN_LOOP_WAIT = 2.0
-SOCKET_TIMEOUT = 1.0
+SOCKET_TIMEOUT = 5.0
 PING_LOOP_WAIT = 1.0
 
 import socket, threading
