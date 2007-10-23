@@ -36,6 +36,10 @@ def fileformat(filename):
     extension = os.path.splitext(filename)[1]
     return format_map.get(extension, default_format)
 
+def openfile(filename):
+    input_format = fileformat(filename)
+    return input_format(open(filename))
+
 __all__ = ['TextFile', 'HexFile', 'hexfile_sort', 'fileformat']
 
 # vim: et sw=4 sts=4

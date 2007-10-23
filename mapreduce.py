@@ -108,8 +108,7 @@ class MapTask(threading.Thread):
     def run(self):
         import os
         import formats
-        input_format = formats.fileformat(self.input)
-        input_file = input_format(open(self.input))
+        input_file = formats.openfile(self.input)
 
         # create a new interm_name for each reducer
         interm_dirs = [interm_dir(self.jobdir, i)
