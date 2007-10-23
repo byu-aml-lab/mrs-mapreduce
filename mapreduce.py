@@ -24,8 +24,8 @@ class Operation(object):
         self.reduce_tasks = reduce_tasks
 
         if output_format is None:
-            import formats
-            self.output_format = formats.TextFile
+            import io
+            self.output_format = io.TextFile
         else:
             self.output_format = output_format
 
@@ -85,15 +85,15 @@ class MapTask(threading.Thread):
 
     def run(self):
         import os
-        import formats
-        input_file = formats.openfile(self.input)
+        import io
+        input_file = io.openfile(self.input)
 
         # create a new interm_name for each reducer
         interm_dirs = [interm_dir(self.jobdir, i)
                 for i in xrange(self.reduce_tasks)]
         interm_filenames = [os.path.join(d, 'from_%s.hexfile' % self.taskid)
                 for d in interm_dirs]
-        interm_files = [formats.HexFile(open(name, 'w'))
+        interm_files = [io.HexFile(open(name, 'w'))
                 for name in interm_filenames]
 
         mrs_map(self.mrs_prog.mapper, input_file, interm_files,
@@ -114,7 +114,7 @@ class ReduceTask(threading.Thread):
         self.jobdir = jobdir
 
     def run(self):
-        import formats
+        import io
         import os, tempfile
 
         # SORT PHASE
@@ -122,14 +122,14 @@ class ReduceTask(threading.Thread):
         os.close(fd)
         indir = interm_dir(self.jobdir, self.taskid)
         interm_names = [os.path.join(indir, s) for s in os.listdir(indir)]
-        formats.hexfile_sort(interm_names, sorted_name)
+        io.hexfile_sort(interm_names, sorted_name)
 
         # REDUCE PHASE
-        sorted_file = formats.HexFile(open(sorted_name))
+        sorted_file = io.HexFile(open(sorted_name))
         basename = 'reducer_%s' % self.taskid
         output_name = os.path.join(self.outdir, basename)
         #output_file = op.output_format(open(output_name, 'w'))
-        output_file = formats.TextFile(open(output_name, 'w'))
+        output_file = io.TextFile(open(output_name, 'w'))
 
         mrs_reduce(self.mrs_prog.reducer, sorted_file, output_file)
 

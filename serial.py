@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import formats
+import io
 from mapreduce import Job, mrs_reduce, MapTask, ReduceTask, interm_dir
 from util import try_makedirs
 
@@ -63,7 +63,7 @@ class SerialJob(Job):
 
         # MAP PHASE
         from itertools import starmap
-        input_file = formats.TextFile(open(input))
+        input_file = io.openfile(input)
         map_itr = starmap(mrs_prog.mapper, input_file)
         interm = [item for subitr in map_itr for item in subitr]
         input_file.close()
