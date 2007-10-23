@@ -56,7 +56,7 @@ to connect to a master listening at SERVER_URI.
     parser.add_option('-p', '--port', dest='port', type='int',
             help='RPC Port for incoming requests')
     parser.add_option('--shared', dest='shared',
-            help='Shared storage area (posix only)')
+            help='Shared area for temporary storage (parallel only)')
     parser.add_option('-M', '--map-tasks', dest='map_tasks', type='int',
             help='Number of map tasks (parallel only)')
     parser.add_option('-R', '--reduce-tasks', dest='reduce_tasks', type='int',
