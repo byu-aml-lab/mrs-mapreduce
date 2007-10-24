@@ -60,17 +60,15 @@ class Job(threading.Thread):
         raise NotImplementedError(
                 "I think you should have instantiated a subclass of Job.")
 
-def interm_dir(basedir, reduce_id):
-    """Pathname for the directory for intermediate output to reduce_id.
+def map_filename(taskid):
+    """Filename for the directory for intermediate output from taskid.
     """
-    import os
-    return os.path.join(basedir, 'interm_%s' % reduce_id)
+    return "map_%s" % taskid
 
-def interm_file(basedir, map_id, reduce_id):
-    """Pathname for intermediate output from map_id to reduce_id.
+def reduce_filename(taskid):
+    """Filename for the directory for output from taskid.
     """
-    import os
-    return os.path.join(basedir, 'interm_%s' % reduce_id, 'from_%s' % map_id)
+    return "reduce_%s" % taskid
 
 
 class MapTask(threading.Thread):
@@ -84,24 +82,20 @@ class MapTask(threading.Thread):
         self.reduce_tasks = reduce_tasks
 
     def run(self):
-        import os
+        import os, tempfile
         import io
         input_file = io.openfile(self.input)
 
-        # create a new interm_name for each reducer
-        interm_dirs = [interm_dir(self.jobdir, i)
-                for i in xrange(self.reduce_tasks)]
-        interm_filenames = [os.path.join(d, 'from_%s.hexfile' % self.taskid)
-                for d in interm_dirs]
-        interm_files = [io.HexFile(open(name, 'w'))
-                for name in interm_filenames]
+        subdirbase = map_filename(self.taskid)
+        directory = tempfile.mkdtemp(dir=self.jobdir, prefix=subdirbase)
+        output = io.Output(self.mrs_prog.partition, self.reduce_tasks,
+                directory=directory)
 
-        mrs_map(self.mrs_prog.mapper, input_file, interm_files,
-                partition=self.mrs_prog.partition)
+        output.collect(mrs_map(self.mrs_prog.mapper, input_file))
+        output.savetodisk()
 
         input_file.close()
-        for f in interm_files:
-            f.close()
+        output.close()
 
 
 # TODO: allow configuration of output format
@@ -112,56 +106,43 @@ class ReduceTask(threading.Thread):
         self.mrs_prog = mrs_prog
         self.outdir = outdir
         self.jobdir = jobdir
+        self.inputs = []
 
     def run(self):
         import io
         import os, tempfile
+        from itertools import chain
 
         # SORT PHASE
-        fd, sorted_name = tempfile.mkstemp(prefix='mrs.sorted_')
-        os.close(fd)
-        indir = interm_dir(self.jobdir, self.taskid)
-        interm_names = [os.path.join(indir, s) for s in os.listdir(indir)]
-        io.hexfile_sort(interm_names, sorted_name)
+        inputfiles = [io.openfile(filename) for filename in self.inputs]
+        all_input = sorted(chain(*inputfiles))
+
+        # Do the following if external sort is necessary (i.e., the input
+        # files are too big to fit in memory):
+        #fd, sorted_name = tempfile.mkstemp(prefix='mrs.sorted_')
+        #os.close(fd)
+        #io.hexfile_sort(interm_names, sorted_name)
 
         # REDUCE PHASE
-        sorted_file = io.HexFile(open(sorted_name))
-        basename = 'reducer_%s' % self.taskid
-        output_name = os.path.join(self.outdir, basename)
-        #output_file = op.output_format(open(output_name, 'w'))
-        output_file = io.TextFile(open(output_name, 'w'))
+        subdirbase = reduce_filename(self.taskid)
+        directory = tempfile.mkdtemp(dir=self.outdir, prefix=subdirbase)
+        output = io.Output(None, 1, directory=directory)
 
-        mrs_reduce(self.mrs_prog.reducer, sorted_file, output_file)
+        output.collect(mrs_reduce(self.mrs_prog.reducer, all_input))
 
-        sorted_file.close()
-        output_file.close()
+        for f in inputfiles:
+            f.close()
+        output.close()
 
 
 def default_partition(x, n):
     return hash(x) % n
 
-def mrs_map(mapper, input_file, output_files, partition=None):
-    """Perform a map from the entries in input_file into output_files.
-
-    If partition is None, output_files should be a single file.  Otherwise,
-    output_files is a list, and partition is a function that takes a key and
-    returns the index of the file in output_files to which that key should be
-    written.
-    """
-    if partition is not None:
-        N = len(output_files)
-    while True:
-        try:
-            input = input_file.next()
-            if partition is None:
-                for key, value in mapper(*input):
-                    output_files.write(key, value)
-            else:
-                for key, value in mapper(*input):
-                    index = partition(key, N)
-                    output_files[index].write(key, value)
-        except StopIteration:
-            return
+def mrs_map(mapper, input):
+    """Perform a map from the entries in input."""
+    for inkey, invalue in input:
+        for key, value in mapper(inkey, invalue):
+            yield (key, value)
 
 def grouped_read(input_file):
     """An iterator that yields key-iterator pairs over a sorted input_file.
@@ -195,14 +176,14 @@ def grouped_read(input_file):
     raise StopIteration
 
 
-def mrs_reduce(reducer, input_file, output_file):
-    """Perform a reduce from the entries in input_file into output_file.
+def mrs_reduce(reducer, input):
+    """Perform a reduce from the entries in input into output.
 
     A reducer is an iterator taking a key and an iterator over values for that
     key.  It yields values for that key.
     """
-    for key, iterator in grouped_read(input_file):
+    for key, iterator in grouped_read(input):
         for value in reducer(key, iterator):
-            output_file.write(key, value)
+            yield (key, value)
 
 # vim: et sw=4 sts=4

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import io
-from mapreduce import Job, mrs_reduce, MapTask, ReduceTask, interm_dir
+from mapreduce import Job, mrs_map, mrs_reduce, MapTask, ReduceTask, interm_dir
 from util import try_makedirs
 
 def run_mockparallel(mrs_prog, inputs, output, options):
@@ -57,24 +57,24 @@ class SerialJob(Job):
         operation = self.operations[0]
         mrs_prog = operation.mrs_prog
 
-        if len(self.inputs) != 1:
-            raise NotImplementedError("Requires exactly one input file.")
-        input = self.inputs[0]
-
+        from itertools import chain
         # MAP PHASE
-        from itertools import starmap
-        input_file = io.openfile(input)
-        map_itr = starmap(mrs_prog.mapper, input_file)
-        interm = [item for subitr in map_itr for item in subitr]
-        input_file.close()
+        input_files = [io.openfile(filename) for filename in self.inputs]
+        all_input = chain(*input_files)
+        map_output = mrs_map(mrs_prog.mapper, all_input)
 
         # SORT PHASE
         import operator
-        interm.sort(key=operator.itemgetter(0))
+        interm = sorted(map_output, key=operator.itemgetter(0))
 
         # REDUCE PHASE
         output_file = operation.output_format(open(self.output, 'w'))
-        mrs_reduce(mrs_prog.reducer, interm, output_file)
+        for k, v in mrs_reduce(mrs_prog.reducer, interm):
+            output_file.write(k, v)
+
+        # cleanup
+        for f in input_files:
+            f.close()
         output_file.close()
 
 
