@@ -98,7 +98,6 @@ class Output(object):
     def savetodisk(self):
         """Write out all of the key-value pairs to files."""
         for bucket, filename in self.splits:
-            assert(bool(bucket) == bool(filename))
             if filename is not None:
                 f = openfile(filename, 'w')
                 for key, value in bucket:
