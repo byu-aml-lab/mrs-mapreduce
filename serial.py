@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import io
-from mapreduce import Job, mrs_map, mrs_reduce, MapTask, ReduceTask, interm_dir
+from mapreduce import Job, mrs_map, mrs_reduce, MapTask, ReduceTask
 from util import try_makedirs
 
 def run_mockparallel(mrs_prog, inputs, output, options):
@@ -111,22 +111,29 @@ class MockParallelJob(Job):
         try_makedirs(self.outdir)
         try_makedirs(self.shared_dir)
         jobdir = mkdtemp(prefix='mrs.job_', dir=self.shared_dir)
-        for i in xrange(reduce_tasks):
-            os.mkdir(interm_dir(jobdir, i))
 
         # Create Map Tasks:
-        tasks = []
+        map_list = []
         for taskid, filename in enumerate(self.inputs):
             map_task = MapTask(taskid, op.mrs_prog, filename, jobdir,
                     reduce_tasks)
-            tasks.append(map_task)
+            map_list.append(map_task)
 
         # Create Reduce Tasks:
+        reduce_list = []
         for taskid in xrange(op.reduce_tasks):
             reduce_task = ReduceTask(taskid, op.mrs_prog, self.outdir, jobdir)
-            tasks.append(reduce_task)
+            reduce_list.append(reduce_task)
 
-        for task in tasks:
+        # Run Tasks:
+        for task in map_list:
+            task.run()
+            outputs = task.output.filenames()
+            for i, filename in enumerate(outputs):
+                if filename is not None:
+                    reduce_list[i].inputs.append(filename)
+
+        for task in reduce_list:
             task.run()
 
 

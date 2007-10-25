@@ -63,12 +63,12 @@ class Job(threading.Thread):
 def map_filename(taskid):
     """Filename for the directory for intermediate output from taskid.
     """
-    return "map_%s" % taskid
+    return "map_%s_" % taskid
 
 def reduce_filename(taskid):
     """Filename for the directory for output from taskid.
     """
-    return "reduce_%s" % taskid
+    return "reduce_%s_" % taskid
 
 
 class MapTask(threading.Thread):
@@ -81,26 +81,27 @@ class MapTask(threading.Thread):
         self.jobdir = jobdir
         self.reduce_tasks = reduce_tasks
 
+        import tempfile
+        import io
+        subdirbase = map_filename(self.taskid)
+        directory = tempfile.mkdtemp(dir=self.jobdir, prefix=subdirbase)
+        self.output = io.Output(mrs_prog.partition, reduce_tasks,
+                directory=directory)
+
     def run(self):
-        import os, tempfile
         import io
         input_file = io.openfile(self.input)
 
-        subdirbase = map_filename(self.taskid)
-        directory = tempfile.mkdtemp(dir=self.jobdir, prefix=subdirbase)
-        output = io.Output(self.mrs_prog.partition, self.reduce_tasks,
-                directory=directory)
-
-        output.collect(mrs_map(self.mrs_prog.mapper, input_file))
-        output.savetodisk()
+        self.output.collect(mrs_map(self.mrs_prog.mapper, input_file))
+        self.output.savetodisk()
 
         input_file.close()
-        output.close()
+        self.output.close()
 
 
 # TODO: allow configuration of output format
 class ReduceTask(threading.Thread):
-    def __init__(self, taskid, mrs_prog, outdir, jobdir, **kwds):
+    def __init__(self, taskid, mrs_prog, outdir, jobdir, format='txt', **kwds):
         threading.Thread.__init__(self, **kwds)
         self.taskid = taskid
         self.mrs_prog = mrs_prog
@@ -108,9 +109,14 @@ class ReduceTask(threading.Thread):
         self.jobdir = jobdir
         self.inputs = []
 
+        import io
+        import tempfile
+        subdirbase = reduce_filename(self.taskid)
+        directory = tempfile.mkdtemp(dir=self.outdir, prefix=subdirbase)
+        self.output = io.Output(None, 1, directory=directory, format=format)
+
     def run(self):
         import io
-        import os, tempfile
         from itertools import chain
 
         # SORT PHASE
@@ -124,15 +130,12 @@ class ReduceTask(threading.Thread):
         #io.hexfile_sort(interm_names, sorted_name)
 
         # REDUCE PHASE
-        subdirbase = reduce_filename(self.taskid)
-        directory = tempfile.mkdtemp(dir=self.outdir, prefix=subdirbase)
-        output = io.Output(None, 1, directory=directory)
-
-        output.collect(mrs_reduce(self.mrs_prog.reducer, all_input))
+        self.output.collect(mrs_reduce(self.mrs_prog.reducer, all_input))
+        self.output.savetodisk()
 
         for f in inputfiles:
             f.close()
-        output.close()
+        self.output.close()
 
 
 def default_partition(x, n):
