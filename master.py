@@ -42,6 +42,14 @@ class MasterInterface(object):
         import SimpleXMLRPCServer
         return SimpleXMLRPCServer.list_public_methods(self)
 
+    def whoami(self, host=None, port=None):
+        """Return the host of the connecting client.
+
+        The client can't always tell which IP address they're actually using
+        from the server's perspective.  This solves that problem.
+        """
+        return host
+
     def signin(self, cookie, slave_port, host=None, port=None):
         """Slave reporting for duty.
 
@@ -64,8 +72,11 @@ class MasterInterface(object):
             print "In ready(), slave with id %s not found." % slave_id
             return False
 
-    def done(self, slave_id, cookie, **kwds):
+    # TODO: The slave should be specific about what it finished.
+    def done(self, slave_id, files, cookie, **kwds):
         """Slave is done with whatever it was working on.
+
+        The output is available in the list of files.
         """
         slave = self.slaves.get_slave(slave_id)
         if slave is not None:
@@ -238,9 +249,9 @@ class Slaves(object):
                 break
         return idler
 
-    def add_done(self, slave):
+    def add_done(self, slave, files):
         self._lock.acquire()
-        self._done_slaves.append(slave)
+        self._done_slaves.append((slave, files))
         self._lock.release()
 
         self.activity.set()
@@ -248,11 +259,11 @@ class Slaves(object):
     def pop_done(self):
         self._lock.acquire()
         if self._done_slaves:
-            slave = self._done_slaves.pop()
+            done = self._done_slaves.pop()
         else:
-            slave = None
+            done = None
         self._lock.release()
-        return slave
+        return done
 
     def add_gone(self, slave):
         self._lock.acquire()
@@ -274,9 +285,8 @@ class Slaves(object):
 if __name__ == '__main__':
     # Testing standalone server.
     import rpc
-    instance = MasterInterface()
-    PORT = 8000
-    #PORT = 0
+    instance = MasterInterface(None)
+    PORT = 8080
     server = rpc.new_server(instance, host='127.0.0.1', port=PORT)
     server.serve_forever()
 

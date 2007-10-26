@@ -285,7 +285,7 @@ class Supervisor(object):
         """Check for slaves that have completed their assignments.
         """
         while True:
-            slave = self.slaves.pop_done()
+            slave, files = self.slaves.pop_done()
             if slave is None:
                 return
             current_stage = self.stages[0]
