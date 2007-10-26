@@ -100,6 +100,8 @@ class ParallelJob(Job):
             reduce_stage.push_todo(Assignment(reduce_task))
         tasks.stages.append(reduce_stage)
 
+        map_stage.dependents.append(reduce_stage)
+
         # Drive Slaves:
         while not tasks.job_complete():
             slaves.activity.wait(MAIN_LOOP_WAIT)
@@ -155,9 +157,6 @@ class Assignment(object):
         self.done = False
         self.workers = []
 
-    # At some point, this function should define priority of tasks:
-    #def __lt__(self, other):
-        #return False
 
 class Stage(object):
     """Mrs Stage (Map Stage or Reduce Stage)
@@ -169,6 +168,7 @@ class Stage(object):
         self.todo = []
         self.active = []
         self.done = []
+        self.dependents = None
 
     def push_todo(self, assignment):
         """Add a new assignment that needs to be completed."""
@@ -221,6 +221,12 @@ class Supervisor(object):
         if not (current.todo or current.active):
             self.stages.remove(current)
             self.completed.append(current)
+            for dep in current.dependents:
+                for i, consumer in dep.todo:
+                    for provider in current.done:
+                        interm_file = provider.files[i]
+                        if interm_file:
+                            consumer.task.inputs.append(interm_file)
 
     def assign(self, slave):
         """Assign a task to the given slave.
@@ -259,6 +265,7 @@ class Supervisor(object):
             current_stage.active.remove(assignment)
             current_stage.push_todo(assignment)
 
+    # TODO: what if two slaves finish the same task?
     def check_done(self):
         """Check for slaves that have completed their assignments.
         """
@@ -269,6 +276,7 @@ class Supervisor(object):
             current_stage = self.stages[0]
 
             assignment = slave.assignment
+            assignment.output = files
             current_stage.active.remove(assignment)
             current_stage.done.append(assignment)
 
