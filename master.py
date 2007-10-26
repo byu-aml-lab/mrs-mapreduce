@@ -58,7 +58,7 @@ class MasterInterface(object):
         """
         slave = self.slaves.get_slave(slave_id)
         if slave is not None:
-            self.slaves.add_done(slave)
+            self.slaves.add_done(slave, files)
             slave.update_timestamp()
             return True
         else:
@@ -96,8 +96,8 @@ class RemoteSlave(object):
             self.slave_rpc.start_map(task.taskid, task.input, task.jobdir,
                     task.reduce_tasks, self.cookie)
         elif assignment.reduce:
-            self.slave_rpc.start_reduce(task.taskid, task.outdir, task.jobdir,
-                    self.cookie)
+            self.slave_rpc.start_reduce(task.taskid, task.inputs, task.outdir,
+                    task.jobdir, self.cookie)
         else:
             raise RuntimeError
         self.assignment = assignment
