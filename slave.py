@@ -221,12 +221,13 @@ class Worker(threading.Thread):
             self._cond.release()
 
             task.run()
+            files = task.output.filenames()
 
             self._cond.acquire()
             self._task = None
             self._cond.release()
-            # TODO: notify server that we're done
-            self.master.done(self.slave.id, self.slave.cookie)
+
+            self.master.done(self.slave.id, files, self.slave.cookie)
 
 
 # vim: et sw=4 sts=4
