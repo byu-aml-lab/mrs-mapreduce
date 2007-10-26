@@ -15,13 +15,20 @@ def fileformat(filename):
     extension = os.path.splitext(filename)[1]
     return format_map.get(extension, default_format)
 
-def openfile(filename, mode='r'):
-    """Open a file to be read as a sequence of key-value pairs.
+# TODO: Find a better way to infer the file format.
+def openfile(url, mode='r'):
+    """Open a url or file to be read or written as a list of key-value pairs.
     
     The file format is inferred from the filename.
     """
-    input_format = fileformat(filename)
-    return input_format(open(filename, mode))
+    import urlparse, urllib2
+    parsed_url = urlparse.urlparse(url, 'file')
+    if parsed_url.scheme == 'file':
+        f = open(parsed_url.path, mode)
+    else:
+        f = urllib2.urlopen(url)
+    input_format = fileformat(url)
+    return input_format(f)
 
 
 # TODO: Make Output cache output in memory if it's not so big that it needs
