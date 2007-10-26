@@ -2,6 +2,19 @@
 - logging
 - pass a dict of options from the application to the slaves
 - simplify job specification with an app_spec and job_spec (?)
-- consider merging Supervisor and Slaves into one class
 - improve the way you give a Job its operations list
 - do input splitting
+- use the "Range:" header in HTTP requests as part of the split
+  implementation.
+
+
+########################################################################
+
+Calling C Mappers and Reducers:
+
+Use ctypes and create a callback function: emit.  From C's perspective:
+
+void emit(char *key, char *value);
+
+Pass the C function the key (as a c_char_p), the list of values (probably as a
+char **), and a function pointer to emit.  Or something like that.
