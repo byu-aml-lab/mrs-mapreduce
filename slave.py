@@ -47,9 +47,9 @@ class SlaveInterface(object):
         self.slave.check_cookie(cookie)
         return self.slave.worker.start_map(taskid, input, jobdir, reduce_tasks)
 
-    def start_reduce(self, taskid, output, jobdir, cookie, **kwds):
+    def start_reduce(self, taskid, inputs, output, jobdir, cookie, **kwds):
         self.slave.check_cookie(cookie)
-        return self.slave.worker.start_reduce(taskid, output, jobdir)
+        return self.slave.worker.start_reduce(taskid, inputs, output, jobdir)
 
     def quit(self, cookie, **kwds):
         self.slave.check_cookie(cookie)
@@ -195,7 +195,7 @@ class Worker(threading.Thread):
         self._cond.release()
         return success
 
-    def start_reduce(self, taskid, output, jobdir):
+    def start_reduce(self, taskid, inputs, output, jobdir):
         """Tell this worker to start working on a reduce task.
 
         This will ordinarily be called from some other thread.
@@ -206,6 +206,7 @@ class Worker(threading.Thread):
         if self._task is None:
             self._task = ReduceTask(taskid, self.slave.mrs_prog, output,
                     jobdir)
+            self._task.inputs = inputs
             success = True
             self._cond.notify()
         self._cond.release()

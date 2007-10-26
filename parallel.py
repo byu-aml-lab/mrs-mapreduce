@@ -27,7 +27,7 @@ SOCKET_TIMEOUT = 5.0
 PING_LOOP_WAIT = 1.0
 
 import socket, threading
-from mapreduce import Job, MapTask, ReduceTask, interm_dir
+from mapreduce import Job, MapTask, ReduceTask
 from util import try_makedirs
 
 # NOTE: This is a _global_ setting:
@@ -188,7 +188,7 @@ class Stage(object):
         self.todo = []
         self.active = []
         self.done = []
-        self.dependents = None
+        self.dependents = []
 
     def push_todo(self, assignment):
         """Add a new assignment that needs to be completed."""
@@ -242,7 +242,7 @@ class Supervisor(object):
             self.stages.remove(current)
             self.completed.append(current)
             for dep in current.dependents:
-                for i, consumer in dep.todo:
+                for i, consumer in enumerate(dep.todo):
                     for provider in current.done:
                         interm_file = provider.files[i]
                         if interm_file:
@@ -290,13 +290,14 @@ class Supervisor(object):
         """Check for slaves that have completed their assignments.
         """
         while True:
-            slave, files = self.slaves.pop_done()
-            if slave is None:
+            next_done = self.slaves.pop_done()
+            if next_done is None:
                 return
+            slave, files = next_done
             current_stage = self.stages[0]
 
             assignment = slave.assignment
-            assignment.output = files
+            assignment.files = files
             current_stage.active.remove(assignment)
             current_stage.done.append(assignment)
 
