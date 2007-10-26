@@ -5,7 +5,9 @@
 - improve the way you give a Job its operations list
 - do input splitting
 - use the "Range:" header in HTTP requests as part of the split
-  implementation.
+  implementation.  See also the "urlgrabber" module.  To implement this in the
+  HTTP server, you will have to implement do_GET on its own (see
+  http://techlists.org/archives/programming/pythonlist/2002-02/msg04678.shtml)
 
 
 ########################################################################
