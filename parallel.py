@@ -82,8 +82,6 @@ class ParallelJob(Job):
         try_makedirs(self.outdir)
         try_makedirs(self.shared_dir)
         jobdir = mkdtemp(prefix='mrs.job_', dir=self.shared_dir)
-        for i in xrange(reduce_tasks):
-            os.mkdir(interm_dir(jobdir, i))
 
         # Create Map Tasks:
         map_stage = Stage()

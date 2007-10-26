@@ -38,7 +38,7 @@ class Output(object):
     def __init__(self, partition, n, directory=None, format='hexfile'):
         self.partition = partition
         self.n = n
-        self.splits = [([], None) for i in xrange(n)]
+        self.splits = [([], '') for i in xrange(n)]
         self.format = format
 
         if directory is None:
@@ -68,7 +68,7 @@ class Output(object):
                 split = self.partition(key, self.n)
                 bucket, filename = self.splits[split]
                 bucket.append((key, value))
-                if filename is None:
+                if not filename:
                     self.splits[split] = bucket, self.path(split)
 
     def path(self, index):

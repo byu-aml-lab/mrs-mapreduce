@@ -130,7 +130,7 @@ class MockParallelJob(Job):
             task.run()
             outputs = task.output.filenames()
             for i, filename in enumerate(outputs):
-                if filename is not None:
+                if filename:
                     reduce_list[i].inputs.append(filename)
 
         for task in reduce_list:
