@@ -103,16 +103,18 @@ class MapTask(threading.Thread):
         self.jobdir = jobdir
         self.reduce_tasks = reduce_tasks
 
-        import tempfile
-        import io
-        subdirbase = map_filename(self.taskid)
-        directory = tempfile.mkdtemp(dir=self.jobdir, prefix=subdirbase)
-        self.output = io.Output(mrs_prog.partition, reduce_tasks,
-                directory=directory)
 
     def run(self):
         import io
         input_file = io.openfile(self.input)
+
+        # PREP
+        import tempfile
+        import io
+        subdirbase = map_filename(self.taskid)
+        directory = tempfile.mkdtemp(dir=self.jobdir, prefix=subdirbase)
+        self.output = io.Output(self.mrs_prog.partition, self.reduce_tasks,
+                directory=directory)
 
         self.output.collect(mrs_map(self.mrs_prog.mapper, input_file))
         self.output.savetodisk()
@@ -130,16 +132,20 @@ class ReduceTask(threading.Thread):
         self.outdir = outdir
         self.jobdir = jobdir
         self.inputs = []
-
-        import io
-        import tempfile
-        subdirbase = reduce_filename(self.taskid)
-        directory = tempfile.mkdtemp(dir=self.outdir, prefix=subdirbase)
-        self.output = io.Output(None, 1, directory=directory, format=format)
+        self.output = None
+        self.format = format
 
     def run(self):
         import io
         from itertools import chain
+
+        # PREP
+        import io
+        import tempfile
+        subdirbase = reduce_filename(self.taskid)
+        directory = tempfile.mkdtemp(dir=self.outdir, prefix=subdirbase)
+        self.output = io.Output(None, 1, directory=directory,
+                format=self.format)
 
         # SORT PHASE
         inputfiles = [io.openfile(filename) for filename in self.inputs]
