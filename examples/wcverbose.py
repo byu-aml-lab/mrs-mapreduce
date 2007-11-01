@@ -18,8 +18,8 @@ def reducer(key, value_iter):
 #  - output
 def program(input):
     # TODO: introduce splitting mechanisms (i.e. mrs.Output(mrs.Map()))
-    data1 = mrs.Map(mapper, input)
-    output = mrs.Reduce(reducer, data1)
+    data1 = mrs.DataSet(mapper, input)
+    output = mrs.DataSet(reducer, data1.partition())
     return output
 
 if __name__ == '__main__':

@@ -12,6 +12,26 @@ class Program(object):
         self.reducer = reducer
         self.partition = partition
 
+
+class DataSet(object):
+    """Manage input to or output from a map or reduce operation.
+    
+    The data are evaluated lazily.  A DataSet knows how to generate or
+    regenerate its contents.  It can also decide whether to save the data to
+    permanent storage or to leave them in memory on the slaves.
+    """
+    def __init__(self, op, input):
+        self.op = op
+        self.input = input
+        self.ntasks = None
+        self.done = False
+
+        # TODO: store a mapping from tasks to hosts and a map from hosts to
+        # tasks.  This way you can know where to find data.  You also know
+        # which hosts to restart in case of failure.
+
+
+# This needs to go away:
 class Operation(object):
     """Specifies a map phase followed by a reduce phase.
     
