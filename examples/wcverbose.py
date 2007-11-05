@@ -23,6 +23,6 @@ def program(input):
     return output
 
 if __name__ == '__main__':
-    mrs.main(program)
+    mrs.main(program, mrs.Registry(globals()))
 
 # vim: et sw=4 sts=4

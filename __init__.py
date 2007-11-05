@@ -1,7 +1,13 @@
 #!/usr/bin/env python
+"""MapReduce: a simple implementation (Mrs)
+"""
+
+__all__ = ['main', 'Registry']
 
 VERSION = '0.1-pre'
 DEFAULT_RPC_PORT = 0
+
+from registry import Registry
 
 def main(mapper, reducer, partition=None):
     """Run a MapReduce program.
