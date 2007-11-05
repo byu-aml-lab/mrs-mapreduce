@@ -32,6 +32,14 @@ class Registry(object):
     >>> r['g'] = g
     >>> 'f' in r.names
     False
+    >>> r2 = Registry({'f': f, 'g': g})
+    >>> r2['f'] == f and r2['g'] == g
+    True
+    >>> r3 = Registry({'f': f, 'f': g})
+    >>> r3['f'] == g
+    True
+    >>> f in r3.functions
+    False
     >>>
     """
     def __init__(self, dictionary=None):
@@ -39,7 +47,7 @@ class Registry(object):
         self.functions = {}
 
         if dictionary:
-            for name, function in dictionary.itervalues():
+            for name, function in dictionary.iteritems():
                 self.names[name] = function
                 self.functions[function] = name
 
