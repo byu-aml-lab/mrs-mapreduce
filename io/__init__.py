@@ -22,6 +22,8 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
+__all__ = ['TextFile', 'HexFile', 'hexfile_sort', 'fileformat', 'openfile']
+
 from textfile import TextFile
 from hexfile import HexFile, hexfile_sort
 
@@ -110,7 +112,5 @@ class Output(object):
                 for key, value in bucket:
                     f.write(key, value)
                 f.close()
-
-__all__ = ['TextFile', 'HexFile', 'hexfile_sort', 'fileformat', 'openfile']
 
 # vim: et sw=4 sts=4
