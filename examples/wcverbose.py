@@ -30,6 +30,8 @@ def mapper(key, value):
         if word:
             yield (word, str(1))
 
+from mrs.mapreduce import default_partition as partition
+
 def reducer(key, value_iter):
     yield str(sum(int(x) for x in value_iter))
 
@@ -38,13 +40,13 @@ def reducer(key, value_iter):
 #  - default # of reduce tasks
 #  - input
 #  - output
-def program(input):
-    # TODO: introduce splitting mechanisms (i.e. mrs.Output(mrs.Map()))
-    data1 = mrs.DataSet(mapper, input)
-    output = mrs.DataSet(reducer, data1.partition())
-    return output
+#def run(input):
+#    # TODO: introduce splitting mechanisms (i.e. mrs.Output(mrs.Map()))
+#    data1 = mrs.DataSet(mapper, input)
+#    output = mrs.DataSet(reducer, data1.partition())
+#    return output
 
 if __name__ == '__main__':
-    mrs.main(program, mrs.Registry(globals()))
+    mrs.main(None, mrs.Registry(globals()))
 
 # vim: et sw=4 sts=4

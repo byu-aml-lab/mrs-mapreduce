@@ -35,8 +35,9 @@ class MasterInterface(object):
     Note that any method not beginning with an underscore will be exposed to
     remote hosts.
     """
-    def __init__(self, slaves):
+    def __init__(self, slaves, mrs_prog):
         self.slaves = slaves
+        self.mrs_prog = mrs_prog
 
     def _listMethods(self):
         import SimpleXMLRPCServer
@@ -50,11 +51,15 @@ class MasterInterface(object):
         """
         return host
 
-    def signin(self, cookie, slave_port, host=None, port=None):
+    def signin(self, cookie, slave_port, main_hash, reg_hash, host=None,
+            port=None):
         """Slave reporting for duty.
 
         Returns -1 if the signin is rejected.
         """
+        if not self.mrs_prog.verify(main_hash, reg_hash):
+            # The slaves are running different code than the master is.
+            return -1
         slave = self.slaves.new_slave(host, slave_port, cookie)
         if slave is None:
             return -1
@@ -115,11 +120,11 @@ class RemoteSlave(object):
     def assign(self, assignment):
         task = assignment.task
         if assignment.map:
-            self.slave_rpc.start_map(task.taskid, task.input, task.jobdir,
-                    task.reduce_tasks, self.cookie)
+            self.slave_rpc.start_map('mapper', 'partition', task.taskid,
+                    task.inputs, task.jobdir, task.reduce_tasks, self.cookie)
         elif assignment.reduce:
-            self.slave_rpc.start_reduce(task.taskid, task.inputs, task.outdir,
-                    task.jobdir, self.cookie)
+            self.slave_rpc.start_reduce('reducer', task.taskid, task.inputs,
+                    task.outdir, self.cookie)
         else:
             raise RuntimeError
         self.assignment = assignment
@@ -285,7 +290,7 @@ class Slaves(object):
 if __name__ == '__main__':
     # Testing standalone server.
     import rpc
-    instance = MasterInterface(None)
+    instance = MasterInterface(None, None)
     PORT = 8080
     server = rpc.new_server(instance, host='127.0.0.1', port=PORT)
     server.serve_forever()

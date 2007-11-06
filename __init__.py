@@ -31,7 +31,8 @@ DEFAULT_RPC_PORT = 0
 
 from registry import Registry
 
-def main(mapper, reducer, partition=None):
+#def main(mapper, reducer, partition=None):
+def main(run, registry):
     """Run a MapReduce program.
 
     Ideally, your Mrs MapReduce program looks something like this:
@@ -76,25 +77,42 @@ to connect to a master listening at SERVER_URI.
     subcommand = args[0]
 
     import mapreduce
-    if partition is None:
-        partition = mapreduce.default_partition
-    mrs_prog = mapreduce.Program(mapper, reducer, partition)
+    #if partition is None:
+    #    partition = mapreduce.default_partition
+    #mrs_prog = mapreduce.Program(mapper, reducer, partition)
+    mrs_prog = mapreduce.Program(run, registry)
 
-    if subcommand == 'master':
-        if len(args) < 3:
-            parser.error("Requires inputs and an output.")
-        inputs = args[1:-1]
-        output = args[-1]
-        subcommand_args = (mrs_prog, inputs, output, options)
-        from parallel import run_master
-        subcommand_function = run_master
-    elif subcommand == 'slave':
-        if len(args) != 2:
-            parser.error("Requires a server address and port.")
-        uri = args[1]
-        from slave import run_slave
-        subcommand_function = run_slave
-        subcommand_args = (mrs_prog, uri, options)
+    if subcommand in ('master', 'slave'):
+        import inspect
+        frame = inspect.currentframe()
+        try:
+            prev_frame = frame.f_back
+            filename = inspect.getfile(prev_frame)
+            source = open(filename).read()
+        except TypeError:
+            print >>sys.stderr, ("Warning: couldn't open file for the frame"
+                    "that called mrs.main()")
+            source = ''
+        finally:
+            del frame
+            del prev_frame
+        mrs_prog.main_hash = str(hash(source))
+
+        if subcommand == 'master':
+            if len(args) < 3:
+                parser.error("Requires inputs and an output.")
+            inputs = args[1:-1]
+            output = args[-1]
+            subcommand_args = (mrs_prog, inputs, output, options)
+            from parallel import run_master
+            subcommand_function = run_master
+        elif subcommand == 'slave':
+            if len(args) != 2:
+                parser.error("Requires a server address and port.")
+            uri = args[1]
+            from slave import run_slave
+            subcommand_function = run_slave
+            subcommand_args = (mrs_prog, uri, options)
     elif subcommand in ('mockparallel', 'serial'):
         if len(args) < 3:
             parser.error("Requires inputs and an output.")

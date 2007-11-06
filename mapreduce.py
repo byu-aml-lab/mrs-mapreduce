@@ -27,12 +27,20 @@
 
 import threading
 
+
 class Program(object):
-    """Mrs Program (mapper, reducer, etc.)"""
-    def __init__(self, mapper, reducer, partition):
-        self.mapper = mapper
-        self.reducer = reducer
-        self.partition = partition
+    """Mrs Program"""
+    def __init__(self, run, registry):
+        self.run = run
+        self.registry = registry
+        self.main_hash = None
+
+    def verify(self, main_hash, reg_hash):
+        if (main_hash == self.main_hash) and (reg_hash
+                == self.registry.reg_hash()):
+            return True
+        else:
+            return False
 
 
 class DataSet(object):
@@ -114,43 +122,45 @@ def reduce_filename(taskid):
 
 
 class MapTask(threading.Thread):
-    def __init__(self, taskid, mrs_prog, input, jobdir, reduce_tasks,
-            **kwds):
+    def __init__(self, taskid, mrs_prog, map_name, part_name, jobdir,
+            reduce_tasks, **kwds):
         threading.Thread.__init__(self, **kwds)
         self.taskid = taskid
-        self.mrs_prog = mrs_prog
-        self.input = input
+        self.mapper = mrs_prog.registry[map_name]
+        self.partition = mrs_prog.registry[part_name]
+        self.inputs = []
         self.jobdir = jobdir
         self.reduce_tasks = reduce_tasks
 
-
     def run(self):
         import io
-        input_file = io.openfile(self.input)
+        from itertools import chain
+        import tempfile
+        inputfiles = [io.openfile(filename) for filename in self.inputs]
+        all_input = chain(*inputfiles)
 
         # PREP
-        import tempfile
-        import io
         subdirbase = map_filename(self.taskid)
         directory = tempfile.mkdtemp(dir=self.jobdir, prefix=subdirbase)
-        self.output = io.Output(self.mrs_prog.partition, self.reduce_tasks,
+        self.output = io.Output(self.partition, self.reduce_tasks,
                 directory=directory)
 
-        self.output.collect(mrs_map(self.mrs_prog.mapper, input_file))
+        self.output.collect(mrs_map(self.mapper, all_input))
         self.output.savetodisk()
 
-        input_file.close()
+        for input_file in all_input:
+            input_file.close()
         self.output.close()
 
 
 # TODO: allow configuration of output format
 class ReduceTask(threading.Thread):
-    def __init__(self, taskid, mrs_prog, outdir, jobdir, format='txt', **kwds):
+    def __init__(self, taskid, mrs_prog, reduce_name, outdir, format='txt',
+            **kwds):
         threading.Thread.__init__(self, **kwds)
         self.taskid = taskid
-        self.mrs_prog = mrs_prog
+        self.reducer = mrs_prog.registry[reduce_name]
         self.outdir = outdir
-        self.jobdir = jobdir
         self.inputs = []
         self.output = None
         self.format = format
@@ -178,7 +188,7 @@ class ReduceTask(threading.Thread):
         #io.hexfile_sort(interm_names, sorted_name)
 
         # REDUCE PHASE
-        self.output.collect(mrs_reduce(self.mrs_prog.reducer, all_input))
+        self.output.collect(mrs_reduce(self.reducer, all_input))
         self.output.savetodisk()
 
         for f in inputfiles:
