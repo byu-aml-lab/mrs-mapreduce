@@ -109,9 +109,9 @@ class Registry(object):
     registry['name'] = function
 
     >>> r = Registry()
-    >>> def f(x):
+    >>> @r.add
+    ... def f(x):
     ...   return x
-    >>> r.add(f)
     >>> r['f'] == f
     True
     >>> r.getreverse(f) == 'f'
@@ -141,17 +141,20 @@ class Registry(object):
     def __init__(self, dictionary=None):
         self.names = {}
         self.functions = {}
+        self.hashes = {}
 
         if dictionary:
             for name, function in dictionary.iteritems():
-                self.names[name] = function
-                self.functions[function] = name
+                self[name] = function
 
     def __getitem__(self, name):
         return self.names[name]
 
     def getreverse(self, function):
         return self.functions[function]
+
+    def gethash(self, name):
+        return self.hashes[name]
 
     def __delitem__(self, name):
         function = self.names[name]
@@ -170,10 +173,16 @@ class Registry(object):
             self.delreverse(function)
         self.names[name] = function
         self.functions[function] = name
+        self.hashes[name] = func_hash(function)
 
     def add(self, function):
+        """Register and return a function.
+
+        Perfect for use as a decorator.
+        """
         name = function.func_name
         self[name] = function
+        return function
 
     def __str__(self):
         return str(self.names)
