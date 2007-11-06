@@ -6,6 +6,80 @@ they are called.  A Registry is established before determining the
 master/slave roles.  Then everyone can agree on what the names mean.
 """
 
+def func_hash(obj):
+    """Hash an object x based on its code.
+
+    If it's a function, hash its code.  Otherwise, hash all of the functions
+    in its attributes (excepting attributes beginning with two underscores).
+    Note that if the object has no methods or only built-in methods, the hash
+    may be 0.
+
+    Hashing of functions:
+
+    >>> def f(x):
+    ...   return x**2
+    >>> def g(y):
+    ...   return y**2
+    >>> func_hash(f) == 0
+    False
+    >>> func_hash(f) == func_hash(g)
+    True
+    >>>
+
+    Hashing of classes:
+
+    >>> class A(object):
+    ...   def __init__(self, x):
+    ...     self.x = x
+    ...   def f(self):
+    ...     return self.x**2
+    ...   def g(self):
+    ...     return self.x**3
+    >>> class B(object):
+    ...   def __init__(self):
+    ...     self.x = 3
+    ...   def f(self):
+    ...     return self.x**2
+    ...   def g(self):
+    ...     return self.x**3
+    >>> class C(object):
+    ...   def __init__(self, x):
+    ...     self.x = x
+    ...   def g(self):
+    ...     return self.x**3
+    >>>
+    >>> func_hash(A) == 0
+    False
+    >>> func_hash(A) == func_hash(B)
+    True
+    >>> func_hash(A) == func_hash(C)
+    False
+    >>>
+
+    Hashing of instances:
+
+    >>> a1 = A(4)
+    >>> a2 = A(5)
+    >>> b = B()
+    >>> func_hash(a1) == 0
+    False
+    >>> func_hash(a1) == func_hash(a2)
+    True
+    >>> func_hash(a1) == func_hash(b)
+    True
+    >>>
+    """
+    try:
+        code = obj.func_code.co_code
+    except AttributeError:
+        attrlist = [getattr(obj, name) for name in dir(obj)
+                if not name.startswith('__')]
+        codelist = [attr.func_code.co_code for attr in attrlist
+                if hasattr(attr, 'func_code')]
+        code = ''.join(codelist)
+    return hash(code)
+
+
 class Registry(object):
     """Manage a two-way mapping between functions and their names.
 
