@@ -77,7 +77,7 @@ def func_hash(obj):
         codelist = [attr.func_code.co_code for attr in attrlist
                 if hasattr(attr, 'func_code')]
         code = ''.join(codelist)
-    return hash(code)
+    return str(hash(code))
 
 
 class Registry(object):
@@ -164,6 +164,10 @@ class Registry(object):
 
     def __str__(self):
         return str(self.names)
+
+    def reg_hash(self):
+        return ''.join([name + self.gethash(name)
+                for name in sorted(self.names.keys())])
 
 if __name__ == "__main__":
     import doctest

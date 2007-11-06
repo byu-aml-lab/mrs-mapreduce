@@ -68,7 +68,7 @@ class ParallelJob(Job):
         tasks = Supervisor(slaves)
 
         # Start RPC master server thread
-        interface = master.MasterInterface(slaves)
+        interface = master.MasterInterface(slaves, op.mrs_prog)
         rpc_thread = rpc.RPCThread(interface, self.port)
         rpc_thread.start()
         port = rpc_thread.server.socket.getsockname()[1]
@@ -86,15 +86,17 @@ class ParallelJob(Job):
         # Create Map Tasks:
         map_stage = Stage()
         for taskid, filename in enumerate(self.inputs):
-            map_task = MapTask(taskid, op.mrs_prog, filename, jobdir,
-                    reduce_tasks)
+            map_task = MapTask(taskid, op.mrs_prog, 'mapper', 'partition',
+                    jobdir, reduce_tasks)
+            map_task.inputs = [filename]
             map_stage.push_todo(Assignment(map_task))
         tasks.stages.append(map_stage)
 
         # Create Reduce Tasks:
         reduce_stage = Stage()
         for taskid in xrange(op.reduce_tasks):
-            reduce_task = ReduceTask(taskid, op.mrs_prog, self.outdir, jobdir)
+            reduce_task = ReduceTask(taskid, op.mrs_prog, 'reducer',
+                    self.outdir, jobdir)
             reduce_stage.push_todo(Assignment(reduce_task))
         tasks.stages.append(reduce_stage)
 

@@ -20,14 +20,16 @@ class SlaveInterface(object):
     def _listMethods(self):
         return SimpleXMLRPCServer.list_public_methods(self)
 
-    def start_map(self, taskid, input, jobdir, reduce_tasks, cookie,
-            **kwds):
+    def start_map(self, map_name, part_name, taskid, inputs, output,
+            reduce_tasks, cookie, **kwds):
         self.slave.check_cookie(cookie)
-        return self.slave.worker.start_map(taskid, input, jobdir, reduce_tasks)
+        return self.slave.worker.start_map(map_name, part_name, taskid,
+                inputs, output, reduce_tasks)
 
-    def start_reduce(self, taskid, inputs, output, jobdir, cookie, **kwds):
+    def start_reduce(self, func_name, taskid, inputs, output, cookie, **kwds):
         self.slave.check_cookie(cookie)
-        return self.slave.worker.start_reduce(taskid, inputs, output, jobdir)
+        return self.slave.worker.start_reduce(func_name, taskid, inputs,
+                output)
 
     def quit(self, cookie, **kwds):
         self.slave.check_cookie(cookie)
@@ -82,7 +84,8 @@ class Slave(object):
         self.host, self.port = self.server.socket.getsockname()
 
         # Register with master.
-        self.id = self.master.signin(self.cookie, self.port)
+        self.id = self.master.signin(self.cookie, self.port,
+                mrs_prog.main_hash, mrs_prog.registry.reg_hash())
         if self.id < 0:
             import sys
             print >>sys.stderr, "Master rejected signin."
@@ -157,7 +160,8 @@ class Worker(threading.Thread):
         self.active = False
         self.exception = None
 
-    def start_map(self, taskid, input, jobdir, reduce_tasks):
+    def start_map(self, map_name, part_name, taskid, inputs, output,
+            reduce_tasks):
         """Tell this worker to start working on a map task.
 
         This will ordinarily be called from some other thread.
@@ -166,14 +170,15 @@ class Worker(threading.Thread):
         success = False
         self._cond.acquire()
         if self._task is None:
-            self._task = MapTask(taskid, self.slave.mrs_prog, input, jobdir,
-                    reduce_tasks)
+            self._task = MapTask(taskid, self.slave.mrs_prog, map_name,
+                    part_name, output, reduce_tasks)
+            self._task.inputs = inputs
             success = True
             self._cond.notify()
         self._cond.release()
         return success
 
-    def start_reduce(self, taskid, inputs, output, jobdir):
+    def start_reduce(self, reduce_name, taskid, inputs, output):
         """Tell this worker to start working on a reduce task.
 
         This will ordinarily be called from some other thread.
@@ -182,8 +187,8 @@ class Worker(threading.Thread):
         success = False
         self._cond.acquire()
         if self._task is None:
-            self._task = ReduceTask(taskid, self.slave.mrs_prog, output,
-                    jobdir)
+            self._task = ReduceTask(taskid, self.slave.mrs_prog, reduce_name,
+                    output)
             self._task.inputs = inputs
             success = True
             self._cond.notify()

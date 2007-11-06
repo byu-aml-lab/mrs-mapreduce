@@ -111,14 +111,14 @@ class MockParallelJob(Job):
         # Create Map Tasks:
         map_list = []
         for taskid, filename in enumerate(self.inputs):
-            map_task = MapTask(taskid, op.mrs_prog, filename, jobdir,
-                    reduce_tasks)
+            map_task = MapTask(taskid, op.mrs_prog, jobdir, reduce_tasks)
+            map_task.inputs = [filename]
             map_list.append(map_task)
 
         # Create Reduce Tasks:
         reduce_list = []
         for taskid in xrange(op.reduce_tasks):
-            reduce_task = ReduceTask(taskid, op.mrs_prog, self.outdir, jobdir)
+            reduce_task = ReduceTask(taskid, op.mrs_prog, self.outdir)
             reduce_list.append(reduce_task)
 
         # Run Tasks:
