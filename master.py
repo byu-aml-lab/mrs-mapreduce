@@ -120,11 +120,12 @@ class RemoteSlave(object):
     def assign(self, assignment):
         task = assignment.task
         if assignment.map:
-            self.slave_rpc.start_map('mapper', 'partition', task.taskid,
-                    task.inputs, task.jobdir, task.reduce_tasks, self.cookie)
+            self.slave_rpc.start_map(task.map_name, task.part_name,
+                    task.taskid, task.inputs, task.jobdir, task.reduce_tasks,
+                    self.cookie)
         elif assignment.reduce:
-            self.slave_rpc.start_reduce('reducer', task.taskid, task.inputs,
-                    task.outdir, self.cookie)
+            self.slave_rpc.start_reduce(task.reduce_name, task.taskid,
+                    task.inputs, task.outdir, self.cookie)
         else:
             raise RuntimeError
         self.assignment = assignment

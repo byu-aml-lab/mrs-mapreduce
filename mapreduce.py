@@ -126,7 +126,9 @@ class MapTask(threading.Thread):
             reduce_tasks, **kwds):
         threading.Thread.__init__(self, **kwds)
         self.taskid = taskid
+        self.map_name = map_name
         self.mapper = mrs_prog.registry[map_name]
+        self.part_name = part_name
         self.partition = mrs_prog.registry[part_name]
         self.inputs = []
         self.jobdir = jobdir
@@ -159,6 +161,7 @@ class ReduceTask(threading.Thread):
             **kwds):
         threading.Thread.__init__(self, **kwds)
         self.taskid = taskid
+        self.reduce_name = reduce_name
         self.reducer = mrs_prog.registry[reduce_name]
         self.outdir = outdir
         self.inputs = []
