@@ -74,7 +74,7 @@ to connect to a master listening at SERVER_URI.
         finally:
             del frame
             del prev_frame
-        mrs_prog.main_hash = str(hash(source))
+        mrs_prog.registry.main_hash = str(hash(source))
 
         if subcommand == 'master':
             if len(args) < 3:
