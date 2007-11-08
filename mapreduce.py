@@ -36,16 +36,6 @@ def simple_run(job, input, registry, map_name, part_name, reduce_name,
             map_tasks, reduce_tasks)
 
 
-class Program(object):
-    """Mrs Program
-    
-    A Program consists of a registry of functions and a run function.
-    """
-    def __init__(self, run, registry):
-        self.run = run
-        self.registry = registry
-
-
 class Job(object):
     """Keep track of all operations that need to be performed."""
     def __init__(self):
