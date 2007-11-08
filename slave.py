@@ -48,7 +48,7 @@ class CookieValidationError(Exception):
     pass
 
 
-def run_slave(mrs_prog, uri, options):
+def run_slave(registry, uri, options):
     """Mrs Slave
 
     The uri is of the form scheme://username:password@host/target with
@@ -58,20 +58,20 @@ def run_slave(mrs_prog, uri, options):
 
     # Create an RPC proxy to the master's RPC Server
     master = xmlrpclib.ServerProxy(uri)
-    slave = Slave(master, mrs_prog, options.port)
+    slave = Slave(master, registry, options.port)
 
     slave.run()
     return 0
 
 
 class Slave(object):
-    def __init__(self, master, mrs_prog, port):
+    def __init__(self, master, registry, port):
         import rpc
 
         self.alive = True
         self.cookie = self.rand_cookie()
         self.master = master
-        self.mrs_prog = mrs_prog
+        self.registry = registry
         self.port = port
 
         # Create a worker thread.  This thread will die when we do.
@@ -85,7 +85,7 @@ class Slave(object):
 
         # Register with master.
         self.id = self.master.signin(self.cookie, self.port,
-                mrs_prog.registry.main_hash, mrs_prog.registry.reg_hash())
+                registry.main_hash, registry.reg_hash())
         if self.id < 0:
             import sys
             print >>sys.stderr, "Master rejected signin."
@@ -170,7 +170,7 @@ class Worker(threading.Thread):
         success = False
         self._cond.acquire()
         if self._task is None:
-            self._task = MapTask(taskid, self.slave.mrs_prog, map_name,
+            self._task = MapTask(taskid, self.slave.registry, map_name,
                     part_name, output, reduce_tasks)
             self._task.inputs = inputs
             success = True
@@ -187,7 +187,7 @@ class Worker(threading.Thread):
         success = False
         self._cond.acquire()
         if self._task is None:
-            self._task = ReduceTask(taskid, self.slave.mrs_prog, reduce_name,
+            self._task = ReduceTask(taskid, self.slave.registry, reduce_name,
                     output)
             self._task.inputs = inputs
             success = True

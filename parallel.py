@@ -12,7 +12,7 @@ from util import try_makedirs
 socket.setdefaulttimeout(SOCKET_TIMEOUT)
 
 
-def run_master(mrs_prog, inputs, output, options):
+def run_master(registry, run, inputs, output, options):
     """Mrs Master
     """
     map_tasks = options.map_tasks
@@ -27,7 +27,8 @@ def run_master(mrs_prog, inputs, output, options):
                 "must equal the number of input files.")
 
     from mrs.mapreduce import Operation
-    op = Operation(mrs_prog, map_tasks=map_tasks, reduce_tasks=reduce_tasks)
+    op = Operation(registry, run, map_tasks=map_tasks,
+            reduce_tasks=reduce_tasks)
     mrsjob = Parallel(inputs, output, options.port, options.shared)
     mrsjob.operations = [op]
     mrsjob.run()
@@ -68,7 +69,7 @@ class Parallel(Implementation):
         tasks = Supervisor(slaves)
 
         # Start RPC master server thread
-        interface = master.MasterInterface(slaves, op.mrs_prog)
+        interface = master.MasterInterface(slaves, op.registry)
         rpc_thread = rpc.RPCThread(interface, self.port)
         rpc_thread.start()
         port = rpc_thread.server.socket.getsockname()[1]
@@ -86,7 +87,7 @@ class Parallel(Implementation):
         # Create Map Tasks:
         map_stage = Stage()
         for taskid, filename in enumerate(self.inputs):
-            map_task = MapTask(taskid, op.mrs_prog, 'mapper', 'partition',
+            map_task = MapTask(taskid, op.registry, 'mapper', 'partition',
                     jobdir, reduce_tasks)
             map_task.inputs = [filename]
             map_stage.push_todo(Assignment(map_task))
@@ -95,7 +96,7 @@ class Parallel(Implementation):
         # Create Reduce Tasks:
         reduce_stage = Stage()
         for taskid in xrange(op.reduce_tasks):
-            reduce_task = ReduceTask(taskid, op.mrs_prog, 'reducer',
+            reduce_task = ReduceTask(taskid, op.registry, 'reducer',
                     self.outdir, jobdir)
             reduce_stage.push_todo(Assignment(reduce_task))
         tasks.stages.append(reduce_stage)

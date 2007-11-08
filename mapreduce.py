@@ -6,21 +6,41 @@
 import threading
 
 
+def simple_run(job, input, registry, map_name, part_name, reduce_name,
+        map_tasks=1, reduce_tasks=1):
+    map_out = job.map_data(input, registry, map_name, part_name, map_tasks,
+            reduce_tasks)
+    reduce_out = job.reduce_data(map_out, registry, map_name, part_name,
+            map_tasks, reduce_tasks)
+
+
 class Program(object):
-    """Mrs Program"""
+    """Mrs Program
+    
+    A Program consists of a registry of functions and a run function.
+    """
     def __init__(self, run, registry):
         self.run = run
         self.registry = registry
-        self.main_hash = None
-
-    def verify(self, main_hash, reg_hash):
-        if (main_hash == self.main_hash) and (reg_hash
-                == self.registry.reg_hash()):
-            return True
-        else:
-            return False
 
 
+class Job(object):
+    """Keep track of all operations that need to be performed."""
+    def __init__(self):
+        self.datasets = []
+
+    def map_data(self, *args):
+        ds = MapData(*args)
+        self.datasets.append(ds)
+        return ds
+
+    def reduce_data(self, *args):
+        ds = ReduceData(*args)
+        self.datasets.append(ds)
+        return ds
+
+
+# maybe this should be ParallelDataSet:
 class DataSet(object):
     """Manage input to or output from a map or reduce operation.
     
@@ -28,34 +48,41 @@ class DataSet(object):
     regenerate its contents.  It can also decide whether to save the data to
     permanent storage or to leave them in memory on the slaves.
     """
-    def __init__(self, op, input):
-        self.op = op
+    def __init__(self, input, registry, func_name, part_name, ntasks=1,
+            nparts=1):
         self.input = input
-        self.ntasks = None
-        self.done = False
+        self.registry = registry
+        self.map_name = map_name
+        self.part_name = part_name
+        self.ntasks = ntasks
+        self.nparts = nparts
 
         # TODO: store a mapping from tasks to hosts and a map from hosts to
         # tasks.  This way you can know where to find data.  You also know
         # which hosts to restart in case of failure.
 
 
+class MapData(DataSet):
+    def __init__(self, input, registry, map_name, part_name, ntasks, nparts):
+        DataSet.__init__(self, input, registry, map_name, part_name, ntasks,
+                nparts)
+
+
+class ReduceData(DataSet):
+    def __init__(self, input, registry, reduce_name, part_name, ntasks,
+            nparts):
+        DataSet.__init__(self, input, registry, reduce_name, part_name,
+                ntasks, nparts)
+
+
 # This needs to go away:
 class Operation(object):
-    """Specifies a map phase followed by a reduce phase.
-    
-    The output_format is a file format, such as HexFile or TextFile.
-    """
-    def __init__(self, mrs_prog, map_tasks=1, reduce_tasks=1,
-            output_format=None):
-        self.mrs_prog = mrs_prog
+    """Specifies a map phase followed by a reduce phase."""
+    def __init__(self, registry, run, map_tasks=1, reduce_tasks=1):
+        self.registry = registry
+        self.run = run
         self.map_tasks = map_tasks
         self.reduce_tasks = reduce_tasks
-
-        if output_format is None:
-            import io
-            self.output_format = io.TextFile
-        else:
-            self.output_format = output_format
 
 
 class Implementation(threading.Thread):
@@ -88,26 +115,16 @@ class Implementation(threading.Thread):
         raise NotImplementedError("I think you should have"
                 " instantiated a subclass of Implementation.")
 
-def map_filename(taskid):
-    """Filename for the directory for intermediate output from taskid.
-    """
-    return "map_%s_" % taskid
-
-def reduce_filename(taskid):
-    """Filename for the directory for output from taskid.
-    """
-    return "reduce_%s_" % taskid
-
 
 class MapTask(threading.Thread):
-    def __init__(self, taskid, mrs_prog, map_name, part_name, jobdir,
+    def __init__(self, taskid, registry, map_name, part_name, jobdir,
             reduce_tasks, **kwds):
         threading.Thread.__init__(self, **kwds)
         self.taskid = taskid
         self.map_name = map_name
-        self.mapper = mrs_prog.registry[map_name]
+        self.mapper = registry[map_name]
         self.part_name = part_name
-        self.partition = mrs_prog.registry[part_name]
+        self.partition = registry[part_name]
         self.inputs = []
         self.jobdir = jobdir
         self.reduce_tasks = reduce_tasks
@@ -120,7 +137,7 @@ class MapTask(threading.Thread):
         all_input = chain(*inputfiles)
 
         # PREP
-        subdirbase = map_filename(self.taskid)
+        subdirbase = "map_%s_" % self.taskid
         directory = tempfile.mkdtemp(dir=self.jobdir, prefix=subdirbase)
         self.output = io.Output(self.partition, self.reduce_tasks,
                 directory=directory)
@@ -135,12 +152,12 @@ class MapTask(threading.Thread):
 
 # TODO: allow configuration of output format
 class ReduceTask(threading.Thread):
-    def __init__(self, taskid, mrs_prog, reduce_name, outdir, format='txt',
+    def __init__(self, taskid, registry, reduce_name, outdir, format='txt',
             **kwds):
         threading.Thread.__init__(self, **kwds)
         self.taskid = taskid
         self.reduce_name = reduce_name
-        self.reducer = mrs_prog.registry[reduce_name]
+        self.reducer = registry[reduce_name]
         self.outdir = outdir
         self.inputs = []
         self.output = None
@@ -153,7 +170,7 @@ class ReduceTask(threading.Thread):
         # PREP
         import io
         import tempfile
-        subdirbase = reduce_filename(self.taskid)
+        subdirbase = "reduce_%s_" % self.taskid
         directory = tempfile.mkdtemp(dir=self.outdir, prefix=subdirbase)
         self.output = io.Output(None, 1, directory=directory,
                 format=self.format)
