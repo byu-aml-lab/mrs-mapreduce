@@ -80,7 +80,7 @@ to connect to a master listening at SERVER_URI.
     #if partition is None:
     #    partition = mapreduce.default_partition
     #mrs_prog = mapreduce.Program(mapper, reducer, partition)
-    mrs_prog = mapreduce.Program(run, registry)
+    #mrs_prog = mapreduce.Program(run, registry)
 
     if subcommand in ('master', 'slave'):
         import inspect
@@ -96,14 +96,14 @@ to connect to a master listening at SERVER_URI.
         finally:
             del frame
             del prev_frame
-        mrs_prog.registry.main_hash = str(hash(source))
+        registry.main_hash = str(hash(source))
 
         if subcommand == 'master':
             if len(args) < 3:
                 parser.error("Requires inputs and an output.")
             inputs = args[1:-1]
             output = args[-1]
-            subcommand_args = (mrs_prog, inputs, output, options)
+            subcommand_args = (registry, run, inputs, output, options)
             from parallel import run_master
             subcommand_function = run_master
         elif subcommand == 'slave':
@@ -112,13 +112,13 @@ to connect to a master listening at SERVER_URI.
             uri = args[1]
             from slave import run_slave
             subcommand_function = run_slave
-            subcommand_args = (mrs_prog, uri, options)
+            subcommand_args = (registry, uri, options)
     elif subcommand in ('mockparallel', 'serial'):
         if len(args) < 3:
             parser.error("Requires inputs and an output.")
         inputs = args[1:-1]
         output = args[-1]
-        subcommand_args = (mrs_prog, inputs, output, options)
+        subcommand_args = (registry, run, inputs, output, options)
         if subcommand == 'mockparallel':
             from serial import run_mockparallel
             subcommand_function = run_mockparallel

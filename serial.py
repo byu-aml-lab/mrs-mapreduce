@@ -26,7 +26,7 @@ import io
 from mapreduce import Implementation, mrs_map, mrs_reduce, MapTask, ReduceTask
 from util import try_makedirs
 
-def run_mockparallel(mrs_prog, inputs, output, options):
+def run_mockparallel(registry, run, inputs, output, options):
     map_tasks = options.map_tasks
     reduce_tasks = options.reduce_tasks
     if map_tasks == 0:
@@ -39,18 +39,18 @@ def run_mockparallel(mrs_prog, inputs, output, options):
                 "must equal the number of input files.")
 
     from mrs.mapreduce import Operation
-    op = Operation(mrs_prog, map_tasks=map_tasks, reduce_tasks=reduce_tasks)
+    op = Operation(registry, run, map_tasks=map_tasks, reduce_tasks=reduce_tasks)
     mrsjob = MockParallel(inputs, output, options.shared)
     mrsjob.operations = [op]
     mrsjob.run()
     return 0
 
 
-def run_serial(mrs_prog, inputs, output, options):
+def run_serial(registry, run, inputs, output, options):
     """Mrs Serial
     """
     from mrs.mapreduce import Operation
-    op = Operation(mrs_prog)
+    op = Operation(registry, run)
     mrsjob = Serial(inputs, output)
     mrsjob.operations = [op]
     mrsjob.run()
@@ -73,21 +73,21 @@ class Serial(Implementation):
         if len(self.operations) != 1:
             raise NotImplementedError("Requires exactly one operation.")
         operation = self.operations[0]
-        mrs_prog = operation.mrs_prog
+        registry = operation.registry
 
         from itertools import chain
         # MAP PHASE
         input_files = [io.openfile(filename) for filename in self.inputs]
         all_input = chain(*input_files)
-        map_output = mrs_map(mrs_prog.mapper, all_input)
+        map_output = mrs_map(registry['mapper'], all_input)
 
         # SORT PHASE
         import operator
         interm = sorted(map_output, key=operator.itemgetter(0))
 
         # REDUCE PHASE
-        output_file = operation.output_format(open(self.output, 'w'))
-        for k, v in mrs_reduce(mrs_prog.reducer, interm):
+        output_file = io.openfile(self.output, 'w')
+        for k, v in mrs_reduce(registry['reducer'], interm):
             output_file.write(k, v)
 
         # cleanup
@@ -133,14 +133,14 @@ class MockParallel(Implementation):
         # Create Map Tasks:
         map_list = []
         for taskid, filename in enumerate(self.inputs):
-            map_task = MapTask(taskid, op.mrs_prog, jobdir, reduce_tasks)
+            map_task = MapTask(taskid, op.registry, jobdir, reduce_tasks)
             map_task.inputs = [filename]
             map_list.append(map_task)
 
         # Create Reduce Tasks:
         reduce_list = []
         for taskid in xrange(op.reduce_tasks):
-            reduce_task = ReduceTask(taskid, op.mrs_prog, self.outdir)
+            reduce_task = ReduceTask(taskid, op.registry, self.outdir)
             reduce_list.append(reduce_task)
 
         # Run Tasks:

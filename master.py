@@ -35,9 +35,9 @@ class MasterInterface(object):
     Note that any method not beginning with an underscore will be exposed to
     remote hosts.
     """
-    def __init__(self, slaves, mrs_prog):
+    def __init__(self, slaves, registry):
         self.slaves = slaves
-        self.mrs_prog = mrs_prog
+        self.registry = registry
 
     def _listMethods(self):
         import SimpleXMLRPCServer
@@ -57,7 +57,7 @@ class MasterInterface(object):
 
         Returns -1 if the signin is rejected.
         """
-        if not self.mrs_prog.verify(main_hash, reg_hash):
+        if not self.registry.verify(main_hash, reg_hash):
             # The slaves are running different code than the master is.
             return -1
         slave = self.slaves.new_slave(host, slave_port, cookie)
