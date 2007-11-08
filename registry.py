@@ -142,6 +142,7 @@ class Registry(object):
         self.names = {}
         self.functions = {}
         self.hashes = {}
+        self.main_hash = None
 
         if dictionary:
             for name, function in dictionary.iteritems():
@@ -190,6 +191,13 @@ class Registry(object):
     def reg_hash(self):
         return ''.join([name + self.gethash(name)
                 for name in sorted(self.names.keys())])
+
+    def verify(self, main_hash, reg_hash):
+        if (main_hash == self.main_hash) and (reg_hash == self.reg_hash()):
+            return True
+        else:
+            return False
+
 
 if __name__ == "__main__":
     import doctest
