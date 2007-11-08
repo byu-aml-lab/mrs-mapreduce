@@ -5,7 +5,7 @@ SOCKET_TIMEOUT = 5.0
 PING_LOOP_WAIT = 1.0
 
 import socket, threading
-from mapreduce import Job, MapTask, ReduceTask
+from mapreduce import Implementation, MapTask, ReduceTask
 from util import try_makedirs
 
 # NOTE: This is a _global_ setting:
@@ -28,19 +28,19 @@ def run_master(mrs_prog, inputs, output, options):
 
     from mrs.mapreduce import Operation
     op = Operation(mrs_prog, map_tasks=map_tasks, reduce_tasks=reduce_tasks)
-    mrsjob = ParallelJob(inputs, output, options.port, options.shared)
+    mrsjob = Parallel(inputs, output, options.port, options.shared)
     mrsjob.operations = [op]
     mrsjob.run()
     return 0
 
 
-class ParallelJob(Job):
+class Parallel(Implementation):
     """MapReduce execution in parallel, with a master and slaves.
 
     For right now, we require POSIX shared storage (e.g., NFS).
     """
     def __init__(self, inputs, outdir, port, shared_dir, **kwds):
-        Job.__init__(self, **kwds)
+        Implementation.__init__(self, **kwds)
         self.inputs = inputs
         self.outdir = outdir
         self.port = port

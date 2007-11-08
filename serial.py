@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import io
-from mapreduce import Job, mrs_map, mrs_reduce, MapTask, ReduceTask
+from mapreduce import Implementation, mrs_map, mrs_reduce, MapTask, ReduceTask
 from util import try_makedirs
 
 def run_mockparallel(mrs_prog, inputs, output, options):
@@ -18,7 +18,7 @@ def run_mockparallel(mrs_prog, inputs, output, options):
 
     from mrs.mapreduce import Operation
     op = Operation(mrs_prog, map_tasks=map_tasks, reduce_tasks=reduce_tasks)
-    mrsjob = MockParallelJob(inputs, output, options.shared)
+    mrsjob = MockParallel(inputs, output, options.shared)
     mrsjob.operations = [op]
     mrsjob.run()
     return 0
@@ -29,17 +29,17 @@ def run_serial(mrs_prog, inputs, output, options):
     """
     from mrs.mapreduce import Operation
     op = Operation(mrs_prog)
-    mrsjob = SerialJob(inputs, output)
+    mrsjob = Serial(inputs, output)
     mrsjob.operations = [op]
     mrsjob.run()
     return 0
 
 
-class SerialJob(Job):
+class Serial(Implementation):
     """MapReduce execution on a single processor
     """
     def __init__(self, inputs, output, **kwds):
-        Job.__init__(self, **kwds)
+        Implementation.__init__(self, **kwds)
         self.inputs = inputs
         self.output = output
         self.debug = False
@@ -74,14 +74,14 @@ class SerialJob(Job):
         output_file.close()
 
 
-class MockParallelJob(Job):
+class MockParallel(Implementation):
     """MapReduce execution on POSIX shared storage, such as NFS
     
     Specify a directory located in shared storage which can be used as scratch
     space.
     """
     def __init__(self, inputs, outdir, shared_dir, **kwds):
-        Job.__init__(self, **kwds)
+        Implementation.__init__(self, **kwds)
         self.inputs = inputs
         self.outdir = outdir
         self.shared_dir = shared_dir

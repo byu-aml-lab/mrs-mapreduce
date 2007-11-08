@@ -58,8 +58,8 @@ class Operation(object):
             self.output_format = output_format
 
 
-class Job(threading.Thread):
-    """Keeps track of the parameters of the MR job and carries out the work.
+class Implementation(threading.Thread):
+    """Carries out the work.
 
     There are various ways to implement MapReduce:
     - serial execution on one processor
@@ -71,8 +71,8 @@ class Job(threading.Thread):
     job.inputs.append(input_filename)
     job.operations.append(mrs_operation)
 
-    By the way, since Job inherits from threading.Thread, you can execute a
-    MapReduce operation as a thread.  Slick, eh?
+    By the way, since Implementation inherits from threading.Thread, you can
+    execute a MapReduce operation as a thread.  Slick, eh?
     """
     def __init__(self, **kwds):
         threading.Thread.__init__(self, **kwds)
@@ -85,8 +85,8 @@ class Job(threading.Thread):
         self.inputs.append(input)
 
     def run(self):
-        raise NotImplementedError(
-                "I think you should have instantiated a subclass of Job.")
+        raise NotImplementedError("I think you should have"
+                " instantiated a subclass of Implementation.")
 
 def map_filename(taskid):
     """Filename for the directory for intermediate output from taskid.
