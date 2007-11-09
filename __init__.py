@@ -18,7 +18,7 @@ def main(run, registry):
     def mapper(key, value):
         yield newkey, newvalue
 
-    def reducer(key, value):
+    def reducer(key, values):
         yield newvalue
 
     if __name__ == '__main__':
