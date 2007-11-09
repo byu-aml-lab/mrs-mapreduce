@@ -8,6 +8,7 @@
   implementation.  See also the "urlgrabber" module.  To implement this in the
   HTTP server, you will have to implement do_GET on its own (see
   http://techlists.org/archives/programming/pythonlist/2002-02/msg04678.shtml)
+- show current status by creating an HTTP server on the master
 
 
 ########################################################################

@@ -109,7 +109,7 @@ class Implementation(threading.Thread):
 
 class MapTask(threading.Thread):
     def __init__(self, taskid, registry, map_name, part_name, jobdir,
-            reduce_tasks, **kwds):
+            nparts, **kwds):
         threading.Thread.__init__(self, **kwds)
         self.taskid = taskid
         self.map_name = map_name
@@ -118,7 +118,7 @@ class MapTask(threading.Thread):
         self.partition = registry[part_name]
         self.inputs = []
         self.jobdir = jobdir
-        self.reduce_tasks = reduce_tasks
+        self.nparts = nparts
 
     def run(self):
         import io
@@ -130,7 +130,7 @@ class MapTask(threading.Thread):
         # PREP
         subdirbase = "map_%s_" % self.taskid
         directory = tempfile.mkdtemp(dir=self.jobdir, prefix=subdirbase)
-        self.output = io.Output(self.partition, self.reduce_tasks,
+        self.output = io.Output(self.partition, self.nparts,
                 directory=directory)
 
         self.output.collect(mrs_map(self.mapper, all_input))
