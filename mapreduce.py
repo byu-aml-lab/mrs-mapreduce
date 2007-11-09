@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 # TODO: right now we assume that input files are pre-split.
-# TODO: start up and close down mappers and reducers.
 
 # Copyright 2008 Brigham Young University
 #
@@ -28,12 +27,14 @@
 import threading
 
 
-def simple_run(job, input, registry, map_name, part_name, reduce_name,
+def simple_run(registry, map_name, part_name, reduce_name,
         map_tasks=1, reduce_tasks=1):
-    map_out = job.map_data(input, registry, map_name, part_name, map_tasks,
-            reduce_tasks)
-    reduce_out = job.reduce_data(map_out, registry, map_name, part_name,
-            map_tasks, reduce_tasks)
+    def run(job, input):
+        map_out = job.map_data(input, registry, map_name, part_name,
+                map_tasks, reduce_tasks)
+        reduce_out = job.reduce_data(map_out, registry, map_name, part_name,
+                map_tasks, reduce_tasks)
+    return run
 
 
 class Job(object):
