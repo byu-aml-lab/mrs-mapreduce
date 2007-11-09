@@ -1,5 +1,18 @@
 #!/usr/bin/env python
+# TODO: fix the sample code in the following docstring:
 """MapReduce: a simple implementation (Mrs)
+
+Your Mrs MapReduce program might look something like this:
+
+def mapper(key, value):
+    yield newkey, newvalue
+
+def reducer(key, values):
+    yield newvalue
+
+if __name__ == '__main__':
+    import mrs
+    mrs.main(mapper, reducer)
 """
 
 __all__ = ['main', 'Registry']
@@ -13,17 +26,7 @@ from registry import Registry
 def main(run, registry):
     """Run a MapReduce program.
 
-    Ideally, your Mrs MapReduce program looks something like this:
-
-    def mapper(key, value):
-        yield newkey, newvalue
-
-    def reducer(key, values):
-        yield newvalue
-
-    if __name__ == '__main__':
-        import mrs
-        mrs.main(mapper, reducer)
+    Requires a run function and a Registry.
     """
     from optparse import OptionParser
     import sys, os
