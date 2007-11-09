@@ -46,7 +46,7 @@ class MasterInterface(object):
 
     def ready(self, slave_id, cookie, **kwds):
         """Slave is ready for work."""
-        slave = self.slaves.get_slave(slave_id)
+        slave = self.slaves.get_slave(slave_id, cookie)
         if slave is not None:
             self.slaves.push_idle(slave)
             self.slaves.activity.set()
@@ -61,7 +61,7 @@ class MasterInterface(object):
 
         The output is available in the list of files.
         """
-        slave = self.slaves.get_slave(slave_id)
+        slave = self.slaves.get_slave(slave_id, cookie)
         if slave is not None:
             self.slaves.add_done(slave, files)
             slave.update_timestamp()
@@ -70,12 +70,15 @@ class MasterInterface(object):
             print "In done(), slave with id %s not found." % slave_id
             return False
 
-    # TODO: Find out which slave is pinging us and update_timestamp().
-    def ping(self, **kwds):
+    def ping(self, slave_id, cookie, **kwds):
         """Slave checking if we're still here.
         """
-        # TODO: return False if they're not signed in
-        return True
+        slave = self.slaves.get_slave(slave_id, cookie)
+        if slave:
+            slave.update_timestamp()
+            return True
+        else:
+            return False
 
 
 class RemoteSlave(object):
@@ -91,6 +94,9 @@ class RemoteSlave(object):
         self.slave_rpc = xmlrpclib.ServerProxy(uri)
 
         self.update_timestamp()
+
+    def check_cookie(self, cookie):
+        return (cookie == self.cookie)
 
     def __hash__(self):
         return hash(self.cookie)
@@ -158,13 +164,18 @@ class Slaves(object):
         self._lock = threading.Lock()
         self._idle_sem = threading.Semaphore()
 
-    def get_slave(self, slave_id):
-        """Find the slave associated with the given cookie.
+    def get_slave(self, slave_id, cookie):
+        """Find the slave associated with the given slave_id.
         """
         if slave_id >= len(self._slaves):
             return None
         else:
-            return self._slaves[slave_id]
+            slave = self._slaves[slave_id]
+
+        if slave.check_cookie(cookie):
+            return slave
+        else:
+            return None
 
     def slave_list(self):
         """Get a list of current slaves (_not_ a table keyed by slave_id)."""
