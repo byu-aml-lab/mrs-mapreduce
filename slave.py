@@ -1,8 +1,5 @@
 #!/usr/bin/env python
 
-# TODO: if the cookie check fails too many times, we may want to alert the
-# user somehow.
-
 COOKIE_LEN = 8
 SLAVE_PING_INTERVAL = 5.0
 
@@ -119,6 +116,8 @@ class Slave(object):
             return False
 
     def run(self):
+        import socket
+
         # Spin off the worker thread.
         self.worker.start()
 
@@ -128,10 +127,9 @@ class Slave(object):
         # Handle requests on the RPC server.
         while self.alive:
             if not self.handle_request():
-                # TODO: limit the sorts of exceptions that get caught:
                 try:
                     master_alive = self.master.ping()
-                except:
+                except socket.error:
                     master_alive = False
                 if not master_alive:
                     import sys
@@ -153,8 +151,6 @@ class Worker(threading.Thread):
         self.slave = slave
         self.master = master
 
-        # TODO: Should we have a queue of work to be done rather than
-        # to just store a single item?
         self._task = None
         self._cond = threading.Condition()
         self.active = False
