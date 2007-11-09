@@ -5,7 +5,6 @@
 
 MASTER_PING_INTERVAL = 5.0
 
-# TODO: The master should do cookie checks with every incoming RPC call.
 
 class MasterInterface(object):
     """Public XML-RPC Interface
