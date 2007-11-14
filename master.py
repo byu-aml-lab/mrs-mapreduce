@@ -103,6 +103,10 @@ class MasterInterface(object):
 
 
 class RemoteSlave(object):
+    """The master's view of a remote slave.
+
+    The master can use this object to make assignments, check status, etc.
+    """
     def __init__(self, slave_id, host, port, cookie):
         self.host = host
         self.port = port
@@ -123,10 +127,14 @@ class RemoteSlave(object):
         return hash(self.cookie)
 
     def assign(self, assignment):
+        """Request that the slave start working on the given assignment.
+
+        The request will be made over RPC.
+        """
         task = assignment.task
         if assignment.map:
             self.slave_rpc.start_map(task.map_name, task.part_name,
-                    task.taskid, task.inputs, task.jobdir, task.reduce_tasks,
+                    task.taskid, task.inputs, task.jobdir, task.nparts,
                     self.cookie)
         elif assignment.reduce:
             self.slave_rpc.start_reduce(task.reduce_name, task.taskid,
@@ -171,8 +179,13 @@ class RemoteSlave(object):
         self.slave_rpc.quit(self.cookie)
 
 
-# TODO: Reimplement _idle_sem as a Condition variable.
+# TODO: Reimplement _idle_sem as a Condition variable.  Also, reimplement
+# _done_slaves and _gone_slaves as shared queues.
 class Slaves(object):
+    """List of remote slaves.
+
+    A Slaves list is shared by the master thread and the rpc server thread.
+    """
     def __init__(self):
         import threading
         self.activity = threading.Event()
