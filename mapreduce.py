@@ -32,8 +32,8 @@ def simple_run(registry, map_name, part_name, reduce_name,
     def run(job, input):
         map_out = job.map_data(input, registry, map_name, part_name,
                 map_tasks, reduce_tasks)
-        reduce_out = job.reduce_data(map_out, registry, map_name, part_name,
-                map_tasks, reduce_tasks)
+        reduce_out = job.reduce_data(map_out, registry, reduce_name,
+                part_name, reduce_tasks, 1)
     return run
 
 
@@ -41,6 +41,8 @@ class Job(object):
     """Keep track of all operations that need to be performed."""
     def __init__(self):
         self.datasets = []
+        self.current = 0
+        self.current_todo = []
 
     def map_data(self, *args):
         ds = MapData(*args)
@@ -51,6 +53,13 @@ class Job(object):
         ds = ReduceData(*args)
         self.datasets.append(ds)
         return ds
+
+    def print_status(self):
+        pass
+
+    def get_task(self):
+        """Return the next available task"""
+        return None
 
 
 # maybe this should be ParallelDataSet:
@@ -69,6 +78,9 @@ class DataSet(object):
         self.part_name = part_name
         self.ntasks = ntasks
         self.nparts = nparts
+        self.done = False
+
+        self.tasks = []
 
         # TODO: store a mapping from tasks to hosts and a map from hosts to
         # tasks.  This way you can know where to find data.  You also know
@@ -79,6 +91,7 @@ class MapData(DataSet):
     def __init__(self, input, registry, map_name, part_name, ntasks, nparts):
         DataSet.__init__(self, input, registry, map_name, part_name, ntasks,
                 nparts)
+        # TODO: create tasks here
 
 
 class ReduceData(DataSet):
@@ -86,6 +99,7 @@ class ReduceData(DataSet):
             nparts):
         DataSet.__init__(self, input, registry, reduce_name, part_name,
                 ntasks, nparts)
+        # TODO: create tasks here
 
 
 # This needs to go away:
