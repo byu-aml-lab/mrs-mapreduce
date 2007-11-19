@@ -84,34 +84,30 @@ class Parallel(Implementation):
         try_makedirs(self.shared_dir)
         jobdir = mkdtemp(prefix='mrs.job_', dir=self.shared_dir)
 
-        # Create Map Tasks:
-        map_stage = Stage()
-        for taskid, filename in enumerate(self.inputs):
-            map_task = MapTask(taskid, op.registry, 'mapper', 'partition',
-                    jobdir, reduce_tasks)
-            map_task.inputs = [filename]
-            map_stage.push_todo(Assignment(map_task))
-        tasks.stages.append(map_stage)
+        job = Job()
+        map_out = job.map_data(self.inputs, op.registry, 'mapper',
+                'partition', len(self.inputs), reduce_tasks)
+        reduce_out = job.reduce_data(map_out, op.registry, 'reducer',
+                'partition', reduce_tasks, 1)
+        tasks.job = job
 
-        # Create Reduce Tasks:
-        reduce_stage = Stage()
-        for taskid in xrange(op.reduce_tasks):
-            reduce_task = ReduceTask(taskid, op.registry, 'reducer',
-                    self.outdir, jobdir)
-            reduce_stage.push_todo(Assignment(reduce_task))
-        tasks.stages.append(reduce_stage)
-
-        map_stage.dependents.append(reduce_stage)
+        #for taskid, filename in enumerate(self.inputs):
+            #map_task = MapTask(taskid, op.registry, 'mapper', 'partition',
+            #        jobdir, reduce_tasks)
+            #map_task.inputs = [filename]
+        #for taskid in xrange(op.reduce_tasks):
+            #reduce_task = ReduceTask(taskid, op.registry, 'reducer',
+            #        self.outdir, jobdir)
 
         # Drive Slaves:
-        while not tasks.job_complete():
+        while not job.done():
             slaves.activity.wait(MAIN_LOOP_WAIT)
             slaves.activity.clear()
 
             tasks.check_gone()
             tasks.check_done()
             tasks.make_assignments()
-            tasks.print_status()
+            tasks.job.print_status()
 
         for slave in slaves.slave_list():
             slave.quit()
@@ -148,6 +144,7 @@ class PingThread(threading.Thread):
             delta = self.seconds(now - last)
             if delta < PING_LOOP_WAIT:
                 time.sleep(PING_LOOP_WAIT - delta)
+
 
 class Assignment(object):
     def __init__(self, task):
@@ -188,13 +185,6 @@ class Stage(object):
         """Add an assignment to the active list."""
         self.active.append(assignment)
 
-    def print_status(self):
-        active = len(self.active)
-        todo = len(self.todo)
-        done = len(self.done)
-        total = active + todo + done
-        print 'Current Stage.  Active: %s; Complete: %s/%s' % (active, done,
-                total)
 
 class Supervisor(object):
     """Keep track of tasks and workers.
@@ -202,32 +192,11 @@ class Supervisor(object):
     Initialize with a Slaves object.
     """
     def __init__(self, slaves):
-        self.stages = []
+        self.job = None
         self.completed = []
 
         self.assignments = {}
         self.slaves = slaves
-
-    def print_status(self):
-        if self.stages:
-            self.stages[0].print_status()
-
-    def check_stages(self):
-        """See if any stages have finished so a new one can start running.
-
-        For now, we assume that only one stage can run at a time, and that
-        each stage is dependent on all previous ones.
-        """
-        current = self.stages[0]
-        if not (current.todo or current.active):
-            self.stages.remove(current)
-            self.completed.append(current)
-            for dep in current.dependents:
-                for i, consumer in enumerate(dep.todo):
-                    for provider in current.done:
-                        interm_file = provider.files[i]
-                        if interm_file:
-                            consumer.task.inputs.append(interm_file)
 
     def assign(self, slave):
         """Assign a task to the given slave.
@@ -237,11 +206,7 @@ class Supervisor(object):
         """
         if slave.assignment is not None:
             raise RuntimeError
-        if self.stages:
-            current_stage = self.stages[0]
-            next = current_stage.pop_todo()
-        else:
-            next = None
+        next = self.job.get_task()
         if next is not None:
             slave.assign(next)
             next.workers.append(slave)
@@ -284,7 +249,6 @@ class Supervisor(object):
 
             slave.assignment = None
             self.slaves.push_idle(slave)
-            self.check_stages()
 
     def check_gone(self):
         """Check for slaves that have disappeared.
@@ -306,12 +270,6 @@ class Supervisor(object):
             if assignment is None:
                 self.slaves.push_idle(idler)
                 return
-
-    def job_complete(self):
-        if self.stages:
-            return False
-        else:
-            return True
 
 
 # vim: et sw=4 sts=4
