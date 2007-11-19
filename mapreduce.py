@@ -32,11 +32,17 @@ class Job(object):
         return ds
 
     def print_status(self):
-        pass
+        self.datasets[self.current].print_status()
 
     def get_task(self):
         """Return the next available task"""
-        return None
+        N = len(self.datasets)
+        while self.current < N:
+            ds = self.datasets[i]
+            if ds.done():
+                self.current += 1
+            else:
+                return ds.get_task()
 
 
 # maybe this should be ParallelDataSet:
@@ -51,12 +57,12 @@ class DataSet(object):
             nparts=1):
         self.input = input
         self.registry = registry
-        self.map_name = map_name
+        self.func_name = func_name
         self.part_name = part_name
         self.ntasks = ntasks
         self.nparts = nparts
-        self.done = False
 
+        self.tasks_made = False
         self.tasks_todo = []
         self.tasks_done = []
         self.tasks_active = []
@@ -65,22 +71,41 @@ class DataSet(object):
         # tasks.  This way you can know where to find data.  You also know
         # which hosts to restart in case of failure.
 
+    def done(self):
+        if self.tasks_made and (self.tasks_todo or self.tasks_active):
+            return False
+        else:
+            return True
+
     def get_task(self):
         """Return the next available task"""
-        return None
+        if self.tasks_todo:
+            task = self.tasks_todo.pop()
+            self.tasks_active.append(task)
+            return task
+        else:
+            return
+
+    def print_status(self):
+        active = len(self.tasks_active)
+        todo = len(self.tasks_todo)
+        done = len(self.tasks_done)
+        total = active + todo + done
+        print 'Completed: %s/%s, Active: %s'
 
 
 class MapData(DataSet):
     def __init__(self, input, registry, map_name, part_name, ntasks, nparts):
         DataSet.__init__(self, input, registry, map_name, part_name, ntasks,
                 nparts)
-        pass
 
     def make_tasks(self)
-        for i in xrange(self.ntasks):
-            task = MapTask()
+        for taskid in xrange(self.ntasks):
+            task = MapTask(taskid, self.registry, self.func_name,
+                    self.part_name, self.jobdir, self.nparts)
             task.dataset = self
             self.tasks_todo.append(task)
+        self.tasks_made = True
 
 
 class ReduceData(DataSet):
@@ -88,13 +113,14 @@ class ReduceData(DataSet):
             nparts):
         DataSet.__init__(self, input, registry, reduce_name, part_name,
                 ntasks, nparts)
-        pass
 
     def make_tasks(self)
-        for i in xrange(self.ntasks):
-            task = ReduceTask()
+        for taskid in xrange(self.ntasks):
+            task = ReduceTask(taskid, self.registry, self.func_name,
+                    self.outdir)
             task.dataset = self
             self.tasks_todo.append(task)
+        self.tasks_made = True
 
 
 # This needs to go away:
