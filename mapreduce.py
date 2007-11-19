@@ -20,7 +20,6 @@ class Job(object):
     def __init__(self):
         self.datasets = []
         self.current = 0
-        self.current_todo = []
 
     def map_data(self, *args):
         ds = MapData(*args)
@@ -58,18 +57,30 @@ class DataSet(object):
         self.nparts = nparts
         self.done = False
 
-        self.tasks = []
+        self.tasks_todo = []
+        self.tasks_done = []
+        self.tasks_active = []
 
         # TODO: store a mapping from tasks to hosts and a map from hosts to
         # tasks.  This way you can know where to find data.  You also know
         # which hosts to restart in case of failure.
+
+    def get_task(self):
+        """Return the next available task"""
+        return None
 
 
 class MapData(DataSet):
     def __init__(self, input, registry, map_name, part_name, ntasks, nparts):
         DataSet.__init__(self, input, registry, map_name, part_name, ntasks,
                 nparts)
-        # TODO: create tasks here
+        pass
+
+    def make_tasks(self)
+        for i in xrange(self.ntasks):
+            task = MapTask()
+            task.dataset = self
+            self.tasks_todo.append(task)
 
 
 class ReduceData(DataSet):
@@ -77,7 +88,13 @@ class ReduceData(DataSet):
             nparts):
         DataSet.__init__(self, input, registry, reduce_name, part_name,
                 ntasks, nparts)
-        # TODO: create tasks here
+        pass
+
+    def make_tasks(self)
+        for i in xrange(self.ntasks):
+            task = ReduceTask()
+            task.dataset = self
+            self.tasks_todo.append(task)
 
 
 # This needs to go away:
@@ -133,6 +150,7 @@ class MapTask(threading.Thread):
         self.inputs = []
         self.jobdir = jobdir
         self.nparts = nparts
+        self.dataset = None
 
     def run(self):
         import io
@@ -154,6 +172,18 @@ class MapTask(threading.Thread):
             input_file.close()
         self.output.close()
 
+    def active(self):
+        self.dataset.tasks_todo.remove(self)
+        self.dataset.tasks_active.append(self)
+
+    def finished(self):
+        self.dataset.tasks_active.remove(self)
+        self.dataset.tasks_done.append(self)
+
+    def canceled(self):
+        self.dataset.tasks_active.remove(self)
+        self.dataset.tasks_todo.append(self)
+
 
 # TODO: allow configuration of output format
 class ReduceTask(threading.Thread):
@@ -167,6 +197,7 @@ class ReduceTask(threading.Thread):
         self.inputs = []
         self.output = None
         self.format = format
+        self.dataset = None
 
     def run(self):
         import io
@@ -197,6 +228,10 @@ class ReduceTask(threading.Thread):
         for f in inputfiles:
             f.close()
         self.output.close()
+
+    def finished(self):
+        self.dataset.tasks_active.remove(self)
+        self.dataset.tasks_done.append(self)
 
 
 def default_partition(x, n):

@@ -154,36 +154,21 @@ class Assignment(object):
 
         self.done = False
         self.workers = []
+    
+    def finished(self):
+        self.task.finished()
 
+    def add_worker(self, slave):
+        self.workers.append(slave)
+        self.task.active()
 
-class Stage(object):
-    """Mrs Stage (Map Stage or Reduce Stage)
-
-    The stage describes the dependency structure for a whole set of tasks.
-    """
-    # TODO: allow stages to be a dependency graph instead of a queue.
-    def __init__(self):
-        self.todo = []
-        self.active = []
-        self.done = []
-        self.dependents = []
-
-    def push_todo(self, assignment):
-        """Add a new assignment that needs to be completed."""
-        from heapq import heappush
-        heappush(self.todo, assignment)
-
-    def pop_todo(self):
-        """Pop the next available assignment."""
-        if self.todo:
-            from heapq import heappop
-            return heappop(self.todo)
-        else:
-            return None
-
-    def add_active(self, assignment):
-        """Add an assignment to the active list."""
-        self.active.append(assignment)
+    def remove_worker(self, slave):
+        try:
+            self.workers.remove(slave)
+        except ValueError:
+            print "Slave wasn't in the worker list.  Is this a problem?"
+        if not self.workers:
+            self.task.canceled()
 
 
 class Supervisor(object):
@@ -193,8 +178,6 @@ class Supervisor(object):
     """
     def __init__(self, slaves):
         self.job = None
-        self.completed = []
-
         self.assignments = {}
         self.slaves = slaves
 
@@ -209,8 +192,7 @@ class Supervisor(object):
         next = self.job.get_task()
         if next is not None:
             slave.assign(next)
-            next.workers.append(slave)
-            current_stage.add_active(next)
+            next.add_worker(slave)
         return next
 
     def remove_slave(self, slave):
@@ -222,14 +204,7 @@ class Supervisor(object):
         assignment = slave.assignment
         if not assignment:
             return
-        try:
-            assignment.workers.remove(slave)
-        except ValueError:
-            print "Slave wasn't in the worker list.  Is this a problem?"
-        if not assignment.workers:
-            current_stage = self.stages[0]
-            current_stage.active.remove(assignment)
-            current_stage.push_todo(assignment)
+        assignment.remove_worker(slave)
 
     # TODO: what if two slaves finish the same task?
     def check_done(self):
@@ -240,12 +215,10 @@ class Supervisor(object):
             if next_done is None:
                 return
             slave, files = next_done
-            current_stage = self.stages[0]
 
             assignment = slave.assignment
             assignment.files = files
-            current_stage.active.remove(assignment)
-            current_stage.done.append(assignment)
+            assignment.finished()
 
             slave.assignment = None
             self.slaves.push_idle(slave)
