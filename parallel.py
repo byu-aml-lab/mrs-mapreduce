@@ -180,8 +180,8 @@ class Supervisor(object):
         if next is not None:
             assignment = Assignment(next)
             slave.assign(assignment)
-            next.add_worker(assignment)
-        return assignment
+            assignment.add_worker(slave)
+            return assignment
 
     def remove_slave(self, slave):
         """Remove a slave that may be currently working on a task.

@@ -41,7 +41,7 @@ class Job(object):
         """Return the next available task"""
         N = len(self.datasets)
         while self.current < N:
-            ds = self.datasets[i]
+            ds = self.datasets[self.current]
             if not ds.tasks_made:
                 ds.make_tasks()
             if ds.done():
@@ -90,7 +90,6 @@ class DataSet(object):
         """Return the next available task"""
         if self.tasks_todo:
             task = self.tasks_todo.pop()
-            self.tasks_active.append(task)
             return task
         else:
             return
@@ -174,10 +173,23 @@ class Implementation(threading.Thread):
                 " instantiated a subclass of Implementation.")
 
 
-class MapTask(threading.Thread):
+class Task(object):
+    def active(self):
+        self.dataset.tasks_active.append(self)
+
+    def finished(self):
+        self.dataset.tasks_active.remove(self)
+        self.dataset.tasks_done.append(self)
+
+    def canceled(self):
+        self.dataset.tasks_active.remove(self)
+        self.dataset.tasks_todo.append(self)
+
+
+
+class MapTask(Task):
     def __init__(self, taskid, registry, map_name, part_name, outdir,
             nparts, **kwds):
-        threading.Thread.__init__(self, **kwds)
         self.taskid = taskid
         self.map_name = map_name
         self.mapper = registry[map_name]
@@ -208,25 +220,12 @@ class MapTask(threading.Thread):
             input_file.close()
         self.output.close()
 
-    def active(self):
-        self.dataset.tasks_todo.remove(self)
-        self.dataset.tasks_active.append(self)
-
-    def finished(self):
-        self.dataset.tasks_active.remove(self)
-        self.dataset.tasks_done.append(self)
-
-    def canceled(self):
-        self.dataset.tasks_active.remove(self)
-        self.dataset.tasks_todo.append(self)
-
 
 # TODO: allow configuration of output format
 # TODO: make more like MapTask (part_name, nparts, etc.)
-class ReduceTask(threading.Thread):
+class ReduceTask(Task):
     def __init__(self, taskid, registry, reduce_name, outdir, format='txt',
             **kwds):
-        threading.Thread.__init__(self, **kwds)
         self.taskid = taskid
         self.reduce_name = reduce_name
         self.reducer = registry[reduce_name]
