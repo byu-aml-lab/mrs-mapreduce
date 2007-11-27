@@ -27,7 +27,7 @@ SOCKET_TIMEOUT = 5.0
 PING_LOOP_WAIT = 1.0
 
 import socket, threading
-from mapreduce import Implementation, MapTask, ReduceTask
+from mapreduce import Job, Implementation, MapTask, ReduceTask
 from util import try_makedirs
 
 # NOTE: This is a _global_ setting:
