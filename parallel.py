@@ -48,11 +48,8 @@ def run_master(registry, run, inputs, output, options):
         raise NotImplementedError("For now, the number of map tasks "
                 "must equal the number of input files.")
 
-    from mrs.mapreduce import Operation
-    op = Operation(registry, run, map_tasks=map_tasks,
-            reduce_tasks=reduce_tasks)
-    mrsjob = Parallel(inputs, output, options.port, options.shared)
-    mrsjob.operations = [op]
+    mrsjob = Parallel(registry, inputs, output, options.port, options.shared,
+            reduce_tasks)
     mrsjob.run()
     return 0
 
@@ -62,27 +59,16 @@ class Parallel(Implementation):
 
     For right now, we require POSIX shared storage (e.g., NFS).
     """
-    def __init__(self, inputs, outdir, port, shared_dir, **kwds):
+    def __init__(self, registry, inputs, outdir, port, shared_dir,
+            reduce_tasks, **kwds):
         Implementation.__init__(self, **kwds)
         self.inputs = inputs
         self.outdir = outdir
         self.port = port
         self.shared_dir = shared_dir
+        self.reduce_tasks = reduce_tasks
 
     def run(self):
-        ################################################################
-        # TEMPORARY LIMITATIONS
-        if len(self.operations) != 1:
-            raise NotImplementedError("Requires exactly one operation.")
-        op = self.operations[0]
-
-        map_tasks = op.map_tasks
-        if map_tasks != len(self.inputs):
-            raise NotImplementedError("Requires exactly 1 map_task per input.")
-
-        reduce_tasks = op.reduce_tasks
-        ################################################################
-
         import sys, os
         import master, rpc
         from tempfile import mkstemp, mkdtemp
@@ -213,9 +199,10 @@ class Supervisor(object):
             raise RuntimeError
         next = self.job.get_task()
         if next is not None:
-            slave.assign(next)
-            next.add_worker(slave)
-        return next
+            assignment = Assignment(next)
+            slave.assign(assignment)
+            next.add_worker(assignment)
+        return assignment
 
     def remove_slave(self, slave):
         """Remove a slave that may be currently working on a task.
