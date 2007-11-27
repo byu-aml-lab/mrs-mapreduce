@@ -51,7 +51,7 @@ class DataSet(object):
             nparts=1):
         self.input = input
         self.registry = registry
-        self.map_name = map_name
+        self.func_name = func_name
         self.part_name = part_name
         self.ntasks = ntasks
         self.nparts = nparts
@@ -76,7 +76,7 @@ class MapData(DataSet):
                 nparts)
         pass
 
-    def make_tasks(self)
+    def make_tasks(self):
         for i in xrange(self.ntasks):
             task = MapTask()
             task.dataset = self
@@ -90,7 +90,7 @@ class ReduceData(DataSet):
                 ntasks, nparts)
         pass
 
-    def make_tasks(self)
+    def make_tasks(self):
         for i in xrange(self.ntasks):
             task = ReduceTask()
             task.dataset = self
