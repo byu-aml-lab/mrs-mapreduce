@@ -32,17 +32,25 @@ class Job(object):
         return ds
 
     def print_status(self):
-        self.datasets[self.current].print_status()
+        ds = self.datasets[self.current]
+        if not ds.tasks_made:
+            ds.make_tasks()
+        ds.print_status()
 
     def get_task(self):
         """Return the next available task"""
         N = len(self.datasets)
         while self.current < N:
             ds = self.datasets[i]
+            if not ds.tasks_made:
+                ds.make_tasks()
             if ds.done():
                 self.current += 1
             else:
                 return ds.get_task()
+
+    def done(self):
+        return (self.current >= len(self.datasets))
 
 
 # maybe this should be ParallelDataSet:
@@ -53,9 +61,10 @@ class DataSet(object):
     regenerate its contents.  It can also decide whether to save the data to
     permanent storage or to leave them in memory on the slaves.
     """
-    def __init__(self, input, registry, func_name, part_name, ntasks=1,
-            nparts=1):
+    def __init__(self, input, outdir, registry, func_name, part_name,
+            ntasks=1, nparts=1):
         self.input = input
+        self.outdir = outdir
         self.registry = registry
         self.func_name = func_name
         self.part_name = part_name
@@ -91,28 +100,29 @@ class DataSet(object):
         todo = len(self.tasks_todo)
         done = len(self.tasks_done)
         total = active + todo + done
-        print 'Completed: %s/%s, Active: %s'
+        print 'Completed: %s/%s, Active: %s' % (done, total, active)
 
 
 class MapData(DataSet):
-    def __init__(self, input, registry, map_name, part_name, ntasks, nparts):
-        DataSet.__init__(self, input, registry, map_name, part_name, ntasks,
-                nparts)
+    def __init__(self, input, outdir, registry, map_name, part_name, ntasks,
+            nparts):
+        DataSet.__init__(self, input, outdir, registry, map_name, part_name,
+                ntasks, nparts)
 
     def make_tasks(self):
         for taskid in xrange(self.ntasks):
             task = MapTask(taskid, self.registry, self.func_name,
-                    self.part_name, self.jobdir, self.nparts)
+                    self.part_name, self.outdir, self.nparts)
             task.dataset = self
             self.tasks_todo.append(task)
         self.tasks_made = True
 
 
 class ReduceData(DataSet):
-    def __init__(self, input, registry, reduce_name, part_name, ntasks,
-            nparts):
-        DataSet.__init__(self, input, registry, reduce_name, part_name,
-                ntasks, nparts)
+    def __init__(self, input, outdir, registry, reduce_name, part_name,
+            ntasks, nparts):
+        DataSet.__init__(self, input, outdir, registry, reduce_name,
+                part_name, ntasks, nparts)
 
     def make_tasks(self):
         for taskid in xrange(self.ntasks):
@@ -165,7 +175,7 @@ class Implementation(threading.Thread):
 
 
 class MapTask(threading.Thread):
-    def __init__(self, taskid, registry, map_name, part_name, jobdir,
+    def __init__(self, taskid, registry, map_name, part_name, outdir,
             nparts, **kwds):
         threading.Thread.__init__(self, **kwds)
         self.taskid = taskid
@@ -174,7 +184,7 @@ class MapTask(threading.Thread):
         self.part_name = part_name
         self.partition = registry[part_name]
         self.inputs = []
-        self.jobdir = jobdir
+        self.outdir = outdir
         self.nparts = nparts
         self.dataset = None
 
@@ -187,7 +197,7 @@ class MapTask(threading.Thread):
 
         # PREP
         subdirbase = "map_%s_" % self.taskid
-        directory = tempfile.mkdtemp(dir=self.jobdir, prefix=subdirbase)
+        directory = tempfile.mkdtemp(dir=self.outdir, prefix=subdirbase)
         self.output = io.Output(self.partition, self.nparts,
                 directory=directory)
 
@@ -212,6 +222,7 @@ class MapTask(threading.Thread):
 
 
 # TODO: allow configuration of output format
+# TODO: make more like MapTask (part_name, nparts, etc.)
 class ReduceTask(threading.Thread):
     def __init__(self, taskid, registry, reduce_name, outdir, format='txt',
             **kwds):

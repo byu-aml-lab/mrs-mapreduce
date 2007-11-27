@@ -40,6 +40,7 @@ class Parallel(Implementation):
     def __init__(self, registry, inputs, outdir, port, shared_dir,
             reduce_tasks, **kwds):
         Implementation.__init__(self, **kwds)
+        self.registry = registry
         self.inputs = inputs
         self.outdir = outdir
         self.port = port
@@ -55,7 +56,7 @@ class Parallel(Implementation):
         tasks = Supervisor(slaves)
 
         # Start RPC master server thread
-        interface = master.MasterInterface(slaves, op.registry)
+        interface = master.MasterInterface(slaves, self.registry)
         rpc_thread = rpc.RPCThread(interface, self.port)
         rpc_thread.start()
         port = rpc_thread.server.socket.getsockname()[1]
@@ -71,10 +72,10 @@ class Parallel(Implementation):
         jobdir = mkdtemp(prefix='mrs.job_', dir=self.shared_dir)
 
         job = Job()
-        map_out = job.map_data(self.inputs, op.registry, 'mapper',
-                'partition', len(self.inputs), reduce_tasks)
-        reduce_out = job.reduce_data(map_out, op.registry, 'reducer',
-                'partition', reduce_tasks, 1)
+        map_out = job.map_data(self.inputs, jobdir, self.registry, 'mapper',
+                'partition', len(self.inputs), self.reduce_tasks)
+        reduce_out = job.reduce_data(map_out, self.outdir, self.registry,
+                'reducer', 'partition', self.reduce_tasks, 1)
         tasks.job = job
 
         #for taskid, filename in enumerate(self.inputs):
