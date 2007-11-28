@@ -72,11 +72,10 @@ class Parallel(Implementation):
         try_makedirs(self.shared_dir)
         jobdir = mkdtemp(prefix='mrs.job_', dir=self.shared_dir)
 
-        job = Job()
-        map_out = job.map_data(self.input, jobdir, self.registry, 'mapper',
-                'partition', self.reduce_tasks)
-        reduce_out = job.reduce_data(map_out, self.outdir, self.registry,
-                'reducer', 'partition', 1)
+        job = Job(self.registry, jobdir)
+        map_out = job.map_data(self.input, 'mapper', self.reduce_tasks)
+        reduce_out = job.reduce_data(map_out, 'reducer', 1,
+                outdir=self.outdir)
         tasks.job = job
 
         #for taskid, filename in enumerate(self.inputs):

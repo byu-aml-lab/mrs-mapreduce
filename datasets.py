@@ -49,22 +49,30 @@ class FileData(DataSet):
         return (self._urls[i],)
 
 
-class ComputationalData(DataSet):
+class ComputedData(DataSet):
     """Manage input to or output from a map or reduce operation.
     
     The data are evaluated lazily.  A DataSet knows how to generate or
     regenerate its contents.  It can also decide whether to save the data to
     permanent storage or to leave them in memory on the slaves.
     """
-    def __init__(self, input, outdir, registry, func_name, part_name,
-            nparts=1):
+    def __init__(self, input, func, nparts, outdir, parter=None,
+            registry=None):
         self.input = input
         self.ntasks = len(self.input)
         self.outdir = outdir
-        self.registry = registry
-        self.func_name = func_name
-        self.part_name = part_name
+        if registry is None:
+            from registry import Registry
+            self.registry = Registry()
+        else:
+            self.registry = registry
         self.nparts = nparts
+
+        self.func_name = self.registry.as_name(func)
+        if parter is None:
+            self.part_name = ''
+        else:
+            self.part_name = self.registry.as_name(parter)
 
         self.tasks_made = False
         self.tasks_todo = []
@@ -107,10 +115,11 @@ class ComputationalData(DataSet):
         print 'Completed: %s/%s, Active: %s' % (done, total, active)
 
 
-class MapData(ComputationalData):
-    def __init__(self, input, outdir, registry, map_name, part_name, nparts):
-        ComputationalData.__init__(self, input, outdir, registry, map_name,
-                part_name, nparts)
+class MapData(ComputedData):
+    def __init__(self, input, mapper, nparts, outdir, parter=None,
+            registry=None):
+        ComputedData.__init__(self, input, mapper, nparts, outdir,
+                parter=None, registry=registry)
 
     def make_tasks(self):
         from mapreduce import MapTask
@@ -122,11 +131,11 @@ class MapData(ComputationalData):
         self.tasks_made = True
 
 
-class ReduceData(ComputationalData):
-    def __init__(self, input, outdir, registry, reduce_name, part_name,
-            nparts):
-        ComputationalData.__init__(self, input, outdir, registry, reduce_name,
-                part_name, nparts)
+class ReduceData(ComputedData):
+    def __init__(self, input, reducer, nparts, outdir, parter=None,
+            registry=None):
+        ComputedData.__init__(self, input, reducer, nparts, outdir,
+                parter=None, registry=registry)
 
     def make_tasks(self):
         from mapreduce import ReduceTask

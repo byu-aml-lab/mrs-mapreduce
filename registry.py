@@ -154,6 +154,15 @@ class Registry(object):
         self.functions[function] = name
         self.hashes[name] = func_hash(function)
 
+    def as_name(self, item):
+        """Lookup the given string or function and return the string name."""
+        if item in self.names:
+            return item
+        elif item in self.functions:
+            return self.functions[item]
+        else:
+            raise KeyError("Can't find '%s' in registry." % item)
+
     def add(self, function):
         """Register and return a function.
 

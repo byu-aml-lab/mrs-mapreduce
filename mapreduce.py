@@ -16,19 +16,37 @@ def simple_run(registry, map_name, part_name, reduce_name,
 
 class Job(object):
     """Keep track of all operations that need to be performed."""
-    def __init__(self):
+    def __init__(self, registry, jobdir):
         self.datasets = []
         self.current = 0
+        self.registry = registry
+        self.jobdir = jobdir
 
-    def map_data(self, *args):
+    def map_data(self, input, mapper, nparts=1, outdir=None, parter=None):
+        """Define a set of data computed with a map operation.
+
+        Specify the input dataset and a mapper function.  The mapper must be
+        in the job's registry and may be specified as a name or function.
+        """
         from datasets import MapData
-        ds = MapData(*args)
+        if outdir is None:
+            outdir = self.jobdir
+        ds = MapData(input, mapper, nparts, outdir, parter=parter,
+                registry=self.registry)
         self.datasets.append(ds)
         return ds
 
-    def reduce_data(self, *args):
+    def reduce_data(self, input, reducer, nparts=1, outdir=None, parter=None):
+        """Define a set of data computed with a reducer operation.
+
+        Specify the input dataset and a reducer function.  The reducer must be
+        in the job's registry and may be specified as a name or function.
+        """
         from datasets import ReduceData
-        ds = ReduceData(*args)
+        if outdir is None:
+            outdir = self.jobdir
+        ds = ReduceData(input, reducer, nparts, outdir, parter=parter,
+                registry=self.registry)
         self.datasets.append(ds)
         return ds
 
@@ -136,7 +154,10 @@ class MapTask(Task):
         self.map_name = map_name
         self.mapper = registry[map_name]
         self.part_name = part_name
-        self.partition = registry[part_name]
+        if part_name == '':
+            self.partition = default_partition
+        else:
+            self.partition = registry[part_name]
         self.nparts = nparts
 
     def run(self):

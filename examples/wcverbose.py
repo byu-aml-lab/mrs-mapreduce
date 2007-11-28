@@ -8,8 +8,6 @@ def mapper(key, value):
         if word:
             yield (word, str(1))
 
-from mrs.mapreduce import default_partition as partition
-
 def reducer(key, value_iter):
     yield str(sum(int(x) for x in value_iter))
 
