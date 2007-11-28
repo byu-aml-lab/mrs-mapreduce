@@ -128,7 +128,7 @@ class Slave(object):
         while self.alive:
             if not self.handle_request():
                 try:
-                    master_alive = self.master.ping()
+                    master_alive = self.master.ping(self.id, self.cookie)
                 except socket.error:
                     master_alive = False
                 if not master_alive:
@@ -166,9 +166,8 @@ class Worker(threading.Thread):
         success = False
         self._cond.acquire()
         if self._task is None:
-            self._task = MapTask(taskid, self.slave.registry, map_name,
+            self._task = MapTask(taskid, inputs, self.slave.registry, map_name,
                     part_name, output, reduce_tasks)
-            self._task.inputs = inputs
             success = True
             self._cond.notify()
         self._cond.release()
@@ -183,9 +182,8 @@ class Worker(threading.Thread):
         success = False
         self._cond.acquire()
         if self._task is None:
-            self._task = ReduceTask(taskid, self.slave.registry, reduce_name,
-                    output)
-            self._task.inputs = inputs
+            self._task = ReduceTask(taskid, inputs, self.slave.registry,
+                    reduce_name, output)
             success = True
             self._cond.notify()
         self._cond.release()
@@ -201,13 +199,12 @@ class Worker(threading.Thread):
             self._cond.release()
 
             task.run()
-            files = task.output.filenames()
 
             self._cond.acquire()
             self._task = None
             self._cond.release()
 
-            self.master.done(self.slave.id, files, self.slave.cookie)
+            self.master.done(self.slave.id, task.outurls, self.slave.cookie)
 
 
 # vim: et sw=4 sts=4
