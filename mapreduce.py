@@ -32,10 +32,13 @@ class Job(object):
         return ds
 
     def print_status(self):
-        ds = self.datasets[self.current]
-        if not ds.tasks_made:
-            ds.make_tasks()
-        ds.print_status()
+        if self.done():
+            print 'Done'
+        else:
+            ds = self.datasets[self.current]
+            if not ds.tasks_made:
+                ds.make_tasks()
+            ds.print_status()
 
     def get_task(self):
         """Return the next available task"""
@@ -109,9 +112,13 @@ class MapData(DataSet):
                 ntasks, nparts)
 
     def make_tasks(self):
-        for taskid in xrange(self.ntasks):
+        # TODO: relax this assumption:
+        assert self.ntasks == len(self.input)
+        #for taskid in xrange(self.ntasks):
+        for taskid, filename in enumerate(self.input):
             task = MapTask(taskid, self.registry, self.func_name,
                     self.part_name, self.outdir, self.nparts)
+            task.inputs = [filename]
             task.dataset = self
             self.tasks_todo.append(task)
         self.tasks_made = True
@@ -124,9 +131,13 @@ class ReduceData(DataSet):
                 part_name, ntasks, nparts)
 
     def make_tasks(self):
-        for taskid in xrange(self.ntasks):
+        # TODO: relax this assumption:
+        assert self.ntasks == len(self.input)
+        #for taskid in xrange(self.ntasks):
+        for taskid, filename in enumerate(self.input):
             task = ReduceTask(taskid, self.registry, self.func_name,
                     self.outdir)
+            task.inputs = [filename]
             task.dataset = self
             self.tasks_todo.append(task)
         self.tasks_made = True
@@ -184,7 +195,6 @@ class Task(object):
     def canceled(self):
         self.dataset.tasks_active.remove(self)
         self.dataset.tasks_todo.append(self)
-
 
 
 class MapTask(Task):
