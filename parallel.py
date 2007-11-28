@@ -63,7 +63,8 @@ class Parallel(Implementation):
             reduce_tasks, **kwds):
         Implementation.__init__(self, **kwds)
         self.registry = registry
-        self.inputs = inputs
+        from datasets import FileData
+        self.input = FileData(inputs)
         self.outdir = outdir
         self.port = port
         self.shared_dir = shared_dir
@@ -94,10 +95,10 @@ class Parallel(Implementation):
         jobdir = mkdtemp(prefix='mrs.job_', dir=self.shared_dir)
 
         job = Job()
-        map_out = job.map_data(self.inputs, jobdir, self.registry, 'mapper',
-                'partition', len(self.inputs), self.reduce_tasks)
+        map_out = job.map_data(self.input, jobdir, self.registry, 'mapper',
+                'partition', self.reduce_tasks)
         reduce_out = job.reduce_data(map_out, self.outdir, self.registry,
-                'reducer', 'partition', self.reduce_tasks, 1)
+                'reducer', 'partition', 1)
         tasks.job = job
 
         #for taskid, filename in enumerate(self.inputs):
@@ -164,8 +165,8 @@ class Assignment(object):
         self.done = False
         self.workers = []
     
-    def finished(self):
-        self.task.finished()
+    def finished(self, urls):
+        self.task.finished(urls)
 
     def add_worker(self, slave):
         self.workers.append(slave)
@@ -224,11 +225,10 @@ class Supervisor(object):
             next_done = self.slaves.pop_done()
             if next_done is None:
                 return
-            slave, files = next_done
+            slave, urls = next_done
 
             assignment = slave.assignment
-            assignment.files = files
-            assignment.finished()
+            assignment.finished(urls)
 
             slave.assignment = None
             self.slaves.push_idle(slave)

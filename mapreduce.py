@@ -70,7 +70,7 @@ class Job(object):
             ds = self.datasets[self.current]
             if not ds.tasks_made:
                 ds.make_tasks()
-            if ds.done():
+            if ds.ready():
                 self.current += 1
             else:
                 return ds.get_task()
@@ -121,10 +121,28 @@ class Implementation(threading.Thread):
 
 
 class Task(object):
+    def __init__(self, taskid, input, outdir):
+        self.taskid = taskid
+        self.input = input
+        self.outdir = outdir
+        self._output = None
+        self.outurls = []
+        self.dataset = None
+
+    def inputurls(self):
+        # TODO: make this a bit more symmetrical on the master side vs. the
+        # slave side (maybe make a SlaveDataSet class or something)
+        from datasets import DataSet
+        if isinstance(self.input, DataSet):
+            return self.input[self.taskid]
+        else:
+            return self.input
+
     def active(self):
         self.dataset.tasks_active.append(self)
 
-    def finished(self):
+    def finished(self, urls):
+        self.outurls = urls
         self.dataset.tasks_active.remove(self)
         self.dataset.tasks_done.append(self)
 
@@ -134,52 +152,46 @@ class Task(object):
 
 
 class MapTask(Task):
-    def __init__(self, taskid, registry, map_name, part_name, outdir,
+    def __init__(self, taskid, input, registry, map_name, part_name, outdir,
             nparts, **kwds):
-        self.taskid = taskid
+        Task.__init__(self, taskid, input, outdir)
         self.map_name = map_name
         self.mapper = registry[map_name]
         self.part_name = part_name
         self.partition = registry[part_name]
-        self.inputs = []
-        self.outdir = outdir
         self.nparts = nparts
-        self.dataset = None
 
     def run(self):
         import io
         from itertools import chain
         import tempfile
-        inputfiles = [io.openfile(filename) for filename in self.inputs]
+        inputfiles = [io.openfile(url) for url in self.inputurls()]
         all_input = chain(*inputfiles)
 
         # PREP
         subdirbase = "map_%s_" % self.taskid
         directory = tempfile.mkdtemp(dir=self.outdir, prefix=subdirbase)
-        self.output = io.Output(self.partition, self.nparts,
+        self._output = io.Output(self.partition, self.nparts,
                 directory=directory)
 
-        self.output.collect(mrs_map(self.mapper, all_input))
-        self.output.savetodisk()
+        self._output.collect(mrs_map(self.mapper, all_input))
+        self._output.savetodisk()
 
         for input_file in all_input:
             input_file.close()
-        self.output.close()
+        self._output.close()
+        self.outurls = self._output.filenames()
 
 
 # TODO: allow configuration of output format
 # TODO: make more like MapTask (part_name, nparts, etc.)
 class ReduceTask(Task):
-    def __init__(self, taskid, registry, reduce_name, outdir, format='txt',
-            **kwds):
-        self.taskid = taskid
+    def __init__(self, taskid, input, registry, reduce_name, outdir,
+            format='txt', **kwds):
+        Task.__init__(self, taskid, input, outdir)
         self.reduce_name = reduce_name
         self.reducer = registry[reduce_name]
-        self.outdir = outdir
-        self.inputs = []
-        self.output = None
         self.format = format
-        self.dataset = None
 
     def run(self):
         import io
@@ -190,11 +202,11 @@ class ReduceTask(Task):
         import tempfile
         subdirbase = "reduce_%s_" % self.taskid
         directory = tempfile.mkdtemp(dir=self.outdir, prefix=subdirbase)
-        self.output = io.Output(None, 1, directory=directory,
+        self._output = io.Output(None, 1, directory=directory,
                 format=self.format)
 
         # SORT PHASE
-        inputfiles = [io.openfile(filename) for filename in self.inputs]
+        inputfiles = [io.openfile(url) for url in self.inputurls()]
         all_input = sorted(chain(*inputfiles))
 
         # Do the following if external sort is necessary (i.e., the input
@@ -204,16 +216,13 @@ class ReduceTask(Task):
         #io.hexfile_sort(interm_names, sorted_name)
 
         # REDUCE PHASE
-        self.output.collect(mrs_reduce(self.reducer, all_input))
-        self.output.savetodisk()
+        self._output.collect(mrs_reduce(self.reducer, all_input))
+        self._output.savetodisk()
 
         for f in inputfiles:
             f.close()
-        self.output.close()
-
-    def finished(self):
-        self.dataset.tasks_active.remove(self)
-        self.dataset.tasks_done.append(self)
+        self._output.close()
+        self.outurls = self._output.filenames()
 
 
 def default_partition(x, n):

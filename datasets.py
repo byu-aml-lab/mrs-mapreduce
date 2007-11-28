@@ -27,8 +27,51 @@
 import threading
 
 
-# maybe this should be ParallelDataSet:
 class DataSet(object):
+    """Manage input to or output from a map or reduce operation.
+    """
+    def __len__(self):
+        """Number of splits in this DataSet."""
+        return 0
+
+    def __getitem__(self, split):
+        """Retrieve a seq of URLs for a particular split in this DataSet."""
+        raise IndexError
+
+    def ready(self, split=None):
+        """Whether or not a split is ready to be retrieved.
+
+        If the split is not specified, ready() tells whether or not
+        all splits are ready.
+        """
+        return True
+
+
+class FileData(DataSet):
+    """A list of static files that can be used as input to an operation.
+
+    >>> urls = ['http://aml.cs.byu.edu/', 'http://www.cs.byu.edu/']
+    >>> data = FileData(urls)
+    >>> len(data)
+    2
+    >>> data[1]
+    'http://www.cs.byu.edu/'
+    >>>
+    """
+    def __init__(self, urls):
+        self._len = len(urls)
+        self._urls = tuple(urls)
+
+    def __len__(self):
+        """How many files are in the DataSet."""
+        return self._len
+
+    def __getitem__(self, i):
+        """Retrieve a sequence containing the URL for the specified file."""
+        return (self._urls[i],)
+
+
+class ComputationalData(DataSet):
     """Manage input to or output from a map or reduce operation.
     
     The data are evaluated lazily.  A DataSet knows how to generate or
@@ -36,13 +79,13 @@ class DataSet(object):
     permanent storage or to leave them in memory on the slaves.
     """
     def __init__(self, input, outdir, registry, func_name, part_name,
-            ntasks=1, nparts=1):
+            nparts=1):
         self.input = input
+        self.ntasks = len(self.input)
         self.outdir = outdir
         self.registry = registry
         self.func_name = func_name
         self.part_name = part_name
-        self.ntasks = ntasks
         self.nparts = nparts
 
         self.tasks_made = False
@@ -54,11 +97,21 @@ class DataSet(object):
         # tasks.  This way you can know where to find data.  You also know
         # which hosts to restart in case of failure.
 
-    def done(self):
-        if self.tasks_made and (self.tasks_todo or self.tasks_active):
-            return False
+    def __len__(self):
+        return self.nparts
+
+    def __getitem__(self, split):
+        if not self.ready():
+            raise IndexError
         else:
+            return [task.outurls[split] for task in self.tasks_done
+                    if task.outurls[split] != '']
+
+    def ready(self):
+        if self.tasks_made and not self.tasks_todo and not self.tasks_active:
             return True
+        else:
+            return False
 
     def get_task(self):
         """Return the next available task"""
@@ -76,41 +129,32 @@ class DataSet(object):
         print 'Completed: %s/%s, Active: %s' % (done, total, active)
 
 
-class MapData(DataSet):
-    def __init__(self, input, outdir, registry, map_name, part_name, ntasks,
-            nparts):
-        DataSet.__init__(self, input, outdir, registry, map_name, part_name,
-                ntasks, nparts)
+class MapData(ComputationalData):
+    def __init__(self, input, outdir, registry, map_name, part_name, nparts):
+        ComputationalData.__init__(self, input, outdir, registry, map_name,
+                part_name, nparts)
 
     def make_tasks(self):
         from mapreduce import MapTask
-        # TODO: relax this assumption:
-        assert self.ntasks == len(self.input)
-        #for taskid in xrange(self.ntasks):
-        for taskid, filename in enumerate(self.input):
-            task = MapTask(taskid, self.registry, self.func_name,
+        for taskid in xrange(self.ntasks):
+            task = MapTask(taskid, self.input, self.registry, self.func_name,
                     self.part_name, self.outdir, self.nparts)
-            task.inputs = [filename]
             task.dataset = self
             self.tasks_todo.append(task)
         self.tasks_made = True
 
 
-class ReduceData(DataSet):
+class ReduceData(ComputationalData):
     def __init__(self, input, outdir, registry, reduce_name, part_name,
-            ntasks, nparts):
-        DataSet.__init__(self, input, outdir, registry, reduce_name,
-                part_name, ntasks, nparts)
+            nparts):
+        ComputationalData.__init__(self, input, outdir, registry, reduce_name,
+                part_name, nparts)
 
     def make_tasks(self):
         from mapreduce import ReduceTask
-        # TODO: relax this assumption:
-        assert self.ntasks == len(self.input)
-        #for taskid in xrange(self.ntasks):
-        for taskid, filename in enumerate(self.input):
-            task = ReduceTask(taskid, self.registry, self.func_name,
-                    self.outdir)
-            task.inputs = [filename]
+        for taskid in xrange(self.ntasks):
+            task = ReduceTask(taskid, self.input, self.registry,
+                    self.func_name, self.outdir)
             task.dataset = self
             self.tasks_todo.append(task)
         self.tasks_made = True

@@ -1,14 +1,13 @@
 - RPC over HTTPS
 - logging
 - pass a dict of options from the application to the slaves
-- simplify job specification with an app_spec and job_spec (?)
-- improve the way you give a Job its operations list
 - do input splitting
 - use the "Range:" header in HTTP requests as part of the split
   implementation.  See also the "urlgrabber" module.  To implement this in the
   HTTP server, you will have to implement do_GET on its own (see
   http://techlists.org/archives/programming/pythonlist/2002-02/msg04678.shtml)
 - show current status by creating an HTTP server on the master
+- have reducers start compiling data before all of the input files are ready
 
 
 ########################################################################
