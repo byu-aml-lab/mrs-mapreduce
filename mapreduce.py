@@ -4,23 +4,37 @@
 
 import threading
 
-def simple_run(registry, map_name, part_name, reduce_name,
-        map_tasks=1, reduce_tasks=1):
-    def run(job, input):
-        map_out = job.map_data(input, registry, map_name, part_name,
-                map_tasks, reduce_tasks)
-        reduce_out = job.reduce_data(map_out, registry, reduce_name,
-                part_name, reduce_tasks, 1)
-    return run
+def mrs_simple(job, args, opts):
+    """Default run function for a map phase and reduce phase"""
+    if len(args) < 2:
+        import sys
+        print >>sys.stderr, "Requires input(s) and an output."
+        sys.exit(-1)
+    source = job.file_data(args[:-1])
+    intermediate = job.map_data(source, 'mapper')
+    output = job.reduce_data(intermediate, 'reducer', outdir=args[-1])
 
 
+# TODO: make everything reentrant once Parallel runs in a different thread.
 class Job(object):
     """Keep track of all operations that need to be performed."""
-    def __init__(self, registry, jobdir):
+    def __init__(self, registry, jobdir, user_run, args, opts):
         self.datasets = []
         self.current = 0
         self.registry = registry
         self.jobdir = jobdir
+        self.user_run = user_run
+        self.args = args
+        self.opts = opts
+
+    def run(self):
+        job = self
+        self.user_run(job, self.args, self.opts)
+
+    def file_data(self, filenames):
+        from datasets import FileData
+        ds = FileData(filenames)
+        return ds
 
     def map_data(self, input, mapper, nparts=1, outdir=None, parter=None):
         """Define a set of data computed with a map operation.
@@ -124,6 +138,10 @@ class Task(object):
         self._output = None
         self.outurls = []
         self.dataset = None
+
+        # TODO: check to see if there's somewhere better for this:
+        from util import try_makedirs
+        try_makedirs(outdir)
 
     def inputurls(self):
         # TODO: make this a bit more symmetrical on the master side vs. the
