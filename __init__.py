@@ -44,46 +44,52 @@ DEFAULT_RPC_PORT = 0
 
 from registry import Registry
 
-#def main(mapper, reducer, partition=None):
-def main(run, registry):
+USAGE = (""
+"""usage: %prog IMPLEMENTATION [OPTIONS] [ARG1 ...]
+       %prog slave [OPTIONS] SERVER_URI
+
+IMPLEMENTATION may be serial, master, or mockparallel.  A slave will attempt
+to connect to a master listening at SERVER_URI.
+""")
+
+def main(registry, run=None, parser=None):
     """Run a MapReduce program.
 
-    Requires a run function and a Registry.
+    Requires a run function and a Registry.  If you want to, you can pass in
+    an OptionParser instance called parser with your own custom options that
+    we'll add to.  We'll overwrite the usage statement, but feel free to add
+    an epilog.
     """
     from optparse import OptionParser
     import sys, os
 
-    usage = \
-"""usage: %prog IMPLEMENTATION [OPTIONS] INPUT1 [INPUT2 ...] OUTPUT
-       %prog slave [ARGS] SERVER_URI
-
-IMPLEMENTATION may be serial, master, or mockparallel.  A slave will attempt
-to connect to a master listening at SERVER_URI.
-"""
     version = 'Mrs %s' % VERSION
 
-    parser = OptionParser(usage=usage)
+    if parser is None:
+        parser = OptionParser()
+    parser.usage = USAGE
     parser.add_option('-p', '--port', dest='port', type='int',
             help='RPC Port for incoming requests')
     parser.add_option('--shared', dest='shared',
             help='Shared area for temporary storage (parallel only)')
-    parser.add_option('-M', '--map-tasks', dest='map_tasks', type='int',
-            help='Number of map tasks (parallel only)')
+    # TODO: allow -M to be specified: this will determine a default split
+    #parser.add_option('-M', '--map-tasks', dest='map_tasks', type='int',
+    #        help='Number of map tasks (parallel only)')
     parser.add_option('-R', '--reduce-tasks', dest='reduce_tasks', type='int',
             help='Number of reduce tasks (parallel only)')
-    parser.set_defaults(map_tasks=0, reduce_tasks=0, port=DEFAULT_RPC_PORT,
+    parser.set_defaults(map_tasks=0, reduce_tasks=1, port=DEFAULT_RPC_PORT,
             shared=os.getcwd())
 
-    (options, args) = parser.parse_args()
-    if len(args) < 1:
+    (options, raw_args) = parser.parse_args()
+    if len(raw_args) < 1:
         parser.error("Requires an subcommand.")
-    subcommand = args[0]
+    subcommand = raw_args[0]
+    args = raw_args[1:]
 
     import mapreduce
-    #if partition is None:
-    #    partition = mapreduce.default_partition
-    #mrs_prog = mapreduce.Program(mapper, reducer, partition)
-    #mrs_prog = mapreduce.Program(run, registry)
+
+    if run is None:
+        run = mapreduce.mrs_simple
 
     if subcommand in ('master', 'slave'):
         import inspect
@@ -102,26 +108,22 @@ to connect to a master listening at SERVER_URI.
         registry.main_hash = str(hash(source))
 
         if subcommand == 'master':
-            if len(args) < 3:
-                parser.error("Requires inputs and an output.")
-            inputs = args[1:-1]
-            output = args[-1]
-            subcommand_args = (registry, run, inputs, output, options)
+            subcommand_args = (registry, run, args, options)
             from parallel import run_master
             subcommand_function = run_master
         elif subcommand == 'slave':
-            if len(args) != 2:
+            if len(args) != 1:
                 parser.error("Requires a server address and port.")
-            uri = args[1]
+            uri = args[0]
             from slave import run_slave
             subcommand_function = run_slave
             subcommand_args = (registry, uri, options)
     elif subcommand in ('mockparallel', 'serial'):
-        if len(args) < 3:
+        if len(args) < 2:
             parser.error("Requires inputs and an output.")
-        inputs = args[1:-1]
+        inputs = args[0:-1]
         output = args[-1]
-        subcommand_args = (registry, run, inputs, output, options)
+        subcommand_args = (registry, run, args, options)
         if subcommand == 'mockparallel':
             from serial import run_mockparallel
             subcommand_function = run_mockparallel

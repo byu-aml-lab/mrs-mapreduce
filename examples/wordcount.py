@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 # Copyright 2008 Brigham Young University
 #
 # This file is part of Mrs.
@@ -22,15 +21,19 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
+from string import punctuation
+import mrs
+
 def mapper(key, value):
     for word in value.split():
-        yield (word, str(1))
+        word = word.strip(punctuation).lower()
+        if word:
+            yield (word, str(1))
 
 def reducer(key, value_iter):
     yield str(sum(int(x) for x in value_iter))
 
 if __name__ == '__main__':
-    import mrs
-    mrs.main(mapper, reducer)
+    mrs.main(mrs.Registry(globals()))
 
 # vim: et sw=4 sts=4

@@ -28,29 +28,31 @@ PING_LOOP_WAIT = 1.0
 
 import socket, threading
 from mapreduce import Job, Implementation, MapTask, ReduceTask
-from util import try_makedirs
 
 # NOTE: This is a _global_ setting:
 socket.setdefaulttimeout(SOCKET_TIMEOUT)
 
 
-def run_master(registry, run, inputs, output, options):
+def run_master(registry, user_run, args, opts):
     """Mrs Master
     """
-    map_tasks = options.map_tasks
-    reduce_tasks = options.reduce_tasks
-    if map_tasks == 0:
-        map_tasks = len(inputs)
-    if reduce_tasks == 0:
-        reduce_tasks = 1
+    # Set up job directory
+    shared_dir = opts.shared
+    from util import try_makedirs
+    try_makedirs(shared_dir)
+    import tempfile
+    jobdir = tempfile.mkdtemp(prefix='mrs.job_', dir=shared_dir)
 
-    if map_tasks != len(inputs):
-        raise NotImplementedError("For now, the number of map tasks "
-                "must equal the number of input files.")
+    # Create Job
+    job = Job(registry, jobdir, user_run, args, opts)
 
-    mrsjob = Parallel(registry, inputs, output, options.port, options.shared,
-            reduce_tasks)
-    mrsjob.run()
+    # TODO: later, don't assume that this is a short-running function:
+    job.run()
+
+    # TODO: this should spin off as another thread while job runs in the
+    # current thread:
+    mrs_exec = Parallel(job, registry, opts.port)
+    mrs_exec.run()
     return 0
 
 
@@ -59,24 +61,20 @@ class Parallel(Implementation):
 
     For right now, we require POSIX shared storage (e.g., NFS).
     """
-    def __init__(self, registry, inputs, outdir, port, shared_dir,
-            reduce_tasks, **kwds):
+    def __init__(self, job, registry, port, **kwds):
         Implementation.__init__(self, **kwds)
+        self.job = job
         self.registry = registry
-        from datasets import FileData
-        self.input = FileData(inputs)
-        self.outdir = outdir
         self.port = port
-        self.shared_dir = shared_dir
-        self.reduce_tasks = reduce_tasks
 
     def run(self):
         import sys, os
         import master, rpc
-        from tempfile import mkstemp, mkdtemp
 
+        job = self.job
         slaves = master.Slaves()
         tasks = Supervisor(slaves)
+        tasks.job = job
 
         # Start RPC master server thread
         interface = master.MasterInterface(slaves, self.registry)
@@ -88,25 +86,6 @@ class Parallel(Implementation):
         # Start pinging thread
         ping_thread = PingThread(slaves)
         ping_thread.start()
-
-        # Prep:
-        try_makedirs(self.outdir)
-        try_makedirs(self.shared_dir)
-        jobdir = mkdtemp(prefix='mrs.job_', dir=self.shared_dir)
-
-        job = Job(self.registry, jobdir)
-        map_out = job.map_data(self.input, 'mapper', self.reduce_tasks)
-        reduce_out = job.reduce_data(map_out, 'reducer', 1,
-                outdir=self.outdir)
-        tasks.job = job
-
-        #for taskid, filename in enumerate(self.inputs):
-            #map_task = MapTask(taskid, op.registry, 'mapper', 'partition',
-            #        jobdir, reduce_tasks)
-            #map_task.inputs = [filename]
-        #for taskid in xrange(op.reduce_tasks):
-            #reduce_task = ReduceTask(taskid, op.registry, 'reducer',
-            #        self.outdir, jobdir)
 
         # Drive Slaves:
         while not job.done():
