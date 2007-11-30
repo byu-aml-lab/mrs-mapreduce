@@ -1,26 +1,27 @@
 #!/usr/bin/env python
 
 import io
-from mapreduce import Implementation, mrs_map, mrs_reduce, MapTask, ReduceTask
+from mapreduce import Implementation, mrs_map, mrs_reduce, Job
 from util import try_makedirs
 
-def run_mockparallel(registry, run, inputs, output, options):
-    map_tasks = options.map_tasks
-    reduce_tasks = options.reduce_tasks
-    if map_tasks == 0:
-        map_tasks = len(inputs)
-    if reduce_tasks == 0:
-        reduce_tasks = 1
+def run_mockparallel(registry, user_run, args, opts):
+    # Set up job directory
+    shared_dir = opts.shared
+    from util import try_makedirs
+    try_makedirs(shared_dir)
+    import tempfile
+    jobdir = tempfile.mkdtemp(prefix='mrs.job_', dir=shared_dir)
 
-    if map_tasks != len(inputs):
-        raise NotImplementedError("For now, the number of map tasks "
-                "must equal the number of input files.")
+    # Create Job
+    job = Job(registry, jobdir, user_run, args, opts)
 
-    from mrs.mapreduce import Operation
-    op = Operation(registry, run, map_tasks=map_tasks, reduce_tasks=reduce_tasks)
-    mrsjob = MockParallel(inputs, output, options.shared)
-    mrsjob.operations = [op]
-    mrsjob.run()
+    # TODO: later, don't assume that this is a short-running function:
+    job.run()
+
+    # TODO: this should spin off as another thread while job runs in the
+    # current thread:
+    mrs_exec = MockParallel(job, registry)
+    mrs_exec.run()
     return 0
 
 
@@ -80,57 +81,18 @@ class MockParallel(Implementation):
     Specify a directory located in shared storage which can be used as scratch
     space.
     """
-    def __init__(self, inputs, outdir, shared_dir, **kwds):
+    def __init__(self, job, registry, **kwds):
         Implementation.__init__(self, **kwds)
-        self.inputs = inputs
-        self.outdir = outdir
-        self.shared_dir = shared_dir
+        self.job = job
+        self.registry = registry
 
     def run(self):
-        ################################################################
-        # TEMPORARY LIMITATIONS
-        if len(self.operations) != 1:
-            raise NotImplementedError("Requires exactly one operation.")
-        op = self.operations[0]
-
-        map_tasks = op.map_tasks
-        if map_tasks != len(self.inputs):
-            raise NotImplementedError("Requires exactly 1 map_task per input.")
-
-        reduce_tasks = op.reduce_tasks
-        ################################################################
-
         import sys, os
-        from tempfile import mkstemp, mkdtemp
 
-        # Prep:
-        try_makedirs(self.outdir)
-        try_makedirs(self.shared_dir)
-        jobdir = mkdtemp(prefix='mrs.job_', dir=self.shared_dir)
-
-        # Create Map Tasks:
-        map_list = []
-        for taskid, filename in enumerate(self.inputs):
-            map_task = MapTask(taskid, op.registry, jobdir, reduce_tasks)
-            map_task.inputs = [filename]
-            map_list.append(map_task)
-
-        # Create Reduce Tasks:
-        reduce_list = []
-        for taskid in xrange(op.reduce_tasks):
-            reduce_task = ReduceTask(taskid, op.registry, self.outdir)
-            reduce_list.append(reduce_task)
+        job = self.job
 
         # Run Tasks:
-        for task in map_list:
+        for task in iter(job.get_task, None):
             task.run()
-            outputs = task.output.filenames()
-            for i, filename in enumerate(outputs):
-                if filename:
-                    reduce_list[i].inputs.append(filename)
-
-        for task in reduce_list:
-            task.run()
-
 
 # vim: et sw=4 sts=4
