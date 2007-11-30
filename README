@@ -2,12 +2,3 @@ MapReduce Simple (Mrs)
 
 Mrs is a simple MapReduce implementation.
 
-
-POSIX MapReduce:
-
-- shared storage are on an NFS volume
-- ssh to each machine and start up the same program as posix-slave
-- the slave listens on a public port, daemonizes, and returns the port #
-- or does the ssh session stay open???  SSH sessions can automatically close,
-  so that might not be a good idea.  On the other hand, you get automatic
-  encryption, etc.
