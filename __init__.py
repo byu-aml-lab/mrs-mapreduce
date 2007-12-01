@@ -92,21 +92,6 @@ def main(registry, run=None, parser=None):
         run = mapreduce.mrs_simple
 
     if subcommand in ('master', 'slave'):
-        import inspect
-        frame = inspect.currentframe()
-        try:
-            prev_frame = frame.f_back
-            filename = inspect.getfile(prev_frame)
-            source = open(filename).read()
-        except TypeError:
-            print >>sys.stderr, ("Warning: couldn't open file for the frame"
-                    "that called mrs.main()")
-            source = ''
-        finally:
-            del frame
-            del prev_frame
-        registry.main_hash = str(hash(source))
-
         if subcommand == 'master':
             subcommand_args = (registry, run, args, options)
             from parallel import run_master

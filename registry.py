@@ -142,7 +142,7 @@ class Registry(object):
         self.names = {}
         self.functions = {}
         self.hashes = {}
-        self.main_hash = None
+        self.dirty = True
 
         if dictionary:
             for name, function in dictionary.iteritems():
@@ -175,6 +175,7 @@ class Registry(object):
         self.names[name] = function
         self.functions[function] = name
         self.hashes[name] = func_hash(function)
+        self.dirty = True
 
     def as_name(self, item):
         """Lookup the given string or function and return the string name."""
@@ -197,15 +198,27 @@ class Registry(object):
     def __str__(self):
         return str(self.names)
 
-    def reg_hash(self):
-        return ''.join([name + self.gethash(name)
-                for name in sorted(self.names.keys())])
+    def source_hash(self):
+        """Hash the source file of each function in the registry."""
+        if self.dirty:
+            filenames = set([self[name].func_globals.get('__file__', '')
+                for name in self.names if hasattr(self[name], 'func_globals')])
+            hashes = [str(hash(open(filename).read())) for
+                filename in sorted(filenames) if filename]
+            self.source_hash_cache = ''.join(hashes)
+        return self.source_hash_cache
 
-    def verify(self, main_hash, reg_hash):
-        if (main_hash == self.main_hash) and (reg_hash == self.reg_hash()):
-            return True
-        else:
-            return False
+    def reg_hash(self):
+        """Hash each function in the registry."""
+        if self.dirty:
+            self.reg_hash_cache = ''.join([name + self.gethash(name)
+                for name in sorted(self.names.keys())])
+        return self.reg_hash_cache
+
+    def verify(self, source_hash, reg_hash):
+        source_check = (source_hash == self.source_hash())
+        reg_check = (reg_hash == self.reg_hash())
+        return source_check and reg_check
 
 
 if __name__ == "__main__":
