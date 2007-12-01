@@ -130,6 +130,12 @@ class MapData(ComputedData):
             self.tasks_todo.append(task)
         self.tasks_made = True
 
+    def run_serial(self):
+        pass
+        input_files = [io.openfile(filename) for filename in self.inputs]
+        all_input = chain(*input_files)
+        map_output = mrs_map(registry['mapper'], all_input)
+
 
 class ReduceData(ComputedData):
     def __init__(self, input, reducer, nparts, outdir, parter=None,
