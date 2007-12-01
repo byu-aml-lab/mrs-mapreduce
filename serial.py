@@ -50,32 +50,30 @@ def run_mockparallel(registry, user_run, args, opts):
 def run_serial(registry, run, inputs, output, options):
     """Mrs Serial
     """
-    from mrs.mapreduce import Operation
-    op = Operation(registry, run)
-    mrsjob = Serial(inputs, output)
-    mrsjob.operations = [op]
-    mrsjob.run()
+    # Create Job
+    job = Job(registry, jobdir, user_run, args, opts)
+
+    # TODO: later, don't assume that this is a short-running function:
+    job.run()
+
+    # TODO: this should spin off as another thread while job runs in the
+    # current thread:
+    mrs_exec = Serial(job, registry)
+    mrs_exec.run()
     return 0
 
 
 class Serial(Implementation):
     """MapReduce execution on a single processor
     """
-    def __init__(self, inputs, output, **kwds):
+    def __init__(self, job, registry, **kwds):
         Implementation.__init__(self, **kwds)
-        self.inputs = inputs
-        self.output = output
-        self.debug = False
+        self.job = job
+        self.registry = registry
 
     def run(self):
         """Run a MapReduce operation in serial.
         """
-        # TEMPORARY LIMITATIONS
-        if len(self.operations) != 1:
-            raise NotImplementedError("Requires exactly one operation.")
-        operation = self.operations[0]
-        registry = operation.registry
-
         from itertools import chain
         # MAP PHASE
         input_files = [io.openfile(filename) for filename in self.inputs]

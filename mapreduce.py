@@ -111,16 +111,6 @@ class Job(object):
         return (self.current >= len(self.datasets))
 
 
-# TODO: This needs to go away:
-class Operation(object):
-    """Specifies a map phase followed by a reduce phase."""
-    def __init__(self, registry, run, map_tasks=1, reduce_tasks=1):
-        self.registry = registry
-        self.run = run
-        self.map_tasks = map_tasks
-        self.reduce_tasks = reduce_tasks
-
-
 class Implementation(threading.Thread):
     """Carries out the work.
 
