@@ -93,6 +93,9 @@ class MockParallel(Implementation):
 
         # Run Tasks:
         for task in iter(job.get_task, None):
+            task.active()
+            job.print_status()
             task.run()
+            task.finished(task.outurls)
 
 # vim: et sw=4 sts=4
