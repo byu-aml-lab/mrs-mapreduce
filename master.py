@@ -28,13 +28,13 @@ class MasterInterface(object):
         """
         return host
 
-    def signin(self, cookie, slave_port, main_hash, reg_hash, host=None,
+    def signin(self, cookie, slave_port, source_hash, reg_hash, host=None,
             port=None):
         """Slave reporting for duty.
 
         Returns -1 if the signin is rejected.
         """
-        if not self.registry.verify(main_hash, reg_hash):
+        if not self.registry.verify(source_hash, reg_hash):
             # The slaves are running different code than the master is.
             return -1
         slave = self.slaves.new_slave(host, slave_port, cookie)

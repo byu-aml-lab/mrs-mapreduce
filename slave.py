@@ -82,7 +82,7 @@ class Slave(object):
 
         # Register with master.
         self.id = self.master.signin(self.cookie, self.port,
-                registry.main_hash, registry.reg_hash())
+                registry.source_hash(), registry.reg_hash())
         if self.id < 0:
             import sys
             print >>sys.stderr, "Master rejected signin."
