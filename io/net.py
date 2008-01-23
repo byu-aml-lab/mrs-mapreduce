@@ -55,7 +55,10 @@ class HTTPReader(HTTPDownloader):
 def download(url, bucket):
     """Download from url to bucket.
 
-    As data arrive, bucket.raw_data(data) will be called.
+    As data arrive, bucket.raw_data(data) will be called.  When the data
+    are done arriving, bucket.raw_eof() will be called.  Note that download
+    returns a Twisted deferred so that you can add your own callback for
+    when the operation is completed.
     """
     factory = HTTPReader(url, bucket)
 
