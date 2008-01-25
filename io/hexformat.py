@@ -21,11 +21,12 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
+from textformat import TextFormat
 from itertools import islice
 
 # TODO: sort should just sort on the first field
 
-class HexFormat(object):
+class HexFormat(TextFormat):
     """A key-value store using ASCII hexadecimal encoding
 
     Initialize with a file object.  The ASCII hexadecimal encoding of keys has
@@ -33,16 +34,21 @@ class HexFormat(object):
 
     TODO: we might as well base64-encode the value, rather than hex-encoding
     it, since it doesn't need to be sortable.
+
+    >>> from cStringIO import StringIO
+    >>> infile = StringIO("4b6579 56616c7565\\n")
+    >>> hex = HexFormat(infile)
+    >>> hex.readpair()
+    ('Key', 'Value')
+    >>> hex.readpair()
+    >>>
     """
     def __init__(self, hexfile):
-        self.file = hexfile
+        super(HexFormat, self).__init__(hexfile)
 
-    def __iter__(self):
-        return self
-
-    def read(self):
+    def readpair(self):
         """Return the next key-value pair from the HexFormat or None if EOF."""
-        line = self.file.readline()
+        line = self.readline()
         if line:
             key, value = [dehex(field) for field in line.split()]
             return (key, value)
@@ -51,9 +57,12 @@ class HexFormat(object):
 
     def next(self):
         """Return the next key-value pair or raise StopIteration if EOF."""
-        line = self.file.next()
-        key, value = [dehex(field) for field in line.split()]
-        return (key, value)
+        line = self.readline()
+        if line is '':
+            raise StopIteration
+        else:
+            key, value = [dehex(field) for field in line.split()]
+            return (key, value)
 
     def write(self, key, value):
         """Write a key-value pair to a HexFormat."""
@@ -110,5 +119,14 @@ def group_by_two(s):
     I = iter(s)
     while True:
         yield I.next() + I.next()
+
+
+def test_hexformat():
+    import doctest
+    doctest.testmod()
+
+if __name__ == "__main__":
+    test_hexformat()
+
 
 # vim: et sw=4 sts=4
