@@ -1,8 +1,12 @@
 #!/usr/bin/env python
 
+# 1st TODO: FileData
+# 2nd TODO: unify Input, Output, and Computed: api for sources, splits, etc.
+# 3rd TODO: make it all work
+
 # TODO: right now we assume that input files are pre-split.
 
-import threading
+import threading, os
 from heapq import heappush
 
 from io import fileformat, HexFormat
@@ -30,8 +34,7 @@ class Bucket(object):
     def __init__(self, sort=False, filename=None, format=HexFormat):
         self._data = []
         self.sort = sort
-
-        self.ready = False
+        self.filename = filename
 
     def append(self, x):
         """Collect a single key-value pair
@@ -62,49 +65,109 @@ class Bucket(object):
         else:
             return iter(self._data)
 
+    # TODO: write doctest for dump
+    def dump(self):
+        assert(self.filename is not None)
+        f = openfile(self.filename, 'w')
+        for key, value in self:
+            f.write(key, value)
+        f.close()
+
 
 class DataSet(object):
     """Manage input to or output from a map or reduce operation.
     """
-    def __len__(self):
-        """Number of splits in this DataSet."""
-        return 0
+    def __init__(self, directory=None, format=HexFormat):
+        if directory is None:
+            from tempfile import mkdtemp
+            self.directory = mkdtemp()
+            self.temp = True
+        else:
+            self.directory = directory
+            self.temp = False
 
-    def __getitem__(self, split):
-        """Retrieve a seq of URLs for a particular split in this DataSet."""
-        raise IndexError
+    #def __len__(self):
+    #    """Number of splits in this DataSet."""
+    #    return 0
 
-    def ready(self, split=None):
-        """Whether or not a split is ready to be retrieved.
+    #def __getitem__(self, split):
+    #    """Retrieve a seq of URLs for a particular split in this DataSet."""
+    #    raise IndexError
 
-        If the split is not specified, ready() tells whether or not
-        all splits are ready.
-        """
-        return True
+    #def ready(self, split=None):
+    #    """Whether or not a split is ready to be retrieved.
+
+    #    If the split is not specified, ready() tells whether or not
+    #    all splits are ready.
+    #    """
+    #    return True
+
+
+class Output(DataSet):
+    """Collect output from a map or reduce task."""
+    def __init__(self, partition, n, **kwds):
+        super(Output, self).__init__(**kwds)
+
+        self.partition = partition
+        self.n = n
+        self.splits = [Bucket(format=format, filename=self.path(i))
+                for i in xrange(n)]
+
+    def close(self):
+        if self.temp:
+            os.removedirs(self.directory)
+
+    def collect(self, itr):
+        """Collect all of the key-value pairs from the given iterator."""
+        n = self.n
+        if n == 1:
+            bucket = self.splits[0]
+            bucket.collect(itr)
+        else:
+            partition = self.partition
+            for kvpair in itr:
+                key, value = kvpair
+                split = partition(key, n)
+                bucket = self.splits[split]
+                bucket.append(kvpair)
+
+    def path(self, index):
+        """Return the path to the output split for the given index."""
+        filename = "split_%s.%s" % (index, self.format)
+        return os.path.join(self.directory, filename)
+
+    def savetodisk(self):
+        """Write out all of the key-value pairs to files."""
+        for bucket in self.splits:
+            bucket.dump()
 
 
 class FileData(DataSet):
-    """A list of static files that can be used as input to an operation.
+    """A list of static files or urls to be used as input to an operation.
 
-    >>> urls = ['http://aml.cs.byu.edu/', 'http://www.cs.byu.edu/']
-    >>> data = FileData(urls)
-    >>> len(data)
-    2
-    >>> data[1]
-    'http://www.cs.byu.edu/'
-    >>>
+    #>>> urls = ['http://aml.cs.byu.edu/', 'http://www.cs.byu.edu/']
+    #>>> data = FileData(urls)
+    #>>> len(data)
+    #2
+    #>>> data[1]
+    #'http://www.cs.byu.edu/'
+    #>>>
     """
     def __init__(self, urls):
-        self._len = len(urls)
         self._urls = tuple(urls)
 
-    def __len__(self):
-        """How many files are in the DataSet."""
-        return self._len
+    def fetchall(self):
+        # TODO: setup a bucket for each URL, setup io.net.download for
+        # each url, and run a twisted reactor loop to download it all
+        pass
 
-    def __getitem__(self, i):
-        """Retrieve a sequence containing the URL for the specified file."""
-        return (self._urls[i],)
+    #def __len__(self):
+    #    """How many urls are in the DataSet."""
+    #    return len(self._urls)
+
+    #def __getitem__(self, i):
+    #    """Retrieve a sequence containing the URL for the specified file."""
+    #    return (self._urls[i],)
 
 
 class ComputedData(DataSet):
