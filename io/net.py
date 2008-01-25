@@ -28,39 +28,49 @@
 from twisted.web.client import HTTPDownloader, HTTPClientFactory
 from twisted.internet import defer, reactor
 
-class HTTPReader(HTTPDownloader):
-    def __init__(self, url, bucket, method='GET', postdata=None,
-            headers=None):
-        self.requestedPartial = 0
-        HTTPClientFactory.__init__(self, url, method=method,
-                postdata=postdata, headers=headers, agent='Mrs')
-        self.deferred = defer.Deferred()
-        self.waiting = 1
+def download(url, destfile):
+    """Download from url to a file or file-like object.
 
-        self.bucket = bucket
+    Incoming data are appended to destfile, but care is taken to preserve the
+    position in the file.  This means that another function in the same thread
+    can be reading data from the file without being disrupted.  Note, however,
+    that a function in another thread would need its own file handle since
+    this cooperative access to the file is not threadsafe.
 
-    def pageStart(self, partialContent):
-        assert(not partialContent or self.requestedPartial)
-        if self.waiting:
-            self.waiting = 0
+    Note that download returns a Twisted Deferred.  Each time new data are
+    added to the file, the Deferred is called (technically, it's a copy of the
+    Deferred).  The paramater to the callback is a boolean indicating if end
+    of file has been reached.
 
-    def pagePart(self, data):
-        self.bucket.raw_data(data)
+    >>> from cStringIO import StringIO
+    >>> import sys
+    >>>
 
-    def pageEnd(self):
-        self.bucket.raw_eof()
-        self.deferred.callback(None)
+    We'll be downloading the New Testament as a test (this will definitely
+    download in more than one chunck).
+    >>> url = 'http://www.gutenberg.org/dirs/etext05/bib4010h.htm'
+    >>>
 
+    Create a file-like object to download into:
+    >>> f = StringIO()
+    >>>
 
-def download(url, bucket):
-    """Download from url to bucket.
+    >>> deferred = download(url, f)
+    >>> callback = TestingCallback()
+    >>> tmp = deferred.addCallback(callback)
+    >>> reactor.run()
+    >>>
 
-    As data arrive, bucket.raw_data(data) will be called.  When the data
-    are done arriving, bucket.raw_eof() will be called.  Note that download
-    returns a Twisted deferred so that you can add your own callback for
-    when the operation is completed.
+    Make sure the file finished downloading and came in multiple chunks:
+    >>> callback.saw_eof
+    True
+    >>> callback.count > 1
+    True
+    >>> print >>sys.stderr, "FYI: count when downloading N.T.:", callback.count
+    >>>
     """
-    factory = HTTPReader(url, bucket)
+
+    factory = HTTPReader(url, destfile)
 
     from urlparse import urlparse
     u = urlparse(url)
@@ -81,13 +91,66 @@ def download(url, bucket):
 
     return factory.deferred
 
+class TestingCallback(object):
+    def __init__(self):
+        self.count = 0
+        self.saw_eof = False
+
+    def __call__(self, eof):
+        if eof:
+            self.saw_eof = True
+            reactor.stop()
+        else:
+            self.count += 1
+
+def test_download():
+    import doctest
+    doctest.testmod()
+
+
+class HTTPReader(HTTPDownloader):
+    """Twisted protocol for downloading to a file-like object.
+
+    Each time new data are added to the file, a copy of the deferred is
+    called.  When downloading completes, the original deferred is finally
+    called.
+    """
+    def __init__(self, url, destfile, method='GET', postdata=None,
+            headers=None):
+        self.requestedPartial = 0
+        HTTPClientFactory.__init__(self, url, method=method,
+                postdata=postdata, headers=headers, agent='Mrs')
+        self.deferred = defer.Deferred()
+        self.waiting = 1
+
+        self.destfile = destfile
+
+    def pageStart(self, partialContent):
+        assert(not partialContent or self.requestedPartial)
+        if self.waiting:
+            self.waiting = 0
+
+    def pagePart(self, data):
+        f = self.destfile
+        pos = f.tell()
+        # seek to end of file:
+        f.seek(0, 2)
+        f.write(data)
+        # seek back to old position:
+        f.seek(0, pos)
+
+        # Twisted won't let us pass a new Deferred to a Deferred, like so:
+        ##olddef.callback(self.deferred)
+        # So instead, we callback a shallow copy of the Deferred:
+        newdef = defer.Deferred()
+        newdef.callbacks = list(self.deferred.callbacks)
+        newdef.callback(False)
+
+    def pageEnd(self):
+        self.deferred.callback(True)
+
 
 if __name__ == '__main__':
-    from mrs.datasets import Bucket
-    buck = Bucket()
-    deferred = download('http://www.mcnabbs.org/', buck)
-    deferred.addCallback(lambda value: reactor.stop())
-    reactor.run()
-    print 'goodbye'
+    test_download()
 
 # vim: et sw=4 sts=4
