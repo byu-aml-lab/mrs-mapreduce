@@ -24,8 +24,8 @@
 from itertools import islice
 
 
-class TextFile(object):
-    """A file format for user interaction.
+class TextFormat(object):
+    """A basic line-oriented file format, primarily for user interaction
 
     Initialize with a file object.  For reading, the key is the line number,
     and the value is the contents of the line.  For writing, the key and value

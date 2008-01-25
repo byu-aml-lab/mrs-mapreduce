@@ -22,16 +22,17 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
-__all__ = ['TextFile', 'HexFile', 'hexfile_sort', 'fileformat', 'openfile']
+__all__ = ['TextFormat', 'HexFormat', 'hexformat_sort', 'fileformat',
+        'openfile']
 
-from textfile import TextFile
-from hexfile import HexFile, hexfile_sort
+from textformat import TextFormat
+from hexformat import HexFormat, hexformat_sort
 
 format_map = {
-        '.txt': TextFile,
-        '.hexfile': HexFile,
+        '.txt': TextFormat,
+        '.mrsx': HexFormat,
         }
-default_format = TextFile
+default_format = TextFormat
 
 def fileformat(filename):
     """Guess the file format according to extension of the given filename."""
