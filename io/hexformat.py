@@ -3,7 +3,7 @@ from itertools import islice
 
 # TODO: sort should just sort on the first field
 
-class HexFile(object):
+class HexFormat(object):
     """A key-value store using ASCII hexadecimal encoding
 
     Initialize with a file object.  The ASCII hexadecimal encoding of keys has
@@ -19,7 +19,7 @@ class HexFile(object):
         return self
 
     def read(self):
-        """Return the next key-value pair from the HexFile or None if EOF."""
+        """Return the next key-value pair from the HexFormat or None if EOF."""
         line = self.file.readline()
         if line:
             key, value = [dehex(field) for field in line.split()]
@@ -34,15 +34,15 @@ class HexFile(object):
         return (key, value)
 
     def write(self, key, value):
-        """Write a key-value pair to a HexFile."""
+        """Write a key-value pair to a HexFormat."""
         print >>self.file, enhex(key), enhex(value)
 
     def close(self):
         self.file.close()
 
 
-def hexfile_sort(in_filenames, out_filename):
-    """Sort one or more HexFiles into a new HexFile.
+def hexformat_sort(in_filenames, out_filename):
+    """Sort one or more HexFormats into a new HexFormat.
     
     Note that in_filenames can be the name of a single file or a list of names
     of files.
