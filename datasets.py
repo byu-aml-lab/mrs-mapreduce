@@ -3,6 +3,64 @@
 # TODO: right now we assume that input files are pre-split.
 
 import threading
+from heapq import heappush
+
+from io import fileformat, HexFormat
+
+
+# TODO: cache data to disk when memory usage is high
+class Bucket(object):
+    """Hold data from a source or for a split.
+
+    Data can be manually dumped to disk, in which case the data will be saved
+    to the given filename with the specified format.  Eventually Bucket will
+    be upgraded to automatically cache data to disk if they get too large to
+    stay in memory.
+
+    >>> b = Bucket()
+    >>> b.append((4, 'test'))
+    >>> b.collect([(3, 'a'), (1, 'This'), (2, 'is')])
+    >>> ' '.join([value for key, value in b])
+    'test a This is'
+    >>> b.sort = True
+    >>> ' '.join([value for key, value in b])
+    'This is a test'
+    >>>
+    """
+    def __init__(self, sort=False, filename=None, format=HexFormat):
+        self._data = []
+        self.sort = sort
+
+        self.ready = False
+
+    def append(self, x):
+        """Collect a single key-value pair
+        """
+        if self.sort:
+            heappush(self._data, x)
+        else:
+            self._data.append(x)
+
+    def collect(self, pairiter):
+        """Collect all key-value pairs from the given iterable
+
+        The collection can be a generator or a Mrs format.  This will block if
+        the iterator blocks.
+        """
+        data = self._data
+        if self.sort:
+            for kvpair in pairiter:
+                heappush(data, kvpair)
+                data.append(kvpair)
+        else:
+            for kvpair in pairiter:
+                data.append(kvpair)
+
+    def __iter__(self):
+        if self.sort:
+            return iter(sorted(self._data))
+        else:
+            return iter(self._data)
 
 
 class DataSet(object):
@@ -152,5 +210,12 @@ class ReduceData(ComputedData):
             self.tasks_todo.append(task)
         self.tasks_made = True
 
+
+def test_datasets():
+    import doctest
+    doctest.testmod()
+
+if __name__ == "__main__":
+    test_datasets()
 
 # vim: et sw=4 sts=4
