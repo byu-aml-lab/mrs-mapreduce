@@ -7,8 +7,14 @@ class Buffer(object):
     def __init__(self, filelike=None):
         self._data = ''
         self.filelike = filelike
-        if hasattr(filelike, 'fileno'):
-            self.fileno = filelike.fileno
+        self.eof = False
+
+    def _append(self, newdata):
+        assert(self.eof is False)
+        if newdata == '':
+            self.eof = True
+        else:
+            self._data += newdata
 
     def doRead(self):
         """Called when data are available for reading
@@ -17,13 +23,13 @@ class Buffer(object):
         filelike object.
         """
         assert(self.filelike is not None)
-        self._data += self.filelike.read()
+        newdata = self.filelike.read()
 
     def append(self, newdata):
         """Append additional data to the buffer
         """
         assert(self.filelike is None)
-        self._data += newdata
+        self._append(newdata)
 
     def readline(self):
         """Read a complete line from the buffer
