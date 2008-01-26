@@ -5,54 +5,50 @@ from itertools import islice
 class TextFormat(object):
     """A basic line-oriented file format, primarily for user interaction
 
-    Initialize with a file object.  For reading, the key is the file offset,
+    Initialize with a file object.  For reading, the key is the line number,
     and the value is the contents of the line.  For writing, the key and value
     are separated by spaces, with one entry per line.
 
+    Create a file-like object to play around with:
     >>> from cStringIO import StringIO
     >>> infile = StringIO("First Line.\\nSecond Line.\\nText without newline.")
-    >>> text = TextFormat(infile)
+    >>>
+
+    Create a buffer from this file-like object and read into the buffer:
+    >>> from buffer import Buffer
+    >>> buf = Buffer(infile)
+    >>> buf.doRead()
+    >>>
+
+    Create a TextFormat to read from the Buffer
+    >>> text = TextFormat(buf)
     >>> text.readpair()
     (0, 'First Line.\\n')
     >>> text.readpair()
-    (12, 'Second Line.\\n')
+    (1, 'Second Line.\\n')
     >>> text.readpair()
     >>>
     """
-    def __init__(self, textfile):
-        self.file = textfile
-        self.offset = 0
-        self._buffer = ''
+    def __init__(self, buf):
+        self.buf = buf
+        self.lineno = 0
 
     def __iter__(self):
         return self
 
-    def readline(self):
-        """Try to read in a line from the underlying input file.
-
-        If no full line is available, then seek back and return ''.
-        """
-        self.offset = self.file.tell()
-        line = self.file.readline()
-        if line is '':
-            return ''
-        elif line[-1] != '\n':
-            self.file.seek(self.offset)
-            return ''
-        else:
-            return line
-
     def readpair(self):
         """Return the next key-value pair from the HexFile or None if EOF."""
-        line = self.readline()
-        if line is '':
-            return None
+        line = self.buf.readline()
+        if line is not None:
+            value = (self.lineno, line)
+            self.lineno += 1
+            return value
         else:
-            return (self.offset, line)
+            return None
 
     def next(self):
         """Return the next key-value pair or raise StopIteration if EOF."""
-        line = self.readline()
+        line = self.buf.readline()
         if line is '':
             raise StopIteration
         else:

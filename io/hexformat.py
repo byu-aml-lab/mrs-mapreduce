@@ -13,20 +13,29 @@ class HexFormat(TextFormat):
     TODO: we might as well base64-encode the value, rather than hex-encoding
     it, since it doesn't need to be sortable.
 
+    Create a file-like object to play around with:
     >>> from cStringIO import StringIO
     >>> infile = StringIO("4b6579 56616c7565\\n")
-    >>> hex = HexFormat(infile)
+    >>>
+
+    Create a buffer from this file-like object and read into the buffer:
+    >>> from buffer import Buffer
+    >>> buf = Buffer(infile)
+    >>> buf.doRead()
+    >>>
+
+    >>> hex = HexFormat(buf)
     >>> hex.readpair()
     ('Key', 'Value')
     >>> hex.readpair()
     >>>
     """
-    def __init__(self, hexfile):
-        super(HexFormat, self).__init__(hexfile)
+    def __init__(self, buf):
+        super(HexFormat, self).__init__(buf)
 
     def readpair(self):
         """Return the next key-value pair from the HexFormat or None if EOF."""
-        line = self.readline()
+        line = self.buf.readline()
         if line:
             key, value = [dehex(field) for field in line.split()]
             return (key, value)
@@ -35,7 +44,7 @@ class HexFormat(TextFormat):
 
     def next(self):
         """Return the next key-value pair or raise StopIteration if EOF."""
-        line = self.readline()
+        line = self.buf.readline()
         if line is '':
             raise StopIteration
         else:
