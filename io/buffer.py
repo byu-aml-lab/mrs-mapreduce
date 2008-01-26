@@ -24,10 +24,13 @@
 
 class Buffer(object):
     """Read data from a filelike object without blocking
+
     """
     def __init__(self, filelike=None):
-        self.filelike = filelike
         self._data = ''
+        self.filelike = filelike
+        if hasattr(filelike, 'fileno'):
+            self.fileno = filelike.fileno
 
     def doRead(self):
         """Called when data are available for reading
@@ -60,5 +63,24 @@ class Buffer(object):
         else:
             return None
 
+    def fileno(self):
+        """Return the filenumber of the underlying filelike
+
+        This will obviously fail if filelike is None or has no fileno.
+
+        >>> b = Buffer(open('/etc/passwd'))
+        >>> b.fileno() > 2
+        True
+        >>>
+        """
+        return self.filelike.fileno()
+
+
+def test_buffer():
+    import doctest
+    doctest.testmod()
+
+if __name__ == "__main__":
+    test_buffer()
 
 # vim: et sw=4 sts=4
