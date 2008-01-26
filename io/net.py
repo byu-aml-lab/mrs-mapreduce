@@ -28,10 +28,10 @@
 from twisted.web.client import HTTPDownloader, HTTPClientFactory
 from twisted.internet import defer, reactor
 
-def download(url, destfile):
-    """Download from url to a file or file-like object.
+def download(url, buf):
+    """Download from url to a Mrs Buffer
 
-    Incoming data are appended to destfile, but care is taken to preserve the
+    Incoming data are appended to buf, but care is taken to preserve the
     position in the file.  This means that another function in the same thread
     can be reading data from the file without being disrupted.  Note, however,
     that a function in another thread would need its own file handle since
@@ -70,7 +70,7 @@ def download(url, destfile):
     >>>
     """
 
-    factory = HTTPReader(url, destfile)
+    factory = HTTPReader(url, buf)
 
     from urlparse import urlparse
     u = urlparse(url)
@@ -109,13 +109,13 @@ def test_download():
 
 
 class HTTPReader(HTTPDownloader):
-    """Twisted protocol for downloading to a file-like object.
+    """Twisted protocol for downloading to a Mrs Buffer
 
-    Each time new data are added to the file, a copy of the deferred is
+    Each time new data are added to the buffer, a copy of the deferred is
     called.  When downloading completes, the original deferred is finally
     called.
     """
-    def __init__(self, url, destfile, method='GET', postdata=None,
+    def __init__(self, url, buf, method='GET', postdata=None,
             headers=None):
         self.requestedPartial = 0
         HTTPClientFactory.__init__(self, url, method=method,
@@ -123,7 +123,7 @@ class HTTPReader(HTTPDownloader):
         self.deferred = defer.Deferred()
         self.waiting = 1
 
-        self.destfile = destfile
+        self.buf = buf
 
     def pageStart(self, partialContent):
         assert(not partialContent or self.requestedPartial)
@@ -131,13 +131,7 @@ class HTTPReader(HTTPDownloader):
             self.waiting = 0
 
     def pagePart(self, data):
-        f = self.destfile
-        pos = f.tell()
-        # seek to end of file:
-        f.seek(0, 2)
-        f.write(data)
-        # seek back to old position:
-        f.seek(0, pos)
+        self.buf.append(data)
 
         # Twisted won't let us pass a new Deferred to a Deferred, like so:
         ##olddef.callback(self.deferred)
