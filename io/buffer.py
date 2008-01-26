@@ -25,7 +25,7 @@
 class Buffer(object):
     """Read data from a filelike object without blocking
     """
-    def __init__(self, filelike):
+    def __init__(self, filelike=None):
         self.filelike = filelike
         self._data = ''
 
@@ -35,11 +35,13 @@ class Buffer(object):
         To avoid blocking, read() will only be called once on the underlying
         filelike object.
         """
+        assert(self.filelike is not None)
         self._data += self.filelike.read()
 
     def append(self, newdata):
         """Append additional data to the buffer
         """
+        assert(self.filelike is None)
         self._data += newdata
 
     def readline(self):
