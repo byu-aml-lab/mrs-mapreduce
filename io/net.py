@@ -20,7 +20,7 @@ def download(url, buf):
     Deferred).  The paramater to the callback is a boolean indicating if end
     of file has been reached.
 
-    >>> from cStringIO import StringIO
+    >>> from buffer import Buffer
     >>> import sys
     >>>
 
@@ -29,11 +29,11 @@ def download(url, buf):
     >>> url = 'http://www.gutenberg.org/dirs/etext05/bib4010h.htm'
     >>>
 
-    Create a file-like object to download into:
-    >>> f = StringIO()
+    Create a Mrs Buffer to download into:
+    >>> buf = Buffer()
     >>>
 
-    >>> deferred = download(url, f)
+    >>> deferred = download(url, buf)
     >>> callback = TestingCallback()
     >>> tmp = deferred.addCallback(callback)
     >>> reactor.run()
@@ -45,6 +45,14 @@ def download(url, buf):
     >>> callback.count > 1
     True
     >>> print >>sys.stderr, "FYI: count when downloading N.T.:", callback.count
+    >>>
+
+    Make sure that the data were read correctly:
+    >>> lines = [buf.readline().rstrip() for i in xrange(20)]
+    >>> print lines[16]
+    <a href="#begin">THE PROJECT GUTENBERG BIBLE, King James,
+    >>> print lines[17]
+    <br>Book 40: Matthew</a>
     >>>
     """
 
