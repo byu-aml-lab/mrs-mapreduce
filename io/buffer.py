@@ -29,6 +29,11 @@ from twisted.internet import defer, reactor
 class Buffer(object):
     """Read data from a filelike object without blocking
 
+    The purpose of the Buffer is to shield higher-level code from blocking I/O
+    issues.  While doing so, it unifies network I/O and file I/O from the
+    perspective of higher level code.  If data aren't available, then
+    readline() simply returns None.
+    
     Note that Buffer has an attribute named deferred, which is a Twisted
     Deferred.  Each time new data are added to the Buffer, it makes a copy of
     the deferred and performs a callback.  The paramater to the callback is a
@@ -59,12 +64,13 @@ class Buffer(object):
             reactor.addReader(self)
         self.filelike = filelike
 
-    def close(self):
-        if self.filelike:
-            reactor.removeReader(self)
-            self.filelike.close()
-
     def _append(self, newdata):
+        """Append data to the buffer.
+
+        This is low-level; users should call doRead() or append() instead.
+        Anyway, this writes to the low-level buffer and checks for eof.  Note
+        that filelikes are automatically closed by Twisted.
+        """
         assert(self.eof is False)
         if newdata == '':
             self.eof = True
@@ -129,9 +135,11 @@ class Buffer(object):
         """Twisted really wants this method to exist."""
         return 'Mrs.Buffer'
 
-    def connectionLost(self):
+    def connectionLost(self, reason):
         """Twisted really wants this method to exist."""
-        print 'buffer.connectionLost was called!'
+        import sys
+        print >>sys.stderr, 'buffer.connectionLost was called!'
+        print >>sys.stderr, 'Reason:', reason
 
 
 class TestingCallback(object):
