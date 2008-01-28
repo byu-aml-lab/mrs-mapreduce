@@ -51,7 +51,7 @@ class TextReader(object):
         if line is '':
             raise StopIteration
         else:
-            return (self.offset, line)
+            return (self.lineno, line)
 
 
 class TextWriter(object):
