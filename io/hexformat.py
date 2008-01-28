@@ -1,14 +1,13 @@
 #!/usr/bin/env python
-from textformat import TextFormat
+from textformat import TextReader, TextWriter
 from itertools import islice
 
 # TODO: sort should just sort on the first field
 
-class HexFormat(TextFormat):
+class HexReader(TextReader):
     """A key-value store using ASCII hexadecimal encoding
 
-    Initialize with a file object.  The ASCII hexadecimal encoding of keys has
-    the property that sorting the file will preserve the sort order.
+    Initialize with a Mrs Buffer.
 
     TODO: we might as well base64-encode the value, rather than hex-encoding
     it, since it doesn't need to be sortable.
@@ -24,14 +23,14 @@ class HexFormat(TextFormat):
     >>> buf.doRead()
     >>>
 
-    >>> hex = HexFormat(buf)
+    >>> hex = HexReader(buf)
     >>> hex.readpair()
     ('Key', 'Value')
     >>> hex.readpair()
     >>>
     """
     def __init__(self, buf):
-        super(HexFormat, self).__init__(buf)
+        super(HexReader, self).__init__(buf)
 
     def readpair(self):
         """Return the next key-value pair from the HexFormat or None if EOF."""
@@ -51,6 +50,20 @@ class HexFormat(TextFormat):
             key, value = [dehex(field) for field in line.split()]
             return (key, value)
 
+
+class HexWriter(TextWriter):
+    """A key-value store using ASCII hexadecimal encoding
+
+    Initialize with a file object.  The ASCII hexadecimal encoding of keys has
+    the property that sorting the file will preserve the sort order.
+
+    TODO: we might as well base64-encode the value, rather than hex-encoding
+    it, since it doesn't need to be sortable.
+    """
+
+    def __init__(self, file):
+        super(HexWriter, self).__init__(file)
+
     def write(self, key, value):
         """Write a key-value pair to a HexFormat."""
         print >>self.file, enhex(key), enhex(value)
@@ -62,6 +75,9 @@ class HexFormat(TextFormat):
 def hexformat_sort(in_filenames, out_filename):
     """Sort one or more HexFormats into a new HexFormat.
     
+    The ASCII hexadecimal encoding of keys has the property that sorting the
+    file (with Unix sort) will preserve the sort order.
+
     Note that in_filenames can be the name of a single file or a list of names
     of files.
     """

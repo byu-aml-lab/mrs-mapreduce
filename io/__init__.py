@@ -1,17 +1,17 @@
 #!/usr/bin/env python
 
-__all__ = ['Buffer', 'TextFormat', 'HexFormat', 'hexformat_sort',
-        'fileformat', 'openbuf']
+__all__ = ['Buffer', 'TextReader', 'TextWriter', 'HexReader', 'HexWriter',
+        'hexformat_sort', 'fileformat', 'openbuf']
 
-from textformat import TextFormat
-from hexformat import HexFormat, hexformat_sort
+from textformat import TextReader, TextWriter
+from hexformat import HexReader, HexWriter, hexformat_sort
 from buffer import Buffer
 
 format_map = {
-        '.txt': TextFormat,
-        '.mrsx': HexFormat,
+        '.txt': TextReader,
+        '.mrsx': HexReader,
         }
-default_format = TextFormat
+default_format = TextReader
 
 # TODO: Find a better way to infer the file format.
 def fileformat(filename):
