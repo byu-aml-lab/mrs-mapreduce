@@ -28,21 +28,12 @@
 from twisted.web.client import HTTPDownloader, HTTPClientFactory
 from twisted.internet import defer, reactor
 
-def download(url, buf):
+def download(url):
     """Download from url to a Mrs Buffer
 
-    Incoming data are appended to buf, but care is taken to preserve the
-    position in the file.  This means that another function in the same thread
-    can be reading data from the file without being disrupted.  Note, however,
-    that a function in another thread would need its own file handle since
-    this cooperative access to the file is not threadsafe.
+    The Buffer is returned.  Later, incoming data are appended to the Buffer.
 
-    Note that download returns a Twisted Deferred.  Each time new data are
-    added to the file, the Deferred is called (technically, it's a copy of the
-    Deferred).  The paramater to the callback is a boolean indicating if end
-    of file has been reached.
-
-    >>> from buffer import Buffer
+    >>> from buffer import TestingCallback
     >>> import sys
     >>>
 
@@ -55,7 +46,8 @@ def download(url, buf):
     >>> buf = Buffer()
     >>>
 
-    >>> deferred = download(url, buf)
+    >>> buf = download(url)
+    >>> deferred = buf.deferred
     >>> callback = TestingCallback()
     >>> tmp = deferred.addCallback(callback)
     >>> reactor.run()
@@ -77,6 +69,8 @@ def download(url, buf):
     <br>Book 40: Matthew</a>
     >>>
     """
+    from buffer import Buffer
+    buf = Buffer()
 
     factory = HTTPReader(url, buf)
 
@@ -98,22 +92,6 @@ def download(url, buf):
         reactor.connectTCP(u.hostname, port, factory)
 
     return factory.deferred
-
-class TestingCallback(object):
-    def __init__(self):
-        self.count = 0
-        self.saw_eof = False
-
-    def __call__(self, eof):
-        if eof:
-            self.saw_eof = True
-            reactor.stop()
-        else:
-            self.count += 1
-
-def test_download():
-    import doctest
-    doctest.testmod()
 
 
 class HTTPReader(HTTPDownloader):
@@ -152,7 +130,11 @@ class HTTPReader(HTTPDownloader):
         self.deferred.callback(True)
 
 
+def test():
+    import doctest
+    doctest.testmod()
+
 if __name__ == '__main__':
-    test_download()
+    test()
 
 # vim: et sw=4 sts=4

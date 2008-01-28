@@ -22,8 +22,8 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
-__all__ = ['TextFormat', 'HexFormat', 'hexformat_sort', 'fileformat',
-        'openfile']
+__all__ = ['Buffer', 'TextFormat', 'HexFormat', 'hexformat_sort',
+        'fileformat', 'openfile']
 
 from textformat import TextFormat
 from hexformat import HexFormat, hexformat_sort
