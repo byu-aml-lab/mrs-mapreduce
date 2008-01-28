@@ -65,6 +65,10 @@ class Bucket(object):
     def sort(self):
         self._data.sort()
 
+    def __getitem__(self, item):
+        """Get a particular item, mainly for debugging purposes"""
+        return self._data[item]
+
     def __iter__(self):
         return iter(self._data)
 
@@ -227,6 +231,7 @@ class FileData(DataSet):
     >>> len(data)
     2
     >>> data.fetchall()
+    >>> data[0, 0][0]
     >>>
     """
     def __init__(self, urls):
