@@ -43,6 +43,9 @@ class Bucket(object):
     be upgraded to automatically cache data to disk if they get too large to
     stay in memory.
 
+    If (bucket.heap == True), then store data in a heap as they arrive (which
+    makes subsequent sorting faster).
+
     >>> b = Bucket()
     >>> b.append((4, 'test'))
     >>> b.collect([(3, 'a'), (1, 'This'), (2, 'is')])
@@ -53,9 +56,9 @@ class Bucket(object):
     'This is a test'
     >>>
     """
-    def __init__(self, sort=False, filename=None, format=HexFormat):
+    def __init__(self, filename=None, format=HexFormat):
         self._data = []
-        self.sort = sort
+        self.heap = False
         self.filename = filename
 
     def append(self, x):
@@ -81,11 +84,11 @@ class Bucket(object):
             for kvpair in pairiter:
                 data.append(kvpair)
 
+    def sort(self):
+        self._data.sort()
+
     def __iter__(self):
-        if self.sort:
-            return iter(sorted(self._data))
-        else:
-            return iter(self._data)
+        return iter(self._data)
 
     # TODO: write doctest for dump
     def dump(self):
