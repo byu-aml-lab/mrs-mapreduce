@@ -31,7 +31,7 @@
 import threading, os
 from heapq import heappush
 
-from io import fileformat, HexFormat
+from io import fileformat, openbuf, HexFormat
 
 
 # TODO: cache data to disk when memory usage is high
@@ -179,8 +179,18 @@ class FileData(DataSet):
         self._urls = tuple(urls)
 
     def fetchall(self):
+        """Download all of the files
+        """
+        # TODO: set a maximum number of files to read at the same time (do we
+        # really want to have 500 sockets open at once?)
+
         # TODO: setup a bucket for each URL, setup io.net.download for
         # each url, and run a twisted reactor loop to download it all
+        for url in self._urls:
+            buf = openbuf(url)
+            buf.deferred.addCallback(self.callback, buf)
+
+    def callback(self, value, buf):
         pass
 
     #def __len__(self):
