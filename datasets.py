@@ -31,7 +31,7 @@
 import threading, os
 from heapq import heappush
 
-from io import fileformat, openbuf, HexFormat
+from io import fileformat, openreader, HexFormat
 
 
 # TODO: cache data to disk when memory usage is high
@@ -187,10 +187,10 @@ class FileData(DataSet):
         # TODO: setup a bucket for each URL, setup io.net.download for
         # each url, and run a twisted reactor loop to download it all
         for url in self._urls:
-            buf = openbuf(url)
-            buf.deferred.addCallback(self.callback, buf)
+            reader = openreader(url)
+            buf.deferred.addCallback(self.callback, reader)
 
-    def callback(self, value, buf):
+    def callback(self, value, reader):
         pass
 
     #def __len__(self):
