@@ -248,18 +248,20 @@ class Output(DataSet):
 class FileData(DataSet):
     """A list of static files or urls to be used as input to an operation.
 
-    #>>> urls = ['http://google.com/', '/etc/passwd']
-    >>> urls = ['/etc/passwd', '/etc/group']
+    #>>> urls = ['/etc/passwd', '/etc/group']
+    >>> urls = ['http://google.com/', '/etc/passwd']
     >>> data = FileData(urls)
     >>> len(data)
     2
     >>> data.fetchall()
     >>> data[0, 0][0]
+    >>> data[1, 0][0]
     >>>
     """
     def __init__(self, urls):
         sources = len(urls)
         self._urls = tuple(urls)
+        self.ready_buckets = set()
 
         super(FileData, self).__init__(sources=sources, splits=1)
 
@@ -279,15 +281,21 @@ class FileData(DataSet):
         from twisted.internet import reactor
         reactor.run()
 
-    # TODO: add docs to callback
-    # TODO: add errback
     def callback(self, eof, bucket, reader):
+        """Called by Twisted when data are available for reading."""
         import sys
         bucket.collect(reader)
+        print >>sys.stderr, "Got data"
         if eof:
-            # TODO: only do this after the last file is done
-            from twisted.internet import reactor
-            reactor.stop()
+            print >>sys.stderr, "EOF"
+            self.ready_buckets.add(bucket)
+            if len(self.ready_buckets) == len(self):
+                from twisted.internet import reactor
+                reactor.stop()
+
+    def errback(self, value):
+        # TODO: write me
+        pass
 
 
 class ComputedData(DataSet):
