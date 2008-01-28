@@ -72,7 +72,7 @@ def download(url):
     from buffer import Buffer
     buf = Buffer()
 
-    factory = HTTPReader(url, buf)
+    factory = HTTPLoader(url, buf)
 
     from urlparse import urlparse
     u = urlparse(url)
@@ -94,7 +94,7 @@ def download(url):
     return factory.deferred
 
 
-class HTTPReader(HTTPDownloader):
+class HTTPLoader(HTTPDownloader):
     """Twisted protocol for downloading to a Mrs Buffer
 
     Each time new data are added to the buffer, a copy of the deferred is
