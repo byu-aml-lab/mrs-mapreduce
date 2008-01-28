@@ -63,7 +63,7 @@ def openreader(url):
     """Open a url or file and wrap an input format around it.
     """
     buf = openbuf(url)
-    format = fileformat(buf)
+    format = fileformat(url)
     return format(buf)
 
 # vim: et sw=4 sts=4
