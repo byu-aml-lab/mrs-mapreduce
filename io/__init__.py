@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-__all__ = ['TextFormat', 'HexFormat', 'hexformat_sort', 'fileformat',
-        'openfile']
+__all__ = ['Buffer', 'TextFormat', 'HexFormat', 'hexformat_sort',
+        'fileformat', 'openfile']
 
 from textformat import TextFormat
 from hexformat import HexFormat, hexformat_sort
