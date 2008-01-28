@@ -51,7 +51,7 @@ class Bucket(object):
     >>> b.collect([(3, 'a'), (1, 'This'), (2, 'is')])
     >>> ' '.join([value for key, value in b])
     'test a This is'
-    >>> b.sort = True
+    >>> b.sort()
     >>> ' '.join([value for key, value in b])
     'This is a test'
     >>>
@@ -76,7 +76,7 @@ class Bucket(object):
         the iterator blocks.
         """
         data = self._data
-        if self.sort:
+        if self.heap:
             for kvpair in pairiter:
                 heappush(data, kvpair)
                 data.append(kvpair)
@@ -108,13 +108,16 @@ class DataSet(object):
     Low-level Testing.  Normally a DataSet holds Buckets, but for now we'll be
     loose for testing purposes.  This also makes it clear how slicing works,
     so it's not a waste of space.
-    >>> ds = DataSet(sources=5, splits=3)
+    >>> ds = DataSet(sources=3, splits=3)
     >>> len(ds)
-    5
+    3
     >>> ds[0, 0] = 'zero'
     >>> ds[0, 1] = 'one'
     >>> ds[0, 2] = 'two'
+    >>> ds[1, 0] = None
     >>> ds[1, 1] = 'hello'
+    >>> ds[1, 2] = None
+    >>> ds[2, 1] = None
     >>> print ds[0, 1]
     one
     >>> print ds[1, 0]
@@ -126,7 +129,7 @@ class DataSet(object):
     >>> print ds[0:2, 1:3]
     [['one', 'two'], ['hello', None]]
     >>> print ds[:, 1]
-    ['one', 'hello', None, None, None]
+    ['one', 'hello', None]
     >>>
     """
     def __init__(self, sources=0, splits=0, directory=None, format=HexFormat):
@@ -139,7 +142,8 @@ class DataSet(object):
             self.temp = False
 
         # For now assume that all sources have the same # of splits.
-        self._data = [[None] * splits for i in xrange(sources)]
+        self._data = [[Bucket() for j in xrange(splits)]
+                for i in xrange(sources)]
 
     def __setitem__(self, item, value):
         """Set an item.
