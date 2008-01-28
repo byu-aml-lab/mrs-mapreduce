@@ -98,8 +98,35 @@ class Bucket(object):
 
 class DataSet(object):
     """Manage input to or output from a map or reduce operation.
+
+    A DataSet is naturally a two-dimensional list.  There are some number of
+    sources, and for each source, there are one or more splits.
+
+    Low-level Testing.  Normally a DataSet holds Buckets, but for now we'll be
+    loose for testing purposes.  This also makes it clear how slicing works,
+    so it's not a waste of space.
+    >>> ds = DataSet(sources=5, splits=3)
+    >>> len(ds)
+    5
+    >>> ds[0, 0] = 'zero'
+    >>> ds[0, 1] = 'one'
+    >>> ds[0, 2] = 'two'
+    >>> ds[1, 1] = 'hello'
+    >>> print ds[0, 1]
+    one
+    >>> print ds[1, 0]
+    None
+    >>> print ds[0, 1:]
+    ['one', 'two']
+    >>> print ds[0, :]
+    ['zero', 'one', 'two']
+    >>> print ds[0:2, 1:3]
+    [['one', 'two'], ['hello', None]]
+    >>> print ds[:, 1]
+    ['one', 'hello', None, None, None]
+    >>>
     """
-    def __init__(self, directory=None, format=HexFormat):
+    def __init__(self, sources=0, splits=0, directory=None, format=HexFormat):
         if directory is None:
             from tempfile import mkdtemp
             self.directory = mkdtemp()
@@ -108,32 +135,71 @@ class DataSet(object):
             self.directory = directory
             self.temp = False
 
-    #def __len__(self):
-    #    """Number of splits in this DataSet."""
-    #    return 0
+        # For now assume that all sources have the same # of splits.
+        self._data = [[None] * splits for i in xrange(sources)]
 
-    #def __getitem__(self, split):
-    #    """Retrieve a seq of URLs for a particular split in this DataSet."""
-    #    raise IndexError
+    def __setitem__(self, item, value):
+        """Set an item.
 
-    #def ready(self, split=None):
-    #    """Whether or not a split is ready to be retrieved.
+        For now, you can't set a split.
+        """
+        # Separate the two dimensions:
+        try:
+            part1, part2 = item
+        except (TypeError, ValueError):
+            raise TypeError("Requires a pair of items.")
 
-    #    If the split is not specified, ready() tells whether or not
-    #    all splits are ready.
-    #    """
-    #    return True
+        self._data[part1][part2] = value
+
+    def __getitem__(self, item):
+        """Retrieve an item or split.
+        
+        At the moment, we're not very consistent about whether what we return
+        is a view or a [shallow] copy.  Write at your own risk.
+        """
+        # Separate the two dimensions:
+        try:
+            part1, part2 = item
+        except (TypeError, ValueError):
+            raise TypeError("Requires a pair of items.")
+
+        isslice1 = isinstance(part1, slice)
+        isslice2 = isinstance(part1, slice)
+
+        data = self._data
+        if isslice1:
+            lst = []
+            wild_goose_chase = True
+            for sourcelst in data[part1]:
+                try:
+                    lst.append(sourcelst[part2])
+                    wild_goose_chase = False
+                except IndexError:
+                    lst.append([])
+
+            if wild_goose_chase:
+                # every sourcelst[part2] raised an indexerror
+                raise IndexError("No items matching %s" % part2)
+
+            return lst
+
+        else:
+            return self._data[part1][part2]
+
+    def __len__(self):
+        """Number of sources in this DataSet."""
+        return len(self._data)
 
 
 class Output(DataSet):
     """Collect output from a map or reduce task."""
-    def __init__(self, partition, n, **kwds):
+    def __init__(self, partition, nsplits, **kwds):
         super(Output, self).__init__(**kwds)
 
         self.partition = partition
-        self.n = n
-        self.splits = [Bucket(format=format, filename=self.path(i))
-                for i in xrange(n)]
+        # One source and nsplits splits
+        self._data = [[Bucket(format=format, filename=self.path(i))
+                for i in xrange(nsplits)]]
 
     def close(self):
         if self.temp:
@@ -141,15 +207,17 @@ class Output(DataSet):
 
     def collect(self, itr):
         """Collect all of the key-value pairs from the given iterator."""
-        n = self.n
+        buckets = self[0, :]
+        n = self.nsplits
         if n == 1:
             bucket = self.splits[0]
             bucket.collect(itr)
         else:
             partition = self.partition
+            nsplits = self.nsplits
             for kvpair in itr:
                 key, value = kvpair
-                split = partition(key, n)
+                split = partition(key, nsplits)
                 bucket = self.splits[split]
                 bucket.append(kvpair)
 
