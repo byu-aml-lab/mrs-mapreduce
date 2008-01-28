@@ -226,7 +226,8 @@ class Output(DataSet):
 class FileData(DataSet):
     """A list of static files or urls to be used as input to an operation.
 
-    >>> urls = ['http://aml.cs.byu.edu/', 'http://www.cs.byu.edu/']
+    #>>> urls = ['http://google.com/', '/etc/passwd']
+    >>> urls = ['/etc/passwd', '/etc/group']
     >>> data = FileData(urls)
     >>> len(data)
     2
@@ -260,10 +261,8 @@ class FileData(DataSet):
     # TODO: add errback
     def callback(self, eof, bucket, reader):
         import sys
-        print >>sys.stderr, "In callback()"
         bucket.collect(reader)
         if eof:
-            reader.buf.close()
             # TODO: only do this after the last file is done
             from twisted.internet import reactor
             reactor.stop()
