@@ -24,13 +24,12 @@
 from itertools import islice
 
 
-class TextFormat(object):
+class TextReader(object):
     """A basic line-oriented format, primarily for user interaction
 
-    Initialize with a Mrs Buffer.  For reading, the key is the line number,
-    and the value is the contents of the line.  For writing, the key and value
-    are separated by spaces, with one entry per line.
-
+    Initialize with a Mrs Buffer.  The key is the line number, and the value
+    is the contents of the line.
+    
     Note that we expose the deferred of the underlying Buffer object.
 
     Create a file-like object to play around with:
@@ -44,8 +43,8 @@ class TextFormat(object):
     >>> buf.doRead()
     >>>
 
-    Create a TextFormat to read from the Buffer
-    >>> text = TextFormat(buf)
+    Create a TextReader to read from the Buffer
+    >>> text = TextReader(buf)
     >>> text.readpair()
     (0, 'First Line.\\n')
     >>> text.readpair()
@@ -79,7 +78,17 @@ class TextFormat(object):
         else:
             return (self.offset, line)
 
-    def write(self, key, value):
+
+class TextWriter(object):
+    """A basic line-oriented format, primarily for user interaction
+
+    For writing, the key and value are separated by spaces, with one entry per
+    line.
+    """
+    def __init__(self, file):
+        self.file = file
+
+    def writepair(self, key, value):
         print >>self.file, key, value
 
     def close(self):
