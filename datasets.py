@@ -9,7 +9,7 @@
 import threading, os
 from heapq import heappush
 
-from io import fileformat, openreader, HexFormat
+from io import fileformat, openreader, HexWriter
 
 
 # TODO: cache data to disk when memory usage is high
@@ -34,7 +34,7 @@ class Bucket(object):
     'This is a test'
     >>>
     """
-    def __init__(self, filename=None, format=HexFormat):
+    def __init__(self, filename=None, format=HexWriter):
         self._data = []
         self.heap = False
         self.filename = filename
@@ -110,7 +110,7 @@ class DataSet(object):
     ['one', 'hello', None]
     >>>
     """
-    def __init__(self, sources=0, splits=0, directory=None, format=HexFormat):
+    def __init__(self, sources=0, splits=0, directory=None, format=HexWriter):
         if directory is None:
             from tempfile import mkdtemp
             self.directory = mkdtemp()
@@ -118,6 +118,8 @@ class DataSet(object):
         else:
             self.directory = directory
             self.temp = False
+
+        # TODO: set filename for each Bucket upon creation
 
         # For now assume that all sources have the same # of splits.
         self._data = [[Bucket() for j in xrange(splits)]
@@ -220,16 +222,18 @@ class Output(DataSet):
 class FileData(DataSet):
     """A list of static files or urls to be used as input to an operation.
 
-    #>>> urls = ['http://aml.cs.byu.edu/', 'http://www.cs.byu.edu/']
-    #>>> data = FileData(urls)
-    #>>> len(data)
-    #2
-    #>>> data[1]
-    #'http://www.cs.byu.edu/'
-    #>>>
+    >>> urls = ['http://aml.cs.byu.edu/', 'http://www.cs.byu.edu/']
+    >>> data = FileData(urls)
+    >>> len(data)
+    2
+    >>> data.fetchall()
+    >>>
     """
     def __init__(self, urls):
+        sources = len(urls)
         self._urls = tuple(urls)
+
+        super(FileData, self).__init__(sources=sources, splits=1)
 
     def fetchall(self):
         """Download all of the files
@@ -237,22 +241,19 @@ class FileData(DataSet):
         # TODO: set a maximum number of files to read at the same time (do we
         # really want to have 500 sockets open at once?)
 
-        # TODO: setup a bucket for each URL, setup io.net.download for
+        # TODO: setup io.net.download for
         # each url, and run a twisted reactor loop to download it all
-        for url in self._urls:
+        for i, url in enumerate(self._urls):
             reader = openreader(url)
-            buf.deferred.addCallback(self.callback, reader)
+            bucket = self[i, 0]
+            reader.buf.deferred.addCallback(self.callback, bucket)
 
-    def callback(self, value, reader):
-        pass
-
-    #def __len__(self):
-    #    """How many urls are in the DataSet."""
-    #    return len(self._urls)
-
-    #def __getitem__(self, i):
-    #    """Retrieve a sequence containing the URL for the specified file."""
-    #    return (self._urls[i],)
+    # TODO: add docs to callback
+    # TODO: add errback
+    def callback(self, eof, bucket, reader):
+        bucket.collect(reader)
+        if eof:
+            reader.buf.close()
 
 
 class ComputedData(DataSet):
