@@ -25,11 +25,13 @@ from itertools import islice
 
 
 class TextFormat(object):
-    """A basic line-oriented file format, primarily for user interaction
+    """A basic line-oriented format, primarily for user interaction
 
-    Initialize with a file object.  For reading, the key is the line number,
+    Initialize with a Mrs Buffer.  For reading, the key is the line number,
     and the value is the contents of the line.  For writing, the key and value
     are separated by spaces, with one entry per line.
+
+    Note that we expose the deferred of the underlying Buffer object.
 
     Create a file-like object to play around with:
     >>> from cStringIO import StringIO
@@ -54,6 +56,7 @@ class TextFormat(object):
     def __init__(self, buf):
         self.buf = buf
         self.lineno = 0
+        self.deferred = buf.deferred
 
     def __iter__(self):
         return self
