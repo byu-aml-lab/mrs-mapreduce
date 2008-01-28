@@ -57,6 +57,12 @@ class Buffer(object):
         if filelike:
             # Register with the Twisted reactor
             reactor.addReader(self)
+        self.filelike = filelike
+
+    def close(self):
+        if self.filelike:
+            reactor.removeReader(self)
+            self.filelike.close()
 
     def _append(self, newdata):
         assert(self.eof is False)
@@ -66,7 +72,11 @@ class Buffer(object):
             self.deferred.callback(True)
         else:
             self._data += newdata
-            # copied from mrs.io.net:
+
+            # Twisted won't let us pass a new Deferred to a Deferred, like so:
+            ##olddef.callback(self.deferred)
+            # So instead, we callback a shallow copy of the
+            # Deferred:
             newdef = defer.Deferred()
             newdef.callbacks = list(self.deferred.callbacks)
             newdef.callback(False)
