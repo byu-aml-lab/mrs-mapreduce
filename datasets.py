@@ -273,14 +273,22 @@ class FileData(DataSet):
         for i, url in enumerate(self._urls):
             reader = openreader(url)
             bucket = self[i, 0]
-            reader.buf.deferred.addCallback(self.callback, bucket)
+            reader.buf.deferred.addCallback(self.callback, bucket, reader)
+
+        from twisted.internet import reactor
+        reactor.run()
 
     # TODO: add docs to callback
     # TODO: add errback
     def callback(self, eof, bucket, reader):
+        import sys
+        print >>sys.stderr, "In callback()"
         bucket.collect(reader)
         if eof:
             reader.buf.close()
+            # TODO: only do this after the last file is done
+            from twisted.internet import reactor
+            reactor.stop()
 
 
 class ComputedData(DataSet):
