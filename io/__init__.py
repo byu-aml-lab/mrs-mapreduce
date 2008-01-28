@@ -42,7 +42,7 @@ def fileformat(filename):
     extension = os.path.splitext(filename)[1]
     return format_map.get(extension, default_format)
 
-def openbuf(url, mode='r'):
+def openbuf(url):
     """Open a url or file into a Mrs Buffer
     
     Initially, the Buffers will be empty.  However, when Twisted's
@@ -52,12 +52,18 @@ def openbuf(url, mode='r'):
     import urlparse, urllib2
     parsed_url = urlparse.urlparse(url, 'file')
     if parsed_url.scheme == 'file':
-        f = open(parsed_url.path, mode)
+        f = open(parsed_url.path)
         buf = Buffer(filelike=f)
     else:
         from net import download
         buf = download(url)
     return buf
 
+def openreader(url):
+    """Open a url or file and wrap an input format around it.
+    """
+    buf = openbuf(url)
+    format = fileformat(buf)
+    return format(buf)
 
 # vim: et sw=4 sts=4
