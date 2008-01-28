@@ -70,10 +70,10 @@ class TextReader(object):
     def next(self):
         """Return the next key-value pair or raise StopIteration if EOF."""
         line = self.buf.readline()
-        if line is '':
-            raise StopIteration
-        else:
+        if line is not None:
             return (self.lineno, line)
+        else:
+            raise StopIteration
 
 
 class TextWriter(object):
