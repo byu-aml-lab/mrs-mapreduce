@@ -8,8 +8,6 @@ class TextReader(object):
     Initialize with a Mrs Buffer.  The key is the line number, and the value
     is the contents of the line.
     
-    Note that we expose the deferred of the underlying Buffer object.
-
     Create a file-like object to play around with:
     >>> from cStringIO import StringIO
     >>> infile = StringIO("First Line.\\nSecond Line.\\nText without newline.")
@@ -33,7 +31,6 @@ class TextReader(object):
     def __init__(self, buf):
         self.buf = buf
         self.lineno = 0
-        self.deferred = buf.deferred
 
     def __iter__(self):
         return self
