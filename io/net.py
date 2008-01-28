@@ -11,7 +11,7 @@ def download(url):
 
     The Buffer is returned.  Later, incoming data are appended to the Buffer.
 
-    >>> from buffer import TestingCallback
+    >>> from buffer import Buffer, TestingCallback
     >>> import sys
     >>>
 
@@ -69,7 +69,7 @@ def download(url):
     else:
         reactor.connectTCP(u.hostname, port, factory)
 
-    return factory.deferred
+    return buf
 
 
 class HTTPLoader(HTTPDownloader):
@@ -97,15 +97,8 @@ class HTTPLoader(HTTPDownloader):
     def pagePart(self, data):
         self.buf.append(data)
 
-        # Twisted won't let us pass a new Deferred to a Deferred, like so:
-        ##olddef.callback(self.deferred)
-        # So instead, we callback a shallow copy of the Deferred:
-        newdef = defer.Deferred()
-        newdef.callbacks = list(self.deferred.callbacks)
-        newdef.callback(False)
-
     def pageEnd(self):
-        self.deferred.callback(True)
+        self.buf.append('')
 
 
 def test():
