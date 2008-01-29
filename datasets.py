@@ -37,6 +37,7 @@ class Bucket(object):
         self._data = []
         self.heap = False
         self.filename = filename
+        self.url = None
 
     def append(self, x):
         """Collect a single key-value pair
@@ -254,11 +255,11 @@ class FileData(DataSet):
     >>>
     """
     def __init__(self, urls, **kwds):
-        sources = len(urls)
-        self._urls = tuple(urls)
-        self.ready_buckets = set()
+        super(FileData, self).__init__(sources=len(urls), splits=1, **kwds)
 
-        super(FileData, self).__init__(sources=sources, splits=1, **kwds)
+        for i, url in enumerate(urls):
+            self[i, 0].url = url
+        self.ready_buckets = set()
 
     def fetchall(self):
         """Download all of the files
@@ -266,9 +267,8 @@ class FileData(DataSet):
         # TODO: set a maximum number of files to read at the same time (do we
         # really want to have 500 sockets open at once?)
 
-        for i, url in enumerate(self._urls):
-            reader = openreader(url)
-            bucket = self[i, 0]
+        for bucket in self[:, 0]:
+            reader = openreader(bucket.url)
             reader.buf.deferred.addCallback(self.callback, bucket, reader)
 
         from twisted.internet import reactor
@@ -324,9 +324,6 @@ class ComputedData(DataSet):
         # TODO: store a mapping from tasks to hosts and a map from hosts to
         # tasks.  This way you can know where to find data.  You also know
         # which hosts to restart in case of failure.
-
-    def __len__(self):
-        return self.nparts
 
     def __getitem__(self, split):
         if not self.ready():
