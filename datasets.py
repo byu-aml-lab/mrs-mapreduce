@@ -96,7 +96,7 @@ class DataSet(object):
     so it's not a waste of space.
     >>> ds = DataSet(sources=3, splits=3)
     >>> len(ds)
-    3
+    9
     >>> ds[0, 0] = 'zero'
     >>> ds[0, 1] = 'one'
     >>> ds[0, 2] = 'two'
@@ -267,7 +267,7 @@ class FileData(DataSet):
     >>> urls = ['http://aml.cs.byu.edu/', __file__]
     >>> data = FileData(urls)
     >>> len(data)
-    1
+    2
     >>> data.fetchall()
     >>> data[0, 0][0]
     (0, '<html>\\n')
