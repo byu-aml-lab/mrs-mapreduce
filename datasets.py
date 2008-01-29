@@ -148,11 +148,31 @@ class DataSet(object):
             self.directory = directory
             self.temp = False
 
-        # TODO: set filename for each Bucket upon creation
+        self.format = format
 
         # For now assume that all sources have the same # of splits.
-        self._data = [[Bucket() for j in xrange(splits)]
+        self._data = [[Bucket(filename=self.path(i, j))
+                for j in xrange(splits)]
                 for i in xrange(sources)]
+
+    def close(self):
+        if self.temp:
+            os.removedirs(self.directory)
+
+    def path(self, source, split):
+        """Return the path to the output split for the given index.
+        
+        >>> ds = DataSet(sources=4, splits=5, directory='/tmp')
+        >>> ds.path(2, 4)
+        '/tmp/source_2_split_4.mrsx'
+        >>>
+        """
+        filename = "source_%s_split_%s.%s" % (source, split, self.format.ext)
+        return os.path.join(self.directory, filename)
+
+    def __len__(self):
+        """Number of sources in this DataSet."""
+        return len(self._data)
 
     def __setitem__(self, item, value):
         """Set an item.
@@ -202,13 +222,12 @@ class DataSet(object):
         else:
             return self._data[part1][part2]
 
-    def __len__(self):
-        """Number of sources in this DataSet."""
-        return len(self._data)
-
 
 class Output(DataSet):
-    """Collect output from a map or reduce task."""
+    """Collect output from a map or reduce task.
+    
+    This is only used on the slave side.
+    """
     def __init__(self, partition, nsplits, **kwds):
         super(Output, self).__init__(**kwds)
 
@@ -216,10 +235,6 @@ class Output(DataSet):
         # One source and nsplits splits
         self._data = [[Bucket(format=format, filename=self.path(i))
                 for i in xrange(nsplits)]]
-
-    def close(self):
-        if self.temp:
-            os.removedirs(self.directory)
 
     def collect(self, itr):
         """Collect all of the key-value pairs from the given iterator."""
@@ -236,11 +251,6 @@ class Output(DataSet):
                 split = partition(key, nsplits)
                 bucket = self.splits[split]
                 bucket.append(kvpair)
-
-    def path(self, index):
-        """Return the path to the output split for the given index."""
-        filename = "split_%s.%s" % (index, self.format)
-        return os.path.join(self.directory, filename)
 
     def savetodisk(self):
         """Write out all of the key-value pairs to files."""
@@ -264,12 +274,12 @@ class FileData(DataSet):
     (0, '#!/usr/bin/env python\\n')
     >>>
     """
-    def __init__(self, urls):
+    def __init__(self, urls, **kwds):
         sources = len(urls)
         self._urls = tuple(urls)
         self.ready_buckets = set()
 
-        super(FileData, self).__init__(sources=sources, splits=1)
+        super(FileData, self).__init__(sources=sources, splits=1, **kwds)
 
     def fetchall(self):
         """Download all of the files
