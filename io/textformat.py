@@ -96,11 +96,11 @@ class TextWriter(object):
         self.file.close()
 
 
-def test_textformat():
+def test():
     import doctest
     doctest.testmod()
 
 if __name__ == "__main__":
-    test_textformat()
+    test()
 
 # vim: et sw=4 sts=4
