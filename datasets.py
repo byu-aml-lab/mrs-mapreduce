@@ -133,6 +133,12 @@ class DataSet(object):
                 for j in xrange(splits)]
                 for i in xrange(sources)]
 
+    def dump(self):
+        """Write out all of the key-value pairs to files."""
+        for source in self._data:
+            for bucket in source:
+                bucket.dump()
+
     def close(self):
         if self.temp:
             os.removedirs(self.directory)
@@ -229,11 +235,6 @@ class Output(DataSet):
                 split = partition(key, nsplits)
                 bucket = self.splits[split]
                 bucket.append(kvpair)
-
-    def savetodisk(self):
-        """Write out all of the key-value pairs to files."""
-        for bucket in self.splits:
-            bucket.dump()
 
 
 class FileData(DataSet):
