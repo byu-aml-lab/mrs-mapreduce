@@ -36,6 +36,7 @@ class Bucket(object):
     def __init__(self, filename=None, format=HexWriter):
         self._data = []
         self.heap = False
+        self.format = format
         self.filename = filename
         self.url = None
 
@@ -79,9 +80,10 @@ class Bucket(object):
     # TODO: write doctest for dump
     def dump(self):
         assert(self.filename is not None)
-        f = openfile(self.filename, 'w')
+        f = open(self.filename, 'w')
+        writer = self.format(f)
         for key, value in self:
-            f.write(key, value)
+            writer.writepair(key, value)
         f.close()
 
 
@@ -225,15 +227,25 @@ class DataSet(object):
 class Output(DataSet):
     """Collect output from a map or reduce task.
     
-    This is only used on the slave side.
+    This is only used on the slave side.  It takes a partition function and a
+    number of splits to use.
+
+    >>> o = Output((lambda x, n: x%n), 4)
+    >>> lst = [(4, 'to_0'), (5, 'to_1'), (7, 'to_3'), (9, 'to_1')]
+    >>> o.collect(lst)
+    >>> list(o[0, 1])
+    [(5, 'to_1'), (9, 'to_1')]
+    >>> list(o[0, 3])
+    [(7, 'to_3')]
+    >>>
     """
-    def __init__(self, partition, nsplits, **kwds):
-        super(Output, self).__init__(**kwds)
+    def __init__(self, partition, splits, taskid=0, **kwds):
+        super(Output, self).__init__(splits=splits, **kwds)
 
         self.partition = partition
-        # One source and nsplits splits
-        self._data = [[Bucket(format=format, filename=self.path(i))
-                for i in xrange(nsplits)]]
+        # One source and splits splits
+        self._data = [[Bucket(format=self.format,
+                filename=self.path(taskid, i)) for i in xrange(splits)]]
 
         # For now, the externally visible url is just the filename on the
         # local or networked filesystem.
@@ -243,17 +255,16 @@ class Output(DataSet):
     def collect(self, itr):
         """Collect all of the key-value pairs from the given iterator."""
         buckets = self[0, :]
-        n = self.nsplits
+        n = self.splits
         if n == 1:
-            bucket = self.splits[0]
+            bucket = buckets[0]
             bucket.collect(itr)
         else:
             partition = self.partition
-            nsplits = self.nsplits
             for kvpair in itr:
                 key, value = kvpair
-                split = partition(key, nsplits)
-                bucket = self.splits[split]
+                split = partition(key, n)
+                bucket = buckets[split]
                 bucket.append(kvpair)
 
 

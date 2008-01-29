@@ -182,7 +182,7 @@ class MapTask(Task):
         subdirbase = "map_%s_" % self.taskid
         directory = tempfile.mkdtemp(dir=self.outdir, prefix=subdirbase)
         self.output = datasets.Output(self.partition, self.nparts,
-                directory=directory)
+                taskid=self.taskid, directory=directory)
 
         self.output.collect(mrs_map(self.mapper, all_input))
         self.output.dump()
