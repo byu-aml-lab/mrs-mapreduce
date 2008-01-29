@@ -133,15 +133,6 @@ class Task(object):
         from util import try_makedirs
         try_makedirs(outdir)
 
-    def inputurls(self):
-        # TODO: make this a bit more symmetrical on the master side vs. the
-        # slave side (maybe make a SlaveDataSet class or something)
-        from datasets import DataSet
-        if isinstance(self.input, DataSet):
-            return self.input[self.taskid]
-        else:
-            return self.input
-
     def active(self):
         self.dataset.tasks_active.append(self)
 
@@ -169,25 +160,22 @@ class MapTask(Task):
         self.nparts = nparts
 
     def run(self):
-        import io
+        import datasets
         from itertools import chain
         import tempfile
-        inputfiles = [io.openfile(url) for url in self.inputurls()]
-        all_input = chain(*inputfiles)
+        self.input.fetchall()
+        all_input = self.input.itersplit(0)
 
         # PREP
         subdirbase = "map_%s_" % self.taskid
         directory = tempfile.mkdtemp(dir=self.outdir, prefix=subdirbase)
-        self._output = io.Output(self.partition, self.nparts,
+        self._output = datasets.Output(self.partition, self.nparts,
                 directory=directory)
 
         self._output.collect(mrs_map(self.mapper, all_input))
-        self._output.savetodisk()
+        self._output.dump()
 
-        for input_file in all_input:
-            input_file.close()
-        self._output.close()
-        self.outurls = self._output.filenames()
+        self.input.close()
 
 
 # TODO: allow configuration of output format

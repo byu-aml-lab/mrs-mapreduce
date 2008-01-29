@@ -134,6 +134,27 @@ class DataSet(object):
                 for j in xrange(splits)]
                 for i in xrange(sources)]
 
+    def __len__(self):
+        """Number of buckets in this DataSet."""
+        #return len(self._data)
+        return sum(len(source) for source in self._data)
+
+    def __iter__(self):
+        """Iterate over all buckets."""
+        for source in self._data:
+            for bucket in source:
+                yield bucket
+
+    def itersplit(self, split):
+        from itertools import chain
+        buckets = self[:, split]
+        return chain(*buckets)
+
+    def itersource(self, source):
+        from itertools import chain
+        buckets = self[source, :]
+        return chain(*buckets)
+
     def dump(self):
         """Write out all of the key-value pairs to files."""
         for source in self._data:
@@ -154,10 +175,6 @@ class DataSet(object):
         """
         filename = "source_%s_split_%s.%s" % (source, split, self.format.ext)
         return os.path.join(self.directory, filename)
-
-    def __len__(self):
-        """Number of sources in this DataSet."""
-        return len(self._data)
 
     def __setitem__(self, item, value):
         """Set an item.
@@ -221,6 +238,9 @@ class Output(DataSet):
         self._data = [[Bucket(format=format, filename=self.path(i))
                 for i in xrange(nsplits)]]
 
+    def outurls(self):
+        return [bucket.filename for bucket in self[0, :]]
+
     def collect(self, itr):
         """Collect all of the key-value pairs from the given iterator."""
         buckets = self[0, :]
@@ -241,24 +261,43 @@ class Output(DataSet):
 class FileData(DataSet):
     """A list of static files or urls to be used as input to an operation.
 
+    For now, all of the files come from a single source, with one split for
+    each file.
+
     >>> urls = ['http://aml.cs.byu.edu/', __file__]
     >>> data = FileData(urls)
     >>> len(data)
-    2
+    1
     >>> data.fetchall()
     >>> data[0, 0][0]
     (0, '<html>\\n')
     >>> data[0, 0][1]
     (1, '<head>\\n')
-    >>> data[1, 0][0]
+    >>> data[0, 1][0]
     (0, '#!/usr/bin/env python\\n')
     >>>
     """
-    def __init__(self, urls, **kwds):
-        super(FileData, self).__init__(sources=len(urls), splits=1, **kwds)
+    def __init__(self, urls, sources=None, splits=None, **kwds):
+        n = len(urls)
 
-        for i, url in enumerate(urls):
-            self[i, 0].url = url
+        if sources is None and splits is None:
+            # Nothing specified, so we assume one split per url
+            sources = 1
+            splits = n
+        elif sources is None:
+            sources = n / splits
+        elif splits is None:
+            splits = n / sources
+
+        # TODO: relax this requirement
+        assert(sources * splits == n)
+
+        super(FileData, self).__init__(sources=sources, splits=splits, **kwds)
+
+        from itertools import izip
+        for bucket, url in zip(self, urls):
+            bucket.url = url
+
         self.ready_buckets = set()
 
     def fetchall(self):
@@ -267,7 +306,7 @@ class FileData(DataSet):
         # TODO: set a maximum number of files to read at the same time (do we
         # really want to have 500 sockets open at once?)
 
-        for bucket in self[:, 0]:
+        for bucket in self[0, :]:
             reader = openreader(bucket.url)
             reader.buf.deferred.addCallback(self.callback, bucket, reader)
 
@@ -300,6 +339,8 @@ class ComputedData(DataSet):
     """
     def __init__(self, input, func, nparts, outdir, parter=None,
             registry=None):
+        super(ComputedData, self).__init__(splits=nparts)
+
         self.input = input
         self.ntasks = len(self.input)
         self.outdir = outdir
@@ -324,13 +365,6 @@ class ComputedData(DataSet):
         # TODO: store a mapping from tasks to hosts and a map from hosts to
         # tasks.  This way you can know where to find data.  You also know
         # which hosts to restart in case of failure.
-
-    def __getitem__(self, split):
-        if not self.ready():
-            raise IndexError
-        else:
-            return [task.outurls[split] for task in self.tasks_done
-                    if task.outurls[split] != '']
 
     def ready(self):
         if self.tasks_made and not self.tasks_todo and not self.tasks_active:
