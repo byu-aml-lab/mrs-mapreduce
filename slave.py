@@ -232,7 +232,7 @@ class Worker(threading.Thread):
             self._task = None
             self._cond.release()
 
-            self.master.done(self.slave.id, task.outurls, self.slave.cookie)
+            self.master.done(self.slave.id, task.outurls(), self.slave.cookie)
 
 
 # vim: et sw=4 sts=4

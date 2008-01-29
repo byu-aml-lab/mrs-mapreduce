@@ -149,6 +149,8 @@ class DataSet(object):
             self.directory = directory
             self.temp = False
 
+        self.sources = sources
+        self.splits = splits
         self.format = format
 
         # For now assume that all sources have the same # of splits.
@@ -158,7 +160,6 @@ class DataSet(object):
 
     def __len__(self):
         """Number of buckets in this DataSet."""
-        #return len(self._data)
         return sum(len(source) for source in self._data)
 
     def __iter__(self):
@@ -255,9 +256,6 @@ class Output(DataSet):
         # One source and nsplits splits
         self._data = [[Bucket(format=format, filename=self.path(i))
                 for i in xrange(nsplits)]]
-
-    def outurls(self):
-        return [bucket.filename for bucket in self[0, :]]
 
     def collect(self, itr):
         """Collect all of the key-value pairs from the given iterator."""
@@ -357,17 +355,15 @@ class ComputedData(DataSet):
     """
     def __init__(self, input, func, nparts, outdir, parter=None,
             registry=None):
-        super(ComputedData, self).__init__(splits=nparts)
+        # At least for now, we create 1 task for each split in the input
+        ntasks = input.splits
+        super(ComputedData, self).__init__(sources=ntasks, splits=nparts)
 
-        self.input = input
-        self.ntasks = len(self.input)
-        self.outdir = outdir
         if registry is None:
             from registry import Registry
             self.registry = Registry()
         else:
             self.registry = registry
-        self.nparts = nparts
 
         self.func_name = self.registry.as_name(func)
         if parter is None:
@@ -379,6 +375,9 @@ class ComputedData(DataSet):
         self.tasks_todo = []
         self.tasks_done = []
         self.tasks_active = []
+
+        self.input = input
+        self.outdir = outdir
 
         # TODO: store a mapping from tasks to hosts and a map from hosts to
         # tasks.  This way you can know where to find data.  You also know
@@ -414,7 +413,7 @@ class MapData(ComputedData):
 
     def make_tasks(self):
         from mapreduce import MapTask
-        for taskid in xrange(self.ntasks):
+        for taskid in xrange(self.sources):
             task = MapTask(taskid, self.input, self.registry, self.func_name,
                     self.part_name, self.outdir, self.nparts)
             task.dataset = self
@@ -423,9 +422,9 @@ class MapData(ComputedData):
 
     def run_serial(self):
         pass
-        input_files = [io.openfile(filename) for filename in self.inputs]
-        all_input = chain(*input_files)
-        map_output = mrs_map(registry['mapper'], all_input)
+        #input_files = [io.openfile(filename) for filename in self.inputs]
+        #all_input = chain(*input_files)
+        #map_output = mrs_map(registry['mapper'], all_input)
 
 
 class ReduceData(ComputedData):
@@ -436,7 +435,7 @@ class ReduceData(ComputedData):
 
     def make_tasks(self):
         from mapreduce import ReduceTask
-        for taskid in xrange(self.ntasks):
+        for taskid in xrange(self.sources):
             task = ReduceTask(taskid, self.input, self.registry,
                     self.func_name, self.outdir)
             task.dataset = self

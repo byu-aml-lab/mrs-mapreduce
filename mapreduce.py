@@ -147,9 +147,10 @@ class Task(object):
         self.taskid = taskid
         self.input = input
         self.outdir = outdir
-        self._output = None
-        self.outurls = []
         self.dataset = None
+
+        self.output = None
+        self._outurls = []
 
         # TODO: check to see if there's somewhere better for this:
         from util import try_makedirs
@@ -159,13 +160,21 @@ class Task(object):
         self.dataset.tasks_active.append(self)
 
     def finished(self, urls):
-        self.outurls = urls
+        self._outurls = urls
         self.dataset.tasks_active.remove(self)
         self.dataset.tasks_done.append(self)
 
     def canceled(self):
         self.dataset.tasks_active.remove(self)
         self.dataset.tasks_todo.append(self)
+
+    def outurls(self):
+        # Normally, there's an output object, but the master only holds a
+        # list of urls.
+        if self.output:
+            return [bucket.filename for bucket in self.output]
+        else:
+            return self._outurls
 
 
 class MapTask(Task):
@@ -191,11 +200,11 @@ class MapTask(Task):
         # PREP
         subdirbase = "map_%s_" % self.taskid
         directory = tempfile.mkdtemp(dir=self.outdir, prefix=subdirbase)
-        self._output = datasets.Output(self.partition, self.nparts,
+        self.output = datasets.Output(self.partition, self.nparts,
                 directory=directory)
 
-        self._output.collect(mrs_map(self.mapper, all_input))
-        self._output.dump()
+        self.output.collect(mrs_map(self.mapper, all_input))
+        self.output.dump()
 
         self.input.close()
 
@@ -219,7 +228,7 @@ class ReduceTask(Task):
         import tempfile
         subdirbase = "reduce_%s_" % self.taskid
         directory = tempfile.mkdtemp(dir=self.outdir, prefix=subdirbase)
-        self._output = io.Output(None, 1, directory=directory,
+        self.output = io.Output(None, 1, directory=directory,
                 format=self.format)
 
         # SORT PHASE
@@ -233,13 +242,12 @@ class ReduceTask(Task):
         #io.hexfile_sort(interm_names, sorted_name)
 
         # REDUCE PHASE
-        self._output.collect(mrs_reduce(self.reducer, all_input))
-        self._output.savetodisk()
+        self.output.collect(mrs_reduce(self.reducer, all_input))
+        self.output.savetodisk()
 
         for f in inputfiles:
             f.close()
-        self._output.close()
-        self.outurls = self._output.filenames()
+        self.output.close()
 
 
 def default_partition(x, n):
