@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-# 2nd TODO: unify Input, Output, and Computed: api for sources, splits, etc.
 # 3rd TODO: make it all work
 
 # TODO: right now we assume that input files are pre-split.
@@ -306,7 +305,7 @@ class FileData(DataSet):
         # TODO: set a maximum number of files to read at the same time (do we
         # really want to have 500 sockets open at once?)
 
-        for bucket in self[0, :]:
+        for bucket in self:
             reader = openreader(bucket.url)
             reader.buf.deferred.addCallback(self.callback, bucket, reader)
 
@@ -426,11 +425,11 @@ class ReduceData(ComputedData):
         self.tasks_made = True
 
 
-def test_datasets():
+def test():
     import doctest
     doctest.testmod()
 
 if __name__ == "__main__":
-    test_datasets()
+    test()
 
 # vim: et sw=4 sts=4

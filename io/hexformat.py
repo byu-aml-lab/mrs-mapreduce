@@ -125,12 +125,12 @@ def group_by_two(s):
         yield I.next() + I.next()
 
 
-def test_hexformat():
+def test():
     import doctest
     doctest.testmod()
 
 if __name__ == "__main__":
-    test_hexformat()
+    test()
 
 
 # vim: et sw=4 sts=4
