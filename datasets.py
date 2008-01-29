@@ -267,7 +267,7 @@ class FileData(DataSet):
     >>> data = FileData(urls)
     >>> len(data)
     2
-    >>> data.fetchall()
+    >>> data.fetchall(mainthread=True)
     >>> data[0, 0][0]
     (0, '<html>\\n')
     >>> data[0, 0][1]
@@ -299,8 +299,13 @@ class FileData(DataSet):
 
         self.ready_buckets = set()
 
-    def fetchall(self):
+    def fetchall(self, mainthread=False):
         """Download all of the files
+
+        By default, fetchall assumes that it's being run in a thread other
+        than the main thread because that's how it usually appears in Mrs.
+        However, if it is in the main thread, it needs to know, so it can tell
+        Twisted to catch SIGTERM.
         """
         # TODO: set a maximum number of files to read at the same time (do we
         # really want to have 500 sockets open at once?)
@@ -310,7 +315,10 @@ class FileData(DataSet):
             reader.buf.deferred.addCallback(self.callback, bucket, reader)
 
         from twisted.internet import reactor
-        reactor.run()
+        if mainthread:
+            reactor.run()
+        else:
+            reactor.run(installSignalHandlers=0)
 
     def callback(self, eof, bucket, reader):
         """Called by Twisted when data are available for reading."""
