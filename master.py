@@ -134,7 +134,7 @@ class RemoteSlave(object):
         task = assignment.task
         if assignment.map:
             self.slave_rpc.start_map(task.map_name, task.part_name,
-                    task.taskid, task.inputurls(), task.outdir, task.nparts,
+                    task.taskid, task.inurls(), task.outdir, task.nparts,
                     self.cookie)
         elif assignment.reduce:
             self.slave_rpc.start_reduce(task.reduce_name, task.taskid,
