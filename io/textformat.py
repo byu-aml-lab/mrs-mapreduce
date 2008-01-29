@@ -71,7 +71,9 @@ class TextReader(object):
         """Return the next key-value pair or raise StopIteration if EOF."""
         line = self.buf.readline()
         if line is not None:
-            return (self.lineno, line)
+            value = (self.lineno, line)
+            self.lineno += 1
+            return value
         else:
             raise StopIteration
 
