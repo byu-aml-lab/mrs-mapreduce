@@ -185,22 +185,28 @@ class Worker(threading.Thread):
         This will ordinarily be called from some other thread.
         """
         from mapreduce import MapTask
+        from datasets import FileData
+        input_data = FileData(inputs, splits=1)
+
         success = False
         self._cond.acquire()
         if self._task is None:
-            self._task = MapTask(taskid, inputs, self.slave.registry,
+            self._task = MapTask(taskid, input_data, self.slave.registry,
                     map_name, part_name, output, reduce_tasks)
             success = True
             self._cond.notify()
         self._cond.release()
         return success
 
-    def start_reduce(self, reduce_name, taskid, inputs, output):
+    def start_reduce(self, reduce_name, taskid, input_data, output):
         """Tell this worker to start working on a reduce task.
 
         This will ordinarily be called from some other thread.
         """
         from mapreduce import ReduceTask
+        from datasets import FileData
+        input_data = FileData(inputs, splits=1)
+
         success = False
         self._cond.acquire()
         if self._task is None:
