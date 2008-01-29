@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-# 1st TODO: FileData
 # 2nd TODO: unify Input, Output, and Computed: api for sources, splits, etc.
 # 3rd TODO: make it all work
 
@@ -64,6 +63,10 @@ class Bucket(object):
 
     def sort(self):
         self._data.sort()
+
+    def clear(self):
+        """Remove all key-value pairs from the Bucket."""
+        self._data = []
 
     def __getitem__(self, item):
         """Get a particular item, mainly for debugging purposes"""
@@ -226,14 +229,17 @@ class Output(DataSet):
 class FileData(DataSet):
     """A list of static files or urls to be used as input to an operation.
 
-    #>>> urls = ['/etc/passwd', '/etc/group']
-    >>> urls = ['http://google.com/', '/etc/passwd']
+    >>> urls = ['http://aml.cs.byu.edu/', __file__]
     >>> data = FileData(urls)
     >>> len(data)
     2
     >>> data.fetchall()
     >>> data[0, 0][0]
+    (0, '<html>\\n')
+    >>> data[0, 0][1]
+    (1, '<head>\\n')
     >>> data[1, 0][0]
+    (0, '#!/usr/bin/env python\\n')
     >>>
     """
     def __init__(self, urls):
@@ -249,8 +255,6 @@ class FileData(DataSet):
         # TODO: set a maximum number of files to read at the same time (do we
         # really want to have 500 sockets open at once?)
 
-        # TODO: setup io.net.download for
-        # each url, and run a twisted reactor loop to download it all
         for i, url in enumerate(self._urls):
             reader = openreader(url)
             bucket = self[i, 0]
@@ -261,11 +265,11 @@ class FileData(DataSet):
 
     def callback(self, eof, bucket, reader):
         """Called by Twisted when data are available for reading."""
-        import sys
         bucket.collect(reader)
-        print >>sys.stderr, "Got data"
+        #import sys
+        #print >>sys.stderr, "Got data"
         if eof:
-            print >>sys.stderr, "EOF"
+            #print >>sys.stderr, "EOF"
             self.ready_buckets.add(bucket)
             if len(self.ready_buckets) == len(self):
                 from twisted.internet import reactor
