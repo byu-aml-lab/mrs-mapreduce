@@ -60,6 +60,7 @@ class HexWriter(TextWriter):
     TODO: we might as well base64-encode the value, rather than hex-encoding
     it, since it doesn't need to be sortable.
     """
+    ext = 'mrsx'
 
     def __init__(self, file):
         super(HexWriter, self).__init__(file)

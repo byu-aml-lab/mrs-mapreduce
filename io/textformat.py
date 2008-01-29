@@ -62,6 +62,8 @@ class TextWriter(object):
     For writing, the key and value are separated by spaces, with one entry per
     line.
     """
+    ext = 'txt'
+
     def __init__(self, file):
         self.file = file
 
