@@ -28,6 +28,7 @@
 
 import threading, os
 from heapq import heappush
+from itertools import chain
 
 from io import fileformat, openreader, HexWriter
 
@@ -162,17 +163,13 @@ class DataSet(object):
 
     def __iter__(self):
         """Iterate over all buckets."""
-        for source in self._data:
-            for bucket in source:
-                yield bucket
+        return chain(*self._data)
 
     def itersplit(self, split):
-        from itertools import chain
         buckets = self[:, split]
         return chain(*buckets)
 
     def itersource(self, source):
-        from itertools import chain
         buckets = self[source, :]
         return chain(*buckets)
 
