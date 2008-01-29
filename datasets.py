@@ -235,6 +235,11 @@ class Output(DataSet):
         self._data = [[Bucket(format=format, filename=self.path(i))
                 for i in xrange(nsplits)]]
 
+        # For now, the externally visible url is just the filename on the
+        # local or networked filesystem.
+        for bucket in self:
+            bucket.url = bucket.filename
+
     def collect(self, itr):
         """Collect all of the key-value pairs from the given iterator."""
         buckets = self[0, :]
@@ -393,7 +398,7 @@ class MapData(ComputedData):
         from mapreduce import MapTask
         for taskid in xrange(self.sources):
             task = MapTask(taskid, self.input, self.registry, self.func_name,
-                    self.part_name, self.outdir, self.nparts)
+                    self.part_name, self.outdir, self.splits)
             task.dataset = self
             self.tasks_todo.append(task)
         self.tasks_made = True

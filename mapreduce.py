@@ -146,11 +146,14 @@ class Task(object):
         self.dataset.tasks_active.remove(self)
         self.dataset.tasks_todo.append(self)
 
+    def inurls(self):
+        return [bucket.url for bucket in self.input[:, self.taskid]]
+
     def outurls(self):
         # Normally, there's an output object, but the master only holds a
         # list of urls.
         if self.output:
-            return [bucket.filename for bucket in self.output]
+            return [bucket.url for bucket in self.output]
         else:
             return self._outurls
 
