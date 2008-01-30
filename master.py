@@ -115,8 +115,6 @@ class RemoteSlave(object):
                     task.taskid, task.inurls(), task.outdir, task.nparts,
                     self.cookie)
         elif assignment.reduce:
-            print (task.reduce_name, task.taskid,
-                    task.inurls(), task.outdir, self.cookie)
             self.slave_rpc.start_reduce(task.reduce_name, task.taskid,
                     task.inurls(), task.outdir, self.cookie)
         else:

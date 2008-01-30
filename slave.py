@@ -176,7 +176,7 @@ class Worker(threading.Thread):
         self._cond.release()
         return success
 
-    def start_reduce(self, reduce_name, taskid, input_data, output):
+    def start_reduce(self, reduce_name, taskid, inputs, output):
         """Tell this worker to start working on a reduce task.
 
         This will ordinarily be called from some other thread.
