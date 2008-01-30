@@ -44,7 +44,7 @@ class HexReader(TextReader):
     def next(self):
         """Return the next key-value pair or raise StopIteration if EOF."""
         line = self.buf.readline()
-        if line is '':
+        if line is None:
             raise StopIteration
         else:
             key, value = [dehex(field) for field in line.split()]
