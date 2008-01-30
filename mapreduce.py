@@ -145,16 +145,14 @@ class Task(object):
         try_makedirs(outdir)
 
     def active(self):
-        self.dataset.tasks_active.append(self)
+        self.dataset.task_started(self)
 
     def finished(self, urls):
         self._outurls = urls
-        self.dataset.tasks_active.remove(self)
-        self.dataset.tasks_done.append(self)
+        self.dataset.task_finished(self)
 
     def canceled(self):
-        self.dataset.tasks_active.remove(self)
-        self.dataset.tasks_todo.append(self)
+        self.dataset.task_canceled(self)
 
     def inurls(self):
         return [bucket.url for bucket in self.input[:, self.taskid]]
