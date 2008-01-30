@@ -116,7 +116,7 @@ class RemoteSlave(object):
                     self.cookie)
         elif assignment.reduce:
             self.slave_rpc.start_reduce(task.reduce_name, task.taskid,
-                    task.inputurls(), task.outdir, self.cookie)
+                    task.inurls(), task.outdir, self.cookie)
         else:
             raise RuntimeError
         self.assignment = assignment
