@@ -310,7 +310,8 @@ class FileData(DataSet):
 
         self.ready_buckets = set()
 
-    def fetchall(self, mainthread=False):
+    #def fetchall(self, mainthread=False):
+    def fetchall(self):
         """Download all of the files
 
         By default, fetchall assumes that it's being run in a thread other
@@ -326,10 +327,11 @@ class FileData(DataSet):
             reader.buf.deferred.addCallback(self.callback, bucket, reader)
 
         from twisted.internet import reactor
-        if mainthread:
-            reactor.run()
-        else:
-            reactor.run(installSignalHandlers=0)
+        # Note that we can't do reactor.run() twice, so we cheat.
+        #reactor.run()
+        #reactor.run(installSignalHandlers=0)
+        reactor.running = True
+        reactor.mainLoop()
 
     def callback(self, eof, bucket, reader):
         """Called by Twisted when data are available for reading."""
@@ -341,7 +343,9 @@ class FileData(DataSet):
             self.ready_buckets.add(bucket)
             if len(self.ready_buckets) == len(self):
                 from twisted.internet import reactor
-                reactor.stop()
+                # Note that we can't do reactor.run() twice, so we cheat.
+                #reactor.stop()
+                reactor.running = False
 
     def errback(self, value):
         # TODO: write me
