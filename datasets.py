@@ -28,7 +28,7 @@
 
 import threading, os
 from heapq import heappush
-from itertools import chain
+from itertools import chain, izip
 
 from io import fileformat, openreader, HexWriter
 
@@ -200,13 +200,16 @@ class DataSet(object):
     def __setitem__(self, item, value):
         """Set an item.
 
-        For now, you can't set a split.
+        For now, you can only set a split in the second dimension.
         """
         # Separate the two dimensions:
         try:
             part1, part2 = item
         except (TypeError, ValueError):
             raise TypeError("Requires a pair of items.")
+
+        if isinstance(part1, slice):
+            raise NotImplementedError
 
         self._data[part1][part2] = value
 
@@ -431,6 +434,19 @@ class ComputedData(DataSet):
         done = len(self.tasks_done)
         total = active + todo + done
         print 'Completed: %s/%s, Active: %s' % (done, total, active)
+
+    def task_started(self, task):
+        self.tasks_active.append(task)
+
+    def task_canceled(self, task):
+        self.tasks_active.remove(task)
+        self.tasks_todo.append(task)
+
+    def task_finished(self, task):
+        for bucket, url in izip(self[task.taskid, :], task.outurls()):
+            bucket.url = url
+        self.tasks_active.remove(task)
+        self.tasks_done.append(task)
 
 
 class MapData(ComputedData):
