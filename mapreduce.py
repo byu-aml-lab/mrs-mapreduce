@@ -49,6 +49,9 @@ class Job(object):
         self.args = args
         self.opts = opts
 
+        self.default_reduce_parts = 1
+        self.default_reduce_tasks = opts.reduce_tasks
+
     def run(self):
         job = self
         self.user_run(job, self.args, self.opts)
@@ -58,12 +61,15 @@ class Job(object):
         ds = FileData(filenames)
         return ds
 
-    def map_data(self, input, mapper, nparts=1, outdir=None, parter=None):
+    def map_data(self, input, mapper, nparts=None, outdir=None, parter=None):
         """Define a set of data computed with a map operation.
 
         Specify the input dataset and a mapper function.  The mapper must be
         in the job's registry and may be specified as a name or function.
         """
+        if nparts is None:
+            nparts = self.default_reduce_tasks
+
         from datasets import MapData
         if outdir is None:
             outdir = self.jobdir
@@ -72,12 +78,16 @@ class Job(object):
         self.datasets.append(ds)
         return ds
 
-    def reduce_data(self, input, reducer, nparts=1, outdir=None, parter=None):
+    def reduce_data(self, input, reducer, nparts=None, outdir=None,
+            parter=None):
         """Define a set of data computed with a reducer operation.
 
         Specify the input dataset and a reducer function.  The reducer must be
         in the job's registry and may be specified as a name or function.
         """
+        if nparts is None:
+            nparts = self.default_reduce_parts
+
         from datasets import ReduceData
         if outdir is None:
             outdir = self.jobdir

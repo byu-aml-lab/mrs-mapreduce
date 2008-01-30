@@ -33,8 +33,6 @@ def mapper(key, value):
 def reducer(key, value_iter):
     yield str(sum(int(x) for x in value_iter))
 
-reduce_tasks = 3
-
 # what to do about input files and output formats?
 # how about other options?
 
