@@ -188,7 +188,7 @@ class Worker(threading.Thread):
         success = False
         self._cond.acquire()
         if self._task is None:
-            self._task = ReduceTask(taskid, inputs, self.slave.registry,
+            self._task = ReduceTask(taskid, input_data, self.slave.registry,
                     reduce_name, output)
             success = True
             self._cond.notify()

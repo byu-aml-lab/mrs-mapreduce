@@ -314,7 +314,7 @@ class FileData(DataSet):
         self.ready_buckets = set()
 
     #def fetchall(self, mainthread=False):
-    def fetchall(self):
+    def fetchall(self, heap=False):
         """Download all of the files
 
         By default, fetchall assumes that it's being run in a thread other
@@ -324,6 +324,10 @@ class FileData(DataSet):
         """
         # TODO: set a maximum number of files to read at the same time (do we
         # really want to have 500 sockets open at once?)
+
+        if heap:
+            for bucket in self:
+                bucket.heap = True
 
         for bucket in self:
             reader = openreader(bucket.url)

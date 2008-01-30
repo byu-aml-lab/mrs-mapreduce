@@ -3,6 +3,7 @@
 # TODO: right now we assume that input files are pre-split.
 
 import threading
+from io.textformat import TextWriter
 
 def mrs_simple(job, args, opts):
     """Default run function for a map phase and reduce phase"""
@@ -165,6 +166,11 @@ class Task(object):
         else:
             return self._outurls
 
+    def tempdir(self, prefix):
+        import tempfile
+        directory = tempfile.mkdtemp(dir=self.outdir,
+                prefix=('%s_%s_' % (prefix, self.taskid)))
+
 
 class MapTask(Task):
     def __init__(self, taskid, input, registry, map_name, part_name, outdir,
@@ -182,16 +188,17 @@ class MapTask(Task):
     def run(self):
         import datasets
         from itertools import chain
-        import tempfile
-        self.input.fetchall()
-        all_input = self.input.itersplit(0)
 
         # PREP
-        subdirbase = "map_%s_" % self.taskid
-        directory = tempfile.mkdtemp(dir=self.outdir, prefix=subdirbase)
+        directory = self.tempdir('map')
         self.output = datasets.Output(self.partition, self.nparts,
                 taskid=self.taskid, directory=directory)
 
+        # SETUP INPUT
+        self.input.fetchall()
+        all_input = self.input.itersplit(0)
+
+        # MAP PHASE
         self.output.collect(mrs_map(self.mapper, all_input))
         self.output.dump()
 
@@ -202,27 +209,24 @@ class MapTask(Task):
 # TODO: make more like MapTask (part_name, nparts, etc.)
 class ReduceTask(Task):
     def __init__(self, taskid, input, registry, reduce_name, outdir,
-            format='txt', **kwds):
+            format=TextWriter, **kwds):
         Task.__init__(self, taskid, input, outdir)
         self.reduce_name = reduce_name
         self.reducer = registry[reduce_name]
         self.format = format
 
     def run(self):
-        import io
+        import datasets
         from itertools import chain
 
         # PREP
-        import io
-        import tempfile
-        subdirbase = "reduce_%s_" % self.taskid
-        directory = tempfile.mkdtemp(dir=self.outdir, prefix=subdirbase)
-        self.output = io.Output(None, 1, directory=directory,
+        directory = self.tempdir('reduce')
+        self.output = datasets.Output(None, 1, directory=directory,
                 format=self.format)
 
         # SORT PHASE
-        inputfiles = [io.openfile(url) for url in self.inputurls()]
-        all_input = sorted(chain(*inputfiles))
+        self.input.fetchall(heap=True)
+        all_input = sorted(self.input.itersplit(0))
 
         # Do the following if external sort is necessary (i.e., the input
         # files are too big to fit in memory):
@@ -232,11 +236,9 @@ class ReduceTask(Task):
 
         # REDUCE PHASE
         self.output.collect(mrs_reduce(self.reducer, all_input))
-        self.output.savetodisk()
+        self.output.dump()
 
-        for f in inputfiles:
-            f.close()
-        self.output.close()
+        self.input.close()
 
 
 def default_partition(x, n):
