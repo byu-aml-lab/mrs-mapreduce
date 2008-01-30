@@ -170,6 +170,7 @@ class Task(object):
         import tempfile
         directory = tempfile.mkdtemp(dir=self.outdir,
                 prefix=('%s_%s_' % (prefix, self.taskid)))
+        return directory
 
 
 class MapTask(Task):
