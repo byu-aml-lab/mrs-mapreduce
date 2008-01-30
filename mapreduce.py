@@ -203,8 +203,6 @@ class MapTask(Task):
         self.output.collect(mrs_map(self.mapper, all_input))
         self.output.dump()
 
-        self.input.close()
-
 
 # TODO: allow configuration of output format
 # TODO: make more like MapTask (part_name, nparts, etc.)
@@ -238,8 +236,6 @@ class ReduceTask(Task):
         # REDUCE PHASE
         self.output.collect(mrs_reduce(self.reducer, all_input))
         self.output.dump()
-
-        self.input.close()
 
 
 def default_partition(x, n):
