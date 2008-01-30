@@ -17,7 +17,8 @@ def reducer(key, value_iter):
 def run(job, args, opts):
     source = job.file_data(args[:-1])
     intermediate = job.map_data(source, mapper)
-    output = job.reduce_data(intermediate, reducer, outdir=args[-1])
+    output = job.reduce_data(intermediate, reducer,
+            outdir=args[-1], format=mrs.TextWriter)
 
 if __name__ == '__main__':
     mrs.main(mrs.Registry(globals()), run)

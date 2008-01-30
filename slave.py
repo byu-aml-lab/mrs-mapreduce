@@ -17,16 +17,16 @@ class SlaveInterface(object):
     def _listMethods(self):
         return SimpleXMLRPCServer.list_public_methods(self)
 
-    def start_map(self, map_name, part_name, taskid, inputs, output,
-            reduce_tasks, cookie, **kwds):
+    def start_map(self, taskid, inputs, func_name, part_name, nparts, output,
+            extension, cookie, **kwds):
         self.slave.check_cookie(cookie)
-        return self.slave.worker.start_map(map_name, part_name, taskid,
-                inputs, output, reduce_tasks)
+        return self.slave.worker.start_map(taskid, inputs, func_name,
+                part_name, nparts, output, extension)
 
-    def start_reduce(self, func_name, taskid, inputs, output, cookie, **kwds):
-        self.slave.check_cookie(cookie)
-        return self.slave.worker.start_reduce(func_name, taskid, inputs,
-                output)
+    def start_reduce(self, taskid, inputs, func_name, part_name, nparts,
+            output, extension, cookie, **kwds):
+        return self.slave.worker.start_reduce(taskid, inputs, func_name,
+                part_name, nparts, output, extension)
 
     def quit(self, cookie, **kwds):
         self.slave.check_cookie(cookie)
@@ -156,40 +156,49 @@ class Worker(threading.Thread):
         self.active = False
         self.exception = None
 
-    def start_map(self, map_name, part_name, taskid, inputs, output,
-            reduce_tasks):
+    def start_map(self, taskid, inputs, map_name, part_name, nparts, output,
+            extension):
         """Tell this worker to start working on a map task.
 
         This will ordinarily be called from some other thread.
         """
         from mapreduce import MapTask
         from datasets import FileData
+        from io import writerformat
+
         input_data = FileData(inputs, splits=1)
+        format = writerformat(extension)
 
         success = False
         self._cond.acquire()
         if self._task is None:
-            self._task = MapTask(taskid, input_data, self.slave.registry,
-                    map_name, part_name, output, reduce_tasks)
+            registry = self.slave.registry
+            self._task = MapTask(taskid, input_data, map_name, part_name,
+                    nparts, output, format, registry)
             success = True
             self._cond.notify()
         self._cond.release()
         return success
 
-    def start_reduce(self, reduce_name, taskid, inputs, output):
+    def start_reduce(self, taskid, inputs, reduce_name, part_name, nparts,
+            output, extension):
         """Tell this worker to start working on a reduce task.
 
         This will ordinarily be called from some other thread.
         """
         from mapreduce import ReduceTask
         from datasets import FileData
+        from io import writerformat
+
         input_data = FileData(inputs, splits=1)
+        format = writerformat(extension)
 
         success = False
         self._cond.acquire()
         if self._task is None:
-            self._task = ReduceTask(taskid, input_data, self.slave.registry,
-                    reduce_name, output)
+            registry = self.slave.registry
+            self._task = ReduceTask(taskid, input_data, reduce_name,
+                    part_name, nparts, output, format, registry)
             success = True
             self._cond.notify()
         self._cond.release()

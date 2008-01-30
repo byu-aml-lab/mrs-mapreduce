@@ -3,7 +3,7 @@
 # TODO: right now we assume that input files are pre-split.
 
 import threading
-from io.textformat import TextWriter
+from io import HexWriter, TextWriter
 
 def mrs_simple(job, args, opts):
     """Default run function for a map phase and reduce phase"""
@@ -13,7 +13,8 @@ def mrs_simple(job, args, opts):
         sys.exit(-1)
     source = job.file_data(args[:-1])
     intermediate = job.map_data(source, 'mapper')
-    output = job.reduce_data(intermediate, 'reducer', outdir=args[-1])
+    output = job.reduce_data(intermediate, 'reducer', outdir=args[-1],
+            format=TextWriter)
 
 
 # TODO: make everything reentrant once Parallel runs in a different thread.
@@ -40,7 +41,8 @@ class Job(object):
         ds = FileData(filenames)
         return ds
 
-    def map_data(self, input, mapper, nparts=None, outdir=None, parter=None):
+    def map_data(self, input, mapper, nparts=None, outdir=None, parter=None,
+            format=HexWriter):
         """Define a set of data computed with a map operation.
 
         Specify the input dataset and a mapper function.  The mapper must be
@@ -53,12 +55,12 @@ class Job(object):
         if outdir is None:
             outdir = self.jobdir
         ds = MapData(input, mapper, nparts, outdir, parter=parter,
-                registry=self.registry)
+                registry=self.registry, format=format)
         self.datasets.append(ds)
         return ds
 
     def reduce_data(self, input, reducer, nparts=None, outdir=None,
-            parter=None):
+            parter=None, format=HexWriter):
         """Define a set of data computed with a reducer operation.
 
         Specify the input dataset and a reducer function.  The reducer must be
@@ -71,7 +73,7 @@ class Job(object):
         if outdir is None:
             outdir = self.jobdir
         ds = ReduceData(input, reducer, nparts, outdir, parter=parter,
-                registry=self.registry)
+                registry=self.registry, format=format)
         self.datasets.append(ds)
         return ds
 
@@ -132,11 +134,12 @@ class Implementation(threading.Thread):
 
 
 class Task(object):
-    def __init__(self, taskid, input, outdir):
+    def __init__(self, taskid, input, outdir, format):
         self.taskid = taskid
         self.input = input
         self.outdir = outdir
         self.dataset = None
+        self.format = format
 
         self.output = None
         self._outurls = []
@@ -174,9 +177,9 @@ class Task(object):
 
 
 class MapTask(Task):
-    def __init__(self, taskid, input, registry, map_name, part_name, outdir,
-            nparts, **kwds):
-        Task.__init__(self, taskid, input, outdir)
+    def __init__(self, taskid, input, map_name, part_name, nparts, outdir,
+            format, registry):
+        Task.__init__(self, taskid, input, outdir, format)
         self.map_name = map_name
         self.mapper = registry[map_name]
         self.part_name = part_name
@@ -204,15 +207,18 @@ class MapTask(Task):
         self.output.dump()
 
 
-# TODO: allow configuration of output format
-# TODO: make more like MapTask (part_name, nparts, etc.)
 class ReduceTask(Task):
-    def __init__(self, taskid, input, registry, reduce_name, outdir,
-            format=TextWriter, **kwds):
-        Task.__init__(self, taskid, input, outdir)
+    def __init__(self, taskid, input, reduce_name, part_name, nparts, outdir,
+            format, registry):
+        Task.__init__(self, taskid, input, outdir, format)
         self.reduce_name = reduce_name
         self.reducer = registry[reduce_name]
-        self.format = format
+        self.part_name = part_name
+        if part_name == '':
+            self.partition = default_partition
+        else:
+            self.partition = registry[part_name]
+        self.nparts = nparts
 
     def run(self):
         import datasets

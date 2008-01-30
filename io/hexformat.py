@@ -29,6 +29,7 @@ class HexReader(TextReader):
     >>> hex.readpair()
     >>>
     """
+
     def __init__(self, buf):
         super(HexReader, self).__init__(buf)
 

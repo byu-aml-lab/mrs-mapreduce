@@ -15,12 +15,13 @@ if __name__ == '__main__':
     mrs.main(mapper, reducer)
 """
 
-__all__ = ['main', 'Registry']
+__all__ = ['main', 'Registry', 'TextWriter', 'HexWriter']
 
 VERSION = '0.1-pre'
 DEFAULT_RPC_PORT = 0
 
 from registry import Registry
+from io import TextWriter, HexWriter
 
 USAGE = (""
 """usage: %prog IMPLEMENTATION [OPTIONS] [ARG1 ...]

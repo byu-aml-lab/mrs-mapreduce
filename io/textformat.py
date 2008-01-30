@@ -28,6 +28,7 @@ class TextReader(object):
     >>> text.readpair()
     >>>
     """
+
     def __init__(self, buf):
         self.buf = buf
         self.lineno = 0
