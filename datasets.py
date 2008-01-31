@@ -367,7 +367,7 @@ class ComputedData(DataSet):
     permanent storage or to leave them in memory on the slaves.
     """
     def __init__(self, input, func, nparts, outdir, parter=None,
-            registry=None):
+            format=None, registry=None):
         # At least for now, we create 1 task for each split in the input
         ntasks = input.splits
         super(ComputedData, self).__init__(sources=ntasks, splits=nparts)
@@ -391,6 +391,7 @@ class ComputedData(DataSet):
 
         self.input = input
         self.outdir = outdir
+        self.format = format
 
         # TODO: store a mapping from tasks to hosts and a map from hosts to
         # tasks.  This way you can know where to find data.  You also know
@@ -432,20 +433,16 @@ class ComputedData(DataSet):
 
 
 class MapData(ComputedData):
-    def __init__(self, input, mapper, nparts, outdir, parter=None,
-            registry=None):
-        ComputedData.__init__(self, input, mapper, nparts, outdir,
-                parter=None, registry=registry)
-
     def make_tasks(self):
         from mapreduce import MapTask
         for taskid in xrange(self.sources):
-            task = MapTask(taskid, self.input, self.registry, self.func_name,
-                    self.part_name, self.outdir, self.splits)
+            task = MapTask(taskid, self.input, self.func_name, self.part_name,
+                    self.splits, self.outdir, self.format, self.registry)
             task.dataset = self
             self.tasks_todo.append(task)
         self.tasks_made = True
 
+    # TODO:
     def run_serial(self):
         pass
         #input_files = [io.openfile(filename) for filename in self.inputs]
@@ -454,16 +451,12 @@ class MapData(ComputedData):
 
 
 class ReduceData(ComputedData):
-    def __init__(self, input, reducer, nparts, outdir, parter=None,
-            registry=None):
-        ComputedData.__init__(self, input, reducer, nparts, outdir,
-                parter=None, registry=registry)
-
     def make_tasks(self):
         from mapreduce import ReduceTask
         for taskid in xrange(self.sources):
-            task = ReduceTask(taskid, self.input, self.registry,
-                    self.func_name, self.outdir)
+            task = ReduceTask(taskid, self.input, self.func_name,
+                    self.part_name, self.splits, self.outdir,
+                    self.format, self.registry)
             task.dataset = self
             self.tasks_todo.append(task)
         self.tasks_made = True

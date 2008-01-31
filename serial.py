@@ -41,6 +41,7 @@ def run_serial(registry, run, inputs, output, options):
     return 0
 
 
+# TODO: rewrite Serial implementation to use job and to be more general
 class Serial(Implementation):
     """MapReduce execution on a single processor
     """
