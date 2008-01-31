@@ -28,7 +28,7 @@ from util import try_makedirs
 
 def run_mockparallel(registry, user_run, args, opts):
     # Set up job directory
-    shared_dir = opts.shared
+    shared_dir = opts.mrs_shared
     from util import try_makedirs
     try_makedirs(shared_dir)
     import tempfile

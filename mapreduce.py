@@ -51,7 +51,7 @@ class Job(object):
         self.opts = opts
 
         self.default_reduce_parts = 1
-        self.default_reduce_tasks = opts.reduce_tasks
+        self.default_reduce_tasks = opts.mrs_reduce_tasks
 
     def run(self):
         job = self

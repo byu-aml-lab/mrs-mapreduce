@@ -37,7 +37,7 @@ if __name__ == '__main__':
     mrs.main(mapper, reducer)
 """
 
-__all__ = ['main', 'Registry']
+__all__ = ['main', 'option_parser', 'Registry']
 
 VERSION = '0.1-pre'
 DEFAULT_RPC_PORT = 0
@@ -45,86 +45,78 @@ DEFAULT_RPC_PORT = 0
 from registry import Registry
 
 USAGE = (""
-"""usage: %prog IMPLEMENTATION [OPTIONS] [ARG1 ...]
-       %prog slave [OPTIONS] SERVER_URI
-
-IMPLEMENTATION may be serial, master, or mockparallel.  A slave will attempt
-to connect to a master listening at SERVER_URI.
+"""usage: %prog [OPTIONS] [ARGS]
 """)
 
 def main(registry, run=None, parser=None):
     """Run a MapReduce program.
 
     Requires a run function and a Registry.  If you want to, you can pass in
-    an OptionParser instance called parser with your own custom options that
-    we'll add to.  We'll overwrite the usage statement, but feel free to add
-    an epilog.
+    an OptionParser instance called parser with your own custom options.  If
+    you want to modify the basic Mrs Parser, call mrs.option_parser().
     """
-    from optparse import OptionParser
-    import sys, os
-
     version = 'Mrs %s' % VERSION
 
+    # Parser:
     if parser is None:
-        parser = OptionParser()
-    parser.usage = USAGE
-    parser.add_option('-p', '--port', dest='port', type='int',
-            help='RPC Port for incoming requests')
-    parser.add_option('--shared', dest='shared',
-            help='Shared area for temporary storage (parallel only)')
-    # TODO: allow -M to be specified: this will determine a default split
-    #parser.add_option('-M', '--map-tasks', dest='map_tasks', type='int',
-    #        help='Number of map tasks (parallel only)')
-    parser.add_option('-R', '--reduce-tasks', dest='reduce_tasks', type='int',
-            help='Number of reduce tasks (parallel only)')
-    parser.set_defaults(map_tasks=0, reduce_tasks=1, port=DEFAULT_RPC_PORT,
-            shared=os.getcwd())
-
-    (options, raw_args) = parser.parse_args()
-    if len(raw_args) < 1:
-        parser.error("Requires an subcommand.")
-    subcommand = raw_args[0]
-    args = raw_args[1:]
-
-    import mapreduce
+        parser = option_parser()
+    (options, args) = parser.parse_args()
+    if options.mrs_impl is None:
+        parser.error("Mrs Implementation must be specified.")
 
     if run is None:
+        import mapreduce
         run = mapreduce.mrs_simple
 
-    if subcommand in ('master', 'slave'):
-        if subcommand == 'master':
-            subcommand_args = (registry, run, args, options)
-            from parallel import run_master
-            subcommand_function = run_master
-        elif subcommand == 'slave':
-            if len(args) != 1:
-                parser.error("Requires a server address and port.")
-            uri = args[0]
-            from slave import run_slave
-            subcommand_function = run_slave
-            subcommand_args = (registry, uri, options)
-    elif subcommand in ('mockparallel', 'serial'):
-        if len(args) < 2:
-            parser.error("Requires inputs and an output.")
-        inputs = args[0:-1]
-        output = args[-1]
-        subcommand_args = (registry, run, args, options)
-        if subcommand == 'mockparallel':
-            from serial import run_mockparallel
-            subcommand_function = run_mockparallel
-        elif subcommand == 'serial':
-            from serial import run_serial
-            subcommand_function = run_serial
+    if options.mrs_impl == 'master':
+        from parallel import run_master
+        impl_function = run_master
+    elif options.mrs_impl == 'slave':
+        from slave import run_slave
+        impl_function = run_slave
+    elif options.mrs_impl == 'mockparallel':
+        from serial import run_mockparallel
+        impl_function = run_mockparallel
+    elif options.mrs_impl == 'serial':
+        from serial import run_serial
+        impl_function = run_serial
     else:
-        parser.error("No such subcommand exists.")
+        parser.error("Invalid Mrs Implementation: %s" % options.mrs_impl)
 
     try:
-        retcode = subcommand_function(*subcommand_args)
+        retcode = impl_function(registry, run, args, options)
     except KeyboardInterrupt:
         import sys
         print >>sys.stderr, "Interrupted."
         retcode = -1
     return retcode
+
+def option_parser():
+    """Create the default Mrs Parser
+
+    See optparse for more details.  Note that you may want to add an epilog.
+    """
+    import os
+    from optparse import OptionParser
+
+    parser = OptionParser()
+    parser.usage = USAGE
+
+    parser.add_option('-I', '--mrs-impl', dest='mrs_impl',
+            help='Mrs Implementation')
+    parser.add_option('-P', '--mrs-port', dest='mrs_port', type='int',
+            help='RPC Port for incoming requests')
+    parser.add_option('-S', '--mrs-shared', dest='mrs_shared',
+            help='Shared area for temporary storage (parallel only)')
+    parser.add_option('-M', '--mrs-master', dest='mrs_master',
+            help='URL of the Master RPC port (slave only)')
+    parser.add_option('-R', '--mrs-reduce-tasks', dest='mrs_reduce_tasks',
+            type='int', help='Default number of reduce tasks (parallel only)')
+
+    parser.set_defaults(mrs_reduce_tasks=1, mrs_port=DEFAULT_RPC_PORT,
+            mrs_shared=os.getcwd())
+
+    return parser
 
 
 # vim: et sw=4 sts=4
