@@ -3,6 +3,7 @@
 COOKIE_LEN = 8
 SLAVE_PING_INTERVAL = 5.0
 
+from version import VERSION
 import threading, xmlrpclib
 
 class SlaveInterface(object):
@@ -81,7 +82,7 @@ class Slave(object):
         self.host, self.port = self.server.socket.getsockname()
 
         # Register with master.
-        self.id = self.master.signin(self.cookie, self.port,
+        self.id = self.master.signin(VERSION, self.cookie, self.port,
                 registry.source_hash(), registry.reg_hash())
         if self.id < 0:
             import sys
