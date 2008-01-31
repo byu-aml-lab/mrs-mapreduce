@@ -132,13 +132,15 @@ class RemoteSlave(object):
         The request will be made over RPC.
         """
         task = assignment.task
+        extension = task.format.ext
         if assignment.map:
-            self.slave_rpc.start_map(task.map_name, task.part_name,
-                    task.taskid, task.inurls(), task.outdir, task.nparts,
-                    self.cookie)
+            self.slave_rpc.start_map(task.taskid, task.inurls(),
+                    task.map_name, task.part_name, task.nparts, task.outdir,
+                    extension, self.cookie)
         elif assignment.reduce:
-            self.slave_rpc.start_reduce(task.reduce_name, task.taskid,
-                    task.inurls(), task.outdir, self.cookie)
+            self.slave_rpc.start_reduce(task.taskid, task.inurls(),
+                    task.reduce_name, task.part_name, task.nparts,
+                    task.outdir, extension, self.cookie)
         else:
             raise RuntimeError
         self.assignment = assignment

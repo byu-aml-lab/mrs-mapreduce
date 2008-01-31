@@ -23,24 +23,33 @@
 # copyright@byu.edu.
 
 __all__ = ['Buffer', 'TextReader', 'TextWriter', 'HexReader', 'HexWriter',
-        'hexformat_sort', 'fileformat', 'openbuf']
+        'hexformat_sort', 'fileformat', 'writerformat', 'openbuf']
 
 from textformat import TextReader, TextWriter
 from hexformat import HexReader, HexWriter, hexformat_sort
 from buffer import Buffer
 
-format_map = {
-        '.txt': TextReader,
-        '.mrsx': HexReader,
+reader_map = {
+        'txt': TextReader,
+        'mrsx': HexReader,
+        }
+writer_map = {
+        'txt': TextWriter,
+        'mrsx': HexWriter,
         }
 default_format = TextReader
+
+def writerformat(extension):
+    return writer_map[extension]
 
 # TODO: Find a better way to infer the file format.
 def fileformat(filename):
     """Guess the file format according to extension of the given filename."""
     import os
     extension = os.path.splitext(filename)[1]
-    return format_map.get(extension, default_format)
+    # strip the dot off:
+    extension = extension[1:]
+    return reader_map.get(extension, default_format)
 
 def openbuf(url):
     """Open a url or file into a Mrs Buffer
