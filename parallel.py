@@ -15,7 +15,7 @@ def run_master(registry, user_run, args, opts):
     """Mrs Master
     """
     # Set up job directory
-    shared_dir = opts.shared
+    shared_dir = opts.mrs_shared
     from util import try_makedirs
     try_makedirs(shared_dir)
     import tempfile
@@ -29,7 +29,7 @@ def run_master(registry, user_run, args, opts):
 
     # TODO: this should spin off as another thread while job runs in the
     # current thread:
-    mrs_exec = Parallel(job, registry, opts.port)
+    mrs_exec = Parallel(job, registry, opts.mrs_port)
     mrs_exec.run()
     return 0
 

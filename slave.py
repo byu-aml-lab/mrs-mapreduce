@@ -45,7 +45,7 @@ class CookieValidationError(Exception):
     pass
 
 
-def run_slave(registry, uri, options):
+def run_slave(registry, run, args, opts):
     """Mrs Slave
 
     The uri is of the form scheme://username:password@host/target with
@@ -54,8 +54,8 @@ def run_slave(registry, uri, options):
     import xmlrpclib
 
     # Create an RPC proxy to the master's RPC Server
-    master = xmlrpclib.ServerProxy(uri)
-    slave = Slave(master, registry, options.port)
+    master = xmlrpclib.ServerProxy(opts.mrs_master)
+    slave = Slave(master, registry, opts.mrs_port)
 
     slave.run()
     return 0
