@@ -25,6 +25,8 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
+from version import VERSION
+
 MASTER_PING_INTERVAL = 5.0
 
 
@@ -50,14 +52,18 @@ class MasterInterface(object):
         """
         return host
 
-    def signin(self, cookie, slave_port, source_hash, reg_hash, host=None,
-            port=None):
+    def signin(self, version, cookie, slave_port, source_hash, reg_hash,
+            host=None, port=None):
         """Slave reporting for duty.
 
         Returns -1 if the signin is rejected.
         """
+        if version != VERSION:
+            print "Client tried to sign in with mismatched version."
+            return -1
         if not self.registry.verify(source_hash, reg_hash):
             # The slaves are running different code than the master is.
+            print "Client tried to sign in with nonmatching code."
             return -1
         slave = self.slaves.new_slave(host, slave_port, cookie)
         if slave is None:

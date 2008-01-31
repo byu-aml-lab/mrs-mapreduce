@@ -37,17 +37,17 @@ if __name__ == '__main__':
     mrs.main(mapper, reducer)
 """
 
-__all__ = ['main', 'option_parser', 'Registry', 'TextWriter', 'HexWriter']
+__all__ = ['VERSION', 'main', 'option_parser', 'Registry', 'TextWriter',
+        'HexWriter']
 
-VERSION = '0.1-pre'
-DEFAULT_RPC_PORT = 0
-
+from version import VERSION
 from registry import Registry
 from io import TextWriter, HexWriter
 
 USAGE = (""
-"""usage: %prog [OPTIONS] [ARGS]
-""")
+"""%prog [OPTIONS] [ARGS]
+
+Mrs Version """ + VERSION)
 
 def main(registry, run=None, parser=None):
     """Run a MapReduce program.
@@ -56,12 +56,10 @@ def main(registry, run=None, parser=None):
     an OptionParser instance called parser with your own custom options.  If
     you want to modify the basic Mrs Parser, call mrs.option_parser().
     """
-    version = 'Mrs %s' % VERSION
-
-    # Parser:
     if parser is None:
         parser = option_parser()
     (options, args) = parser.parse_args()
+
     if options.mrs_impl is None:
         parser.error("Mrs Implementation must be specified.")
 
@@ -95,26 +93,36 @@ def main(registry, run=None, parser=None):
 def option_parser():
     """Create the default Mrs Parser
 
-    See optparse for more details.  Note that you may want to add an epilog.
-    """
-    import os
-    from optparse import OptionParser
+    The parser is an optparse.OptionParser.  It is configured to use the
+    resolve conflict_handler, so any option can be overridden simply by
+    defining a new option with the same option string.  The remove_option and
+    get_option methods still work, too.  Note that overriding an option only
+    shadows it while still allowing its other option strings to work, but
+    remove_option completely removes the option with all of its option
+    strings.
 
-    parser = OptionParser()
+    The usage string can be specified with set_usage, thus overriding the
+    default.  However, often what you really want to set is the epilog.  The
+    usage shows up in the help before the option list; the epilog appears
+    after.
+    """
+    import os, optparse
+
+    parser = optparse.OptionParser(conflict_handler='resolve')
     parser.usage = USAGE
 
     parser.add_option('-I', '--mrs-impl', dest='mrs_impl',
             help='Mrs Implementation')
+    parser.add_option('-M', '--mrs-master', dest='mrs_master',
+            help='URL of the Master RPC server (slave only)')
     parser.add_option('-P', '--mrs-port', dest='mrs_port', type='int',
             help='RPC Port for incoming requests')
     parser.add_option('-S', '--mrs-shared', dest='mrs_shared',
             help='Shared area for temporary storage (parallel only)')
-    parser.add_option('-M', '--mrs-master', dest='mrs_master',
-            help='URL of the Master RPC port (slave only)')
     parser.add_option('-R', '--mrs-reduce-tasks', dest='mrs_reduce_tasks',
             type='int', help='Default number of reduce tasks (parallel only)')
 
-    parser.set_defaults(mrs_reduce_tasks=1, mrs_port=DEFAULT_RPC_PORT,
+    parser.set_defaults(mrs_reduce_tasks=1, mrs_port=0,
             mrs_shared=os.getcwd())
 
     return parser
