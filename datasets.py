@@ -154,6 +154,7 @@ class DataSet(object):
         self.sources = sources
         self.splits = splits
         self.format = format
+        self.closed = False
 
         # For now assume that all sources have the same # of splits.
         self._data = [[Bucket(filename=self.path(i, j))
@@ -176,15 +177,23 @@ class DataSet(object):
         buckets = self[source, :]
         return chain(*buckets)
 
+    def close(self):
+        """Close DataSet for future use.
+
+        No additional DataSets will be able to depend on this DataSet for
+        input, and no further reads will be allowed.  Calling close() allows
+        the system to free resources.  Don't close a DataSet unless you really
+        mean it.
+        """
+        self.closed = True
+        #if self.temp:
+        #    os.removedirs(self.directory)
+
     def dump(self):
         """Write out all of the key-value pairs to files."""
         for source in self._data:
             for bucket in source:
                 bucket.dump()
-
-    def close(self):
-        if self.temp:
-            os.removedirs(self.directory)
 
     def path(self, source, split):
         """Return the path to the output split for the given index.
@@ -347,6 +356,8 @@ class FileData(DataSet):
         # TODO: set a maximum number of files to read at the same time (do we
         # really want to have 500 sockets open at once?)
 
+        assert(not self.closed)
+
         if heap:
             for bucket in self:
                 bucket.heap = True
@@ -411,6 +422,7 @@ class ComputedData(DataSet):
         self.tasks_done = []
         self.tasks_active = []
 
+        assert(not input.closed)
         self.input = input
         self.outdir = outdir
         self.format = format
@@ -452,6 +464,16 @@ class ComputedData(DataSet):
             bucket.url = url
         self.tasks_active.remove(task)
         self.tasks_done.append(task)
+
+    def close(self):
+        """Close DataSet for future use.
+
+        No additional DataSets will be able to depend on this DataSet for
+        input, the data cannot be regenerated, and no further reads will be
+        allowed.
+        """
+        self.closed = True
+        self.input = None
 
 
 class MapData(ComputedData):
