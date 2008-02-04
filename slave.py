@@ -185,7 +185,7 @@ class Worker(threading.Thread):
 
         This will ordinarily be called from some other thread.
         """
-        from mapreduce import MapTask
+        from task import MapTask
         from datasets import FileData
         from io import writerformat
 
@@ -209,7 +209,7 @@ class Worker(threading.Thread):
 
         This will ordinarily be called from some other thread.
         """
-        from mapreduce import ReduceTask
+        from task import ReduceTask
         from datasets import FileData
         from io import writerformat
 
