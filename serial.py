@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
 import io
-from mapreduce import Implementation, mrs_map, mrs_reduce, Job
+from job import Job, Implementation
+from task import mrs_map, mrs_reduce
 from util import try_makedirs
 
 def run_mockparallel(registry, user_run, args, opts):

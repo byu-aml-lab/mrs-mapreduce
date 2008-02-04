@@ -485,7 +485,7 @@ class ComputedData(DataSet):
 
 class MapData(ComputedData):
     def make_tasks(self):
-        from mapreduce import MapTask
+        from task import MapTask
         for taskid in xrange(self.sources):
             task = MapTask(taskid, self.input, self.func_name, self.part_name,
                     self.splits, self.outdir, self.format, self.registry)
@@ -503,7 +503,7 @@ class MapData(ComputedData):
 
 class ReduceData(ComputedData):
     def make_tasks(self):
-        from mapreduce import ReduceTask
+        from task import ReduceTask
         for taskid in xrange(self.sources):
             task = ReduceTask(taskid, self.input, self.func_name,
                     self.part_name, self.splits, self.outdir,

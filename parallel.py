@@ -5,7 +5,8 @@ SOCKET_TIMEOUT = 5.0
 PING_LOOP_WAIT = 1.0
 
 import socket, threading
-from mapreduce import Job, Implementation, MapTask, ReduceTask
+from job import Job, Implementation
+from task import MapTask, ReduceTask
 
 # NOTE: This is a _global_ setting:
 socket.setdefaulttimeout(SOCKET_TIMEOUT)
