@@ -173,6 +173,22 @@ class DataSet(object):
             for bucket in source:
                 bucket.dump()
 
+    def ready(self):
+        """Report whether DataSet is ready.
+
+        Ready means that the input DataSet is done(), so this DataSet can be
+        computed without waiting.  For most types of DataSets, this is
+        automatically true.
+        """
+        return True
+
+    def done(self):
+        """Report whether all data are accessible/computed.
+
+        For most types of DataSets, this is automatically true.
+        """
+        return True
+
     def path(self, source, split):
         """Return the path to the output split for the given index.
         
@@ -410,6 +426,19 @@ class ComputedData(DataSet):
         # which hosts to restart in case of failure.
 
     def ready(self):
+        """Report whether DataSet is ready to be computed.
+
+        Ready means that the input DataSet is done(), so this DataSet can
+        be computed without waiting.
+        """
+        if self.input:
+            return self.input.done()
+        else:
+            return True
+
+    def done(self):
+        """Report whether everything has been computed.
+        """
         if self.tasks_made and not self.tasks_todo and not self.tasks_active:
             return True
         else:

@@ -21,14 +21,10 @@ def run_master(registry, user_run, args, opts):
     import tempfile
     jobdir = tempfile.mkdtemp(prefix='mrs.job_', dir=shared_dir)
 
-    # Create Job
+    # Create and run Job
     job = Job(registry, jobdir, user_run, args, opts)
+    job.start()
 
-    # TODO: later, don't assume that this is a short-running function:
-    job.run()
-
-    # TODO: this should spin off as another thread while job runs in the
-    # current thread:
     mrs_exec = Parallel(job, registry, opts.mrs_port)
     mrs_exec.run()
     return 0
@@ -73,6 +69,7 @@ class Parallel(Implementation):
             tasks.check_gone()
             tasks.check_done()
             tasks.make_assignments()
+            # TODO: call print_status from the default_run function, not here
             tasks.job.print_status()
 
         for slave in slaves.slave_list():
@@ -155,7 +152,7 @@ class Supervisor(object):
         """
         if slave.assignment is not None:
             raise RuntimeError
-        next = self.job.get_task()
+        next = self.job.schedule()
         if next is not None:
             assignment = Assignment(next)
             slave.assign(assignment)
@@ -185,6 +182,7 @@ class Supervisor(object):
 
             assignment = slave.assignment
             assignment.finished(urls)
+            self.job.check_done()
 
             slave.assignment = None
             self.slaves.push_idle(slave)

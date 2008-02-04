@@ -91,7 +91,7 @@ class MockParallel(Implementation):
         job = self.job
 
         # Run Tasks:
-        for task in iter(job.get_task, None):
+        for task in iter(job.schedule, None):
             task.active()
             job.print_status()
             task.run()
