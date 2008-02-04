@@ -134,6 +134,7 @@ class Job(threading.Thread):
             if dataset.ready():
                 if not dataset.tasks_made:
                     dataset.make_tasks()
+                self.waiting_data.remove(dataset)
                 self.active_data.append(dataset)
         self._lock.release()
 
