@@ -17,6 +17,12 @@ def run(job, args, opts):
     output = job.reduce_data(intermediate, reducer,
             outdir=args[-1], format=mrs.TextWriter)
 
+    ready = []
+    while not ready:
+        job.print_status()
+        ready = job.wait(output, timeout=2.0)
+    print 'Done'
+
 if __name__ == '__main__':
     mrs.main(mrs.Registry(globals()), run)
 

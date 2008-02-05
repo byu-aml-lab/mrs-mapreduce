@@ -35,6 +35,10 @@ class Job(threading.Thread):
         self.default_reduce_parts = 1
         self.default_reduce_tasks = opts.mrs_reduce_tasks
 
+        self._runwaitcv = threading.Condition()
+        self._runwaitlist = None
+        self._runwaitresult = []
+
         self._lock = threading.Lock()
         self.active_data = []
         self.waiting_data = []
@@ -97,6 +101,9 @@ class Job(threading.Thread):
         self._lock.release()
 
         if dataset_done:
+            # See if the Job thread is ready to be awakened:
+            self.wakeup()
+            # See if there are any datasets ready to be activated:
             self.check_active()
 
     def check_active(self):
@@ -115,13 +122,48 @@ class Job(threading.Thread):
                 self.active_data.append(dataset)
         self._lock.release()
 
+    def wakeup(self):
+        """Wake up the Job thread if it is ready.
+        
+        The user-specified run function calls job.wait(*datasets) to wait.
+        Wakeup is called from outside the Job thread and checks to see if the
+        condition has been met.
+        """
+        self._runwaitcv.acquire()
+        if self._runwaitlist:
+            ready = [ds for ds in self._runwaitlist if ds.done()]
+
+            if ready:
+                self._runwaitlist = None
+                self._runwaitresult = ready
+                self._runwaitcv.notify()
+        self._runwaitcv.release()
+
+    def wait(self, *datasets, **kwds):
+        """Wait for any of the given DataSets to complete.
+        
+        The optional timeout parameter specifies a floating point number
+        of seconds to wait before giving up.  The wait function returns a
+        list of datasets that are ready.
+        """
+        timeout = kwds.get('timeout', None)
+
+        self._runwaitcv.acquire()
+        self._runwaitlist = datasets
+        self._runwaitresult = []
+
+        self._runwaitcv.wait(timeout)
+
+        ready = self._runwaitresult
+        self._runwaitlist = None
+        self._runwaitcv.release()
+        return ready
+
     def print_status(self):
         """Report on the status of all active tasks.
 
         Note that waiting DataSets are ignored.  This is necessary because
         a waiting DataSet might not have created its tasks yet.
-
-        Print_status is usually called outside the Job thread.
         """
         if self.done():
             print 'Done'

@@ -24,7 +24,6 @@ def run_master(registry, user_run, args, opts):
 
     # Create and run Job
     job = Job(registry, jobdir, user_run, args, opts)
-    job.start()
 
     mrs_exec = Parallel(job, registry, opts.mrs_port)
     mrs_exec.run()
@@ -47,6 +46,8 @@ class Parallel(Implementation):
         import master, rpc
 
         job = self.job
+        job.start()
+
         slaves = master.Slaves()
         tasks = Supervisor(slaves)
         tasks.job = job
@@ -71,10 +72,12 @@ class Parallel(Implementation):
             tasks.check_done()
             tasks.make_assignments()
             # TODO: call print_status from the default_run function, not here
-            tasks.job.print_status()
 
         for slave in slaves.slave_list():
             slave.quit()
+
+        # Wait for the other thread to finish.
+        job.join()
 
 
 class PingThread(threading.Thread):
