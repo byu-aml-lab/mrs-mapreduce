@@ -41,9 +41,8 @@ def run(job, args, opts):
 
     ready = []
     while not ready:
-        job.print_status()
         ready = job.wait(output, timeout=2.0)
-    print 'Done'
+        job.print_status()
 
 if __name__ == '__main__':
     mrs.main(mrs.Registry(globals()), run)

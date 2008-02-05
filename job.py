@@ -31,14 +31,19 @@ def mrs_simple(job, args, opts):
         import sys
         print >>sys.stderr, "Requires input(s) and an output."
         sys.exit(-1)
+
     source = job.file_data(args[:-1])
     intermediate = job.map_data(source, 'mapper')
     output = job.reduce_data(intermediate, 'reducer', outdir=args[-1],
             format=TextWriter)
 
+    ready = []
+    while not ready:
+        ready = job.wait(output, timeout=2.0)
+        job.print_status()
+
 
 # TODO: add a DataSet for resplitting input.
-# TODO: make everything reentrant once Parallel runs in a different thread.
 class Job(threading.Thread):
     """Keep track of all operations that need to be performed.
     
@@ -204,7 +209,7 @@ class Job(threading.Thread):
             self._lock.release()
 
             total = active + done + todo
-            print 'Completed: %s/%s, Active: %s' % (done, total, active)
+            print 'Status: %s/%s done, %s active' % (done, total, active)
 
     def schedule(self):
         """Return the next task to be assigned.
