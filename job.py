@@ -47,6 +47,8 @@ class Job(threading.Thread):
     """
     def __init__(self, registry, jobdir, user_run, args, opts):
         threading.Thread.__init__(self)
+        # Quit the whole program, even if this thread is still running:
+        self.setDaemon(True)
 
         self.registry = registry
         self.jobdir = jobdir
