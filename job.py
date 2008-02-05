@@ -14,6 +14,7 @@ def mrs_simple(job, args, opts):
     intermediate = job.map_data(source, 'mapper')
     output = job.reduce_data(intermediate, 'reducer', outdir=args[-1],
             format=TextWriter)
+    job.end()
 
     ready = []
     while not ready:
@@ -49,8 +50,9 @@ class Job(threading.Thread):
         self._lock = threading.Lock()
         self.active_data = []
         self.waiting_data = []
-        # Submitting more datasets is still allowed:
-        self.submission_ok = True
+
+        # Still waiting for work to do:
+        self._end = False
 
     def run(self):
         """Run the job creation thread
@@ -60,7 +62,7 @@ class Job(threading.Thread):
         """
         job = self
         self.user_run(job, self.args, self.opts)
-        self.submission_ok = False
+        self._end = True
 
     def submit(self, dataset):
         """Submit a DataSet to be computed.
@@ -71,7 +73,7 @@ class Job(threading.Thread):
 
         Called from the user-specified run function.
         """
-        assert(self.submission_ok)
+        assert(not self._end)
         self._lock.acquire()
         if dataset.ready():
             if not dataset.tasks_made:
@@ -128,6 +130,35 @@ class Job(threading.Thread):
                 self.waiting_data.remove(dataset)
                 self.active_data.append(dataset)
         self._lock.release()
+
+    def schedule(self):
+        """Return the next task to be assigned.
+
+        Schedule is usually called outside the Job thread.
+        """
+        if self.done():
+            return None
+        else:
+            next_task = None
+
+            self._lock.acquire()
+            for dataset in self.active_data:
+                next_task = dataset.get_task()
+                if next_task is not None:
+                    break
+            self._lock.release()
+
+            return next_task
+
+    def done(self):
+        """Report whether all computation is complete.
+
+        Done is usually called outside the Job thread.
+        """
+        if self._end and not self.active_data and not self.waiting_data:
+            return True
+        else:
+            return False
 
     def wakeup(self):
         """Wake up the Job thread if it is ready.
@@ -189,36 +220,12 @@ class Job(threading.Thread):
             total = active + done + todo
             print 'Status: %s/%s done, %s active' % (done, total, active)
 
-    def schedule(self):
-        """Return the next task to be assigned.
+    def end(self):
+        """Mark that all DataSets have already been submitted.
 
-        Schedule is usually called outside the Job thread.
+        After this point, any submit() will fail.
         """
-        if self.done():
-            return None
-        else:
-            next_task = None
-
-            self._lock.acquire()
-            for dataset in self.active_data:
-                next_task = dataset.get_task()
-                if next_task is not None:
-                    break
-            self._lock.release()
-
-            return next_task
-
-    def done(self):
-        """Report whether all computation is complete.
-
-        Done is usually called outside the Job thread.
-        """
-        if self.submission_ok:
-            return False
-        elif self.active_data or self.waiting_data:
-            return False
-        else:
-            return True
+        self._end = True
 
     def file_data(self, filenames):
         from datasets import FileData
