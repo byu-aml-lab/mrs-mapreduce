@@ -38,6 +38,7 @@ def run(job, args, opts):
     intermediate = job.map_data(source, mapper)
     output = job.reduce_data(intermediate, reducer,
             outdir=args[-1], format=mrs.TextWriter)
+    job.end()
 
     ready = []
     while not ready:
