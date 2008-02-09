@@ -1,9 +1,4 @@
-#!/usr/bin/env python
-
-# 3rd TODO: make it all work
-
-# TODO: right now we assume that input files are pre-split.
-
+# Mrs
 # Copyright 2008 Brigham Young University
 #
 # This file is part of Mrs.
@@ -25,6 +20,10 @@
 # please contact the Copyright Licensing Office, Brigham Young University,
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
+
+# 3rd TODO: make it all work
+
+# TODO: right now we assume that input files are pre-split.
 
 import threading, os
 from heapq import heappush

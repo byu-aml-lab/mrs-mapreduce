@@ -1,8 +1,4 @@
-#!/usr/bin/env python
-
-# TODO: Switch to using "with" for locks when we stop supporting pre-2.5.
-# from __future__ import with_statement
-
+# Mrs
 # Copyright 2008 Brigham Young University
 #
 # This file is part of Mrs.
@@ -24,6 +20,9 @@
 # please contact the Copyright Licensing Office, Brigham Young University,
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
+
+# TODO: Switch to using "with" for locks when we stop supporting pre-2.5.
+# from __future__ import with_statement
 
 from version import VERSION
 

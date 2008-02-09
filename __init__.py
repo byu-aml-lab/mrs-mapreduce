@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-# TODO: fix the sample code in the following docstring:
+# Mrs
 # Copyright 2008 Brigham Young University
 #
 # This file is part of Mrs.
@@ -22,7 +21,8 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
-"""MapReduce: a simple implementation (Mrs)
+# TODO: fix the sample code in the following docstring:
+"""Mrs: MapReduce - a simple implementation
 
 Your Mrs MapReduce program might look something like this:
 

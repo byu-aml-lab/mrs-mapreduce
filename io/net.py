@@ -1,8 +1,4 @@
-#!/usr/bin/env python
-
-# TODO: when twisted.web2 comes out, we should switch to use it (twisted.web
-# is a bit primitive)
-
+# Mrs
 # Copyright 2008 Brigham Young University
 #
 # This file is part of Mrs.
@@ -24,6 +20,9 @@
 # please contact the Copyright Licensing Office, Brigham Young University,
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
+
+# TODO: when twisted.web2 comes out, we should switch to use it (twisted.web
+# is a bit primitive)
 
 from twisted.web.client import HTTPDownloader, HTTPClientFactory
 from twisted.internet import defer, reactor

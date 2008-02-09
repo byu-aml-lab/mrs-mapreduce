@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+# Mrs
 # Copyright 2008 Brigham Young University
 #
 # This file is part of Mrs.

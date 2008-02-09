@@ -1,11 +1,4 @@
-#!/usr/bin/env python
-# We wanted to figure out how to sort data as its coming in from multiple
-# sources.  This script compares a few different ways to do this.  It turns
-# out that "Method 1" is much faster than "Method 2" or "Method 3".
-#
-# Thus, the best way to do this is to heapify the data as they arrive, and
-# then to sort the final result.
-
+# Mrs
 # Copyright 2008 Brigham Young University
 #
 # This file is part of Mrs.
@@ -27,6 +20,14 @@
 # please contact the Copyright Licensing Office, Brigham Young University,
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
+
+
+# We wanted to figure out how to sort data as its coming in from multiple
+# sources.  This script compares a few different ways to do this.  It turns
+# out that "Method 1" is much faster than "Method 2" or "Method 3".
+#
+# Thus, the best way to do this is to heapify the data as they arrive, and
+# then to sort the final result.
 
 from random import random
 from heapq import heapify, heappop
