@@ -22,7 +22,7 @@
 # copyright@byu.edu.
 
 # TODO: fix the sample code in the following docstring:
-"""Mrs: MapReduce - a simple implementation
+"""Mrs: MapReduce - a Simple implementation
 
 Your Mrs MapReduce program might look something like this:
 
