@@ -119,7 +119,10 @@ class ReduceTask(Task):
                 format=self.format)
 
         # SORT PHASE
-        self.input.fetchall(heap=True)
+        # TODO: Set heap=True when there are still mappers running.  If all
+        # mappers are finished, it just slows things down.
+        #self.input.fetchall(heap=True)
+        self.input.fetchall()
         all_input = sorted(self.input.itersplit(0))
 
         # Do the following if external sort is necessary (i.e., the input
