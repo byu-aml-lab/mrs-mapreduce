@@ -74,9 +74,13 @@ def main(registry, run=None, parser=None):
         from slave import run_slave
         impl_function = run_slave
     elif options.mrs_impl == 'mockparallel':
+        raise NotImplementedError('The mockparallel implementation is '
+                'temporarily broken.  Sorry.')
         from serial import run_mockparallel
         impl_function = run_mockparallel
     elif options.mrs_impl == 'serial':
+        raise NotImplementedError('The serial implementation is '
+                'temporarily broken.  Sorry.')
         from serial import run_serial
         impl_function = run_serial
     else:
