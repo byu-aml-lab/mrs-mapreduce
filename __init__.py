@@ -44,6 +44,7 @@ USAGE = (""
 
 Mrs Version """ + VERSION)
 
+
 def main(registry, run=None, parser=None):
     """Run a MapReduce program.
 
@@ -55,31 +56,32 @@ def main(registry, run=None, parser=None):
         parser = option_parser()
     (options, args) = parser.parse_args()
 
-    if options.mrs_impl is None:
+    mrs_impl = options.mrs_impl
+    if mrs_impl is None:
         parser.error("Mrs Implementation must be specified.")
 
     if run is None:
         import mapreduce
         run = mapreduce.mrs_simple
 
-    if options.mrs_impl == 'master':
+    if mrs_impl == 'master':
         from parallel import run_master
         impl_function = run_master
-    elif options.mrs_impl == 'slave':
+    elif mrs_impl == 'slave':
         from slave import run_slave
         impl_function = run_slave
-    elif options.mrs_impl == 'mockparallel':
+    elif mrs_impl == 'mockparallel':
         raise NotImplementedError('The mockparallel implementation is '
                 'temporarily broken.  Sorry.')
         from serial import run_mockparallel
         impl_function = run_mockparallel
-    elif options.mrs_impl == 'serial':
+    elif mrs_impl == 'serial':
         raise NotImplementedError('The serial implementation is '
                 'temporarily broken.  Sorry.')
         from serial import run_serial
         impl_function = run_serial
     else:
-        parser.error("Invalid Mrs Implementation: %s" % options.mrs_impl)
+        parser.error("Invalid Mrs Implementation: %s" % mrs_impl)
 
     try:
         retcode = impl_function(registry, run, args, options)
@@ -88,6 +90,13 @@ def main(registry, run=None, parser=None):
         print >>sys.stderr, "Interrupted."
         retcode = -1
     return retcode
+
+
+def primary_impl(impl):
+    """Report whether the given implementation is a "main" one or a slave."""
+
+    return impl in ('master', 'mockparallel', 'serial')
+
 
 def option_parser():
     """Create the default Mrs Parser
