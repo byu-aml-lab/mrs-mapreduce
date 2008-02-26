@@ -32,6 +32,9 @@ if __name__ == '__main__':
     mrs.main(mapper, reducer)
 """
 
+import datasets, job, master, parallel, registry, rpc, serial, slave, task, \
+        util, version
+
 __all__ = ['VERSION', 'main', 'option_parser', 'Registry', 'TextWriter',
         'HexWriter']
 
