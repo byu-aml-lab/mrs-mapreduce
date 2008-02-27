@@ -1,3 +1,4 @@
+#!/usr/bin/python
 # Mrs
 # Copyright 2008 Brigham Young University
 #
