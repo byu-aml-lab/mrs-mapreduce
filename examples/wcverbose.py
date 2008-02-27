@@ -1,3 +1,4 @@
+#!/usr/bin/python
 # Mrs
 # Copyright 2008 Andrew McNabb <amcnabb-mrs@mcnabbs.org>
 #

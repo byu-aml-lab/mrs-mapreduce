@@ -2,3 +2,20 @@ MapReduce Simple (Mrs)
 
 Mrs is a simple MapReduce implementation.
 
+##############################################################################
+# TODO
+
+The following items are the most urgent:
+
+- Allow datasets to be accessed over HTTP.  Whether to use NFS or HTTP should
+  be configurable.  Also, make a distinction between saving data somewhere
+  permanent vs. saving it temporarily on NFS.  Automatically decide when to
+  save such data.  Auto-delete temporary data from NFS and memory once it's no
+  longer needed.
+
+- Convert XMLRPC (both client and server) to use Twisted.  Put all Twisted
+  stuff into a single thread.
+
+- When sending URLs around, send (partition id, url) pairs instead of a list
+  of URLs.  This will be more friendly for sparse lists and gradually updated
+  lists.
