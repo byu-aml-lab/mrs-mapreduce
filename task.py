@@ -16,6 +16,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Mrs.  If not, see <http://www.gnu.org/licenses/>.
 
+from partition import hash_partition
 
 class Task(object):
     def __init__(self, taskid, input, outdir, format):
@@ -68,7 +69,7 @@ class MapTask(Task):
         self.mapper = registry[map_name]
         self.part_name = part_name
         if part_name == '':
-            self.partition = default_partition
+            self.partition = hash_partition
         else:
             self.partition = registry[part_name]
         self.nparts = nparts
@@ -99,7 +100,7 @@ class ReduceTask(Task):
         self.reducer = registry[reduce_name]
         self.part_name = part_name
         if part_name == '':
-            self.partition = default_partition
+            self.partition = hash_partition
         else:
             self.partition = registry[part_name]
         self.nparts = nparts
@@ -130,9 +131,6 @@ class ReduceTask(Task):
         self.output.collect(mrs_reduce(self.reducer, all_input))
         self.output.dump()
 
-
-def default_partition(x, n):
-    return hash(x) % n
 
 def mrs_map(mapper, input):
     """Perform a map from the entries in input."""

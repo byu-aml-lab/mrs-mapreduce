@@ -16,30 +16,22 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Mrs.  If not, see <http://www.gnu.org/licenses/>.
 
-# TODO: fix the sample code in the following docstring:
-"""Mrs: MapReduce - a Simple implementation
 
-Your Mrs MapReduce program might look something like this:
+def hash_partition(x, n):
+    """A partition function that partitions by hashing the key.
+    
+    The hash partition function is useful if the keys are not contiguous and
+    want to make sure that the partitions are sized as equally as possible.
+    """
+    return hash(x) % n
 
-def mapper(key, value):
-    yield newkey, newvalue
-
-def reducer(key, values):
-    yield newvalue
-
-if __name__ == '__main__':
-    import mrs
-    mrs.main(mapper, reducer)
-"""
-
-import datasets, job, master, parallel, registry, rpc, serial, slave, task, \
-        util, version
-
-from version import VERSION
-from registry import Registry
-from io import TextWriter, HexWriter
-from cli import main, primary_impl, option_parser
-from partition import hash_partition, mod_partition
+def mod_partition(x, n):
+    """A partition function that partitions by modding the key.
+    
+    The mod partition function is useful if your keys are contiguous and you
+    want to make sure that the partitions are sized equally.
+    """
+    return x % n
 
 
 # vim: et sw=4 sts=4
