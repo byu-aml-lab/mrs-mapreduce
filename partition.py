@@ -36,7 +36,7 @@ def mod_partition(x, n):
     The mod partition function is useful if your keys are contiguous and you
     want to make sure that the partitions are sized equally.
     """
-    return x % n
+    return int(x) % n
 
 
 # vim: et sw=4 sts=4
