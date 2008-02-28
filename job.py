@@ -29,7 +29,7 @@ def mrs_simple(job, args, opts):
     if len(args) < 2:
         import sys
         print >>sys.stderr, "Requires input(s) and an output."
-        sys.exit(-1)
+        return
 
     source = job.file_data(args[:-1])
     intermediate = job.map_data(source, 'mapper')
@@ -50,7 +50,7 @@ class Job(threading.Thread):
     When run as a thread, call the user-specified run function, which will
     submit datasets to be computed.
     """
-    def __init__(self, registry, jobdir, user_run, args, opts):
+    def __init__(self, registry, jobdir, user_run, user_setup, args, opts):
         threading.Thread.__init__(self)
         # Quit the whole program, even if this thread is still running:
         self.setDaemon(True)
@@ -58,6 +58,7 @@ class Job(threading.Thread):
         self.registry = registry
         self.jobdir = jobdir
         self.user_run = user_run
+        self.user_setup = user_setup
         self.args = args
         self.opts = opts
 
@@ -82,6 +83,8 @@ class Job(threading.Thread):
         computed.
         """
         job = self
+        if self.user_setup:
+            self.user_setup(self.opts)
         self.user_run(job, self.args, self.opts)
         self._end = True
 

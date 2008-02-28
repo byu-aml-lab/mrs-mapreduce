@@ -35,9 +35,17 @@ class MasterInterface(object):
     Note that any method not beginning with an underscore will be exposed to
     remote hosts.
     """
-    def __init__(self, slaves, registry):
+    def __init__(self, slaves, registry, options):
+        """Initialize the master's RPC interface.
+
+        Requires `slaves` (an instance of Slaves), `registry` (a Registry
+        instance which keeps track of which names map to which MapReduce
+        functions), and `options` (which is a optparse.Values instance
+        containing command-line arguments on the master.
+        """
         self.slaves = slaves
         self.registry = registry
+        self.options = options
 
     def _listMethods(self):
         import SimpleXMLRPCServer
@@ -68,7 +76,7 @@ class MasterInterface(object):
         if slave is None:
             return -1
         else:
-            return slave.id
+            return (slave.id, self.options.__dict__)
 
     def ready(self, slave_id, cookie, **kwds):
         """Slave is ready for work."""
@@ -321,7 +329,7 @@ class Slaves(object):
 if __name__ == '__main__':
     # Testing standalone server.
     import rpc
-    instance = MasterInterface(None, None)
+    instance = MasterInterface(None, None, None)
     PORT = 8080
     server = rpc.new_server(instance, host='127.0.0.1', port=PORT)
     server.serve_forever()

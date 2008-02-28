@@ -33,7 +33,7 @@ from task import MapTask, ReduceTask
 socket.setdefaulttimeout(SOCKET_TIMEOUT)
 
 
-def run_master(registry, user_run, args, opts):
+def run_master(registry, user_run, user_setup, args, opts):
     """Mrs Master
     """
     # Set up job directory
@@ -44,9 +44,9 @@ def run_master(registry, user_run, args, opts):
     jobdir = tempfile.mkdtemp(prefix='mrs.job_', dir=shared_dir)
 
     # Create and run Job
-    job = Job(registry, jobdir, user_run, args, opts)
+    job = Job(registry, jobdir, user_run, user_setup, args, opts)
 
-    mrs_exec = Parallel(job, registry, opts.mrs_port)
+    mrs_exec = Parallel(job, registry, opts)
     mrs_exec.run()
     return 0
 
@@ -56,11 +56,12 @@ class Parallel(Implementation):
 
     For right now, we require POSIX shared storage (e.g., NFS).
     """
-    def __init__(self, job, registry, port, **kwds):
+    def __init__(self, job, registry, options, **kwds):
         Implementation.__init__(self, **kwds)
         self.job = job
         self.registry = registry
-        self.port = port
+        self.port = options.mrs_port
+        self.options = options
 
     def run(self):
         import sys, os
@@ -74,7 +75,7 @@ class Parallel(Implementation):
         tasks.job = job
 
         # Start RPC master server thread
-        interface = master.MasterInterface(slaves, self.registry)
+        interface = master.MasterInterface(slaves, self.registry, self.options)
         rpc_thread = rpc.RPCThread(interface, self.port)
         rpc_thread.start()
         port = rpc_thread.server.socket.getsockname()[1]
@@ -92,7 +93,6 @@ class Parallel(Implementation):
             tasks.check_gone()
             tasks.check_done()
             tasks.make_assignments()
-            # TODO: call print_status from the default_run function, not here
 
         for slave in slaves.slave_list():
             slave.quit()
