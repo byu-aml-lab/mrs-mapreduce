@@ -243,6 +243,9 @@ class Worker(threading.Thread):
             self._task = None
             self._cond.release()
 
+            # TODO: right now, dataset.dump() happens in task.run().  Instead,
+            # we should tell the dataset to become available() here, and the
+            # data should automatically be dumped.
             self.master.done(self.slave.id, task.outurls(), self.slave.cookie)
 
 

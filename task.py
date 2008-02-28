@@ -89,6 +89,7 @@ class MapTask(Task):
 
         # MAP PHASE
         self.output.collect(mrs_map(self.mapper, all_input))
+        # TODO: this should happen automatically
         self.output.dump()
 
 
@@ -129,6 +130,7 @@ class ReduceTask(Task):
 
         # REDUCE PHASE
         self.output.collect(mrs_reduce(self.reducer, all_input))
+        # TODO: this should happen automatically
         self.output.dump()
 
 
