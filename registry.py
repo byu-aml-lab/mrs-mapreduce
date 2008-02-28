@@ -165,7 +165,12 @@ class Registry(object):
     def __setitem__(self, name, function):
         if name in self.names:
             del self[name]
-        if function in self.functions:
+        try:
+            already_defined = (function in self.functions)
+        except TypeError:
+            # The "function" isn't hashable, so it's not a function.  Give up.
+            return
+        if already_defined:
             self.delreverse(function)
         self.names[name] = function
         self.functions[function] = name
