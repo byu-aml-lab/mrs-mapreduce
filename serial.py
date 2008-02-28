@@ -21,7 +21,7 @@ from job import Job, Implementation
 from task import mrs_map, mrs_reduce
 from util import try_makedirs
 
-def run_mockparallel(registry, user_run, args, opts):
+def run_mockparallel(registry, user_run, user_setup, args, opts):
     # Set up job directory
     shared_dir = opts.mrs_shared
     from util import try_makedirs
@@ -41,12 +41,12 @@ def run_mockparallel(registry, user_run, args, opts):
     mrs_exec.run()
     return 0
 
-
-def run_serial(registry, run, inputs, output, options):
+# FIXME:
+def run_serial(registry, user_run, user_setup, args, opts):
     """Mrs Serial
     """
     # Create Job
-    job = Job(registry, jobdir, user_run, args, opts)
+    job = Job(registry, jobdir, user_run, user_setup, args, opts)
 
     # TODO: later, don't assume that this is a short-running function:
     job.run()

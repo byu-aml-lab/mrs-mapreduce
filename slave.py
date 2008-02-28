@@ -21,6 +21,7 @@ SLAVE_PING_INTERVAL = 5.0
 
 from version import VERSION
 import threading, xmlrpclib
+import optparse
 
 class SlaveInterface(object):
     """Public XML-RPC Interface
@@ -62,7 +63,7 @@ class CookieValidationError(Exception):
     pass
 
 
-def run_slave(registry, run, args, opts):
+def run_slave(registry, user_run, user_setup, args, opts):
     """Mrs Slave
 
     The uri is of the form scheme://username:password@host/target with
@@ -72,21 +73,24 @@ def run_slave(registry, run, args, opts):
 
     # Create an RPC proxy to the master's RPC Server
     master = xmlrpclib.ServerProxy(opts.mrs_master)
-    slave = Slave(master, registry, opts.mrs_port)
+    slave = Slave(master, registry, user_setup, opts.mrs_port)
 
     slave.run()
     return 0
 
 
 class Slave(object):
-    def __init__(self, master, registry, port):
+    def __init__(self, master, registry, user_setup, port):
         import rpc
 
-        self.alive = True
-        self.cookie = self.rand_cookie()
         self.master = master
         self.registry = registry
+        self.user_setup = user_setup
         self.port = port
+
+        self.id = None
+        self.alive = True
+        self.cookie = self.rand_cookie()
 
         # Create a worker thread.  This thread will die when we do.
         self.worker = Worker(self, master)
@@ -96,14 +100,6 @@ class Slave(object):
         self.server = rpc.new_server(self.interface, port)
 
         self.host, self.port = self.server.socket.getsockname()
-
-        # Register with master.
-        self.id = self.master.signin(VERSION, self.cookie, self.port,
-                registry.source_hash(), registry.reg_hash())
-        if self.id < 0:
-            import sys
-            print >>sys.stderr, "Master rejected signin."
-            raise RuntimeError
 
     @classmethod
     def rand_cookie(cls):
@@ -134,6 +130,22 @@ class Slave(object):
 
     def run(self):
         import socket
+
+        # Register with master.
+        source_hash = self.registry.source_hash()
+        reg_hash = self.registry.reg_hash()
+        slave_id, optdict = self.master.signin(VERSION, self.cookie,
+                self.port, source_hash, reg_hash)
+        if slave_id < 0:
+            import sys
+            print >>sys.stderr, "Master rejected signin."
+            raise RuntimeError
+        self.id = slave_id
+        options = optparse.Values(optdict)
+
+        # Call the user_setup function with the given options.
+        if self.user_setup:
+            self.user_setup(options)
 
         # Spin off the worker thread.
         self.worker.start()

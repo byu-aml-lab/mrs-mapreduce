@@ -92,7 +92,7 @@ def main(registry, run=None, setup=None, update_parser=None):
     (options, args) = parser.parse_args(sys.argv[2:])
 
     try:
-        retcode = impl_function(registry, run, args, options)
+        retcode = impl_function(registry, run, setup, args, options)
     except KeyboardInterrupt:
         import sys
         print >>sys.stderr, "Interrupted."
@@ -122,25 +122,26 @@ def option_parser():
     usage shows up in the help before the option list; the epilog appears
     after.
     """
-    import os, optparse
+    import optparse
 
     parser = optparse.OptionParser(conflict_handler='resolve')
     parser.usage = USAGE
 
     parser.add_option('-P', '--mrs-port', dest='mrs_port', type='int',
             help='RPC Port for incoming requests')
-
-    parser.set_defaults(mrs_reduce_tasks=1, mrs_port=0,
-            mrs_shared=os.getcwd())
+    parser.set_defaults(mrs_port=0)
 
     return parser
 
 
 def add_master_options(parser):
+    import os
+    default_shared = os.getcwd()
     parser.add_option('-S', '--mrs-shared', dest='mrs_shared',
             help='Shared area for temporary storage (parallel only)')
     parser.add_option('-R', '--mrs-reduce-tasks', dest='mrs_reduce_tasks',
             type='int', help='Default number of reduce tasks (parallel only)')
+    parser.set_defaults(mrs_reduce_tasks=1, mrs_shared=default_shared)
 
 
 def add_slave_options(parser):
