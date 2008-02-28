@@ -35,13 +35,18 @@ The subcommand IMPLEMENTATION must be the first argument and can be "master",
 )
 
 
-def main(registry, run=None, update_parser=None):
+def main(registry, run=None, setup=None, update_parser=None):
     """Run a MapReduce program.
 
-    Requires a run function and a Registry.  If you want to modify the basic
-    Mrs Parser, provide an update_parser function that takes a parser and
-    either modifies it or returns a new one.  The parser will be given all
-    options/arguments except the Mrs Implementation.
+    Requires a run function and a Registry.
+    
+    If setup is provided, it will be called before performing any work, and
+    all command-line options will be passed in.
+    
+    If you want to modify the basic Mrs Parser, provide an update_parser
+    function that takes a parser and either modifies it or returns a new one.
+    The parser will be given all options/arguments except the Mrs
+    Implementation.
     """
     parser = option_parser()
     import sys
@@ -54,7 +59,7 @@ def main(registry, run=None, update_parser=None):
         import job
         run = job.mrs_simple
 
-    if mrs_impl == '--help':
+    if mrs_impl in ('-h', '--help'):
         # It's not a Mrs Implementation, but try to help anyway.
         if update_parser:
             parser = update_parser(parser)
@@ -63,16 +68,19 @@ def main(registry, run=None, update_parser=None):
     elif mrs_impl == 'master':
         from parallel import run_master
         impl_function = run_master
+        add_master_options(parser)
         if update_parser:
             parser = update_parser(parser)
     elif mrs_impl == 'slave':
         from slave import run_slave
         impl_function = run_slave
+        add_slave_options(parser)
     elif mrs_impl == 'mockparallel':
         raise NotImplementedError('The mockparallel implementation is '
                 'temporarily broken.  Sorry.')
         from serial import run_mockparallel
         impl_function = run_mockparallel
+        add_master_options(parser)
         if update_parser:
             parser = update_parser(parser)
     elif mrs_impl == 'serial':
@@ -80,6 +88,7 @@ def main(registry, run=None, update_parser=None):
                 'temporarily broken.  Sorry.')
         from serial import run_serial
         impl_function = run_serial
+        add_master_options(parser)
         if update_parser:
             parser = update_parser(parser)
     else:
@@ -123,19 +132,24 @@ def option_parser():
     parser = optparse.OptionParser(conflict_handler='resolve')
     parser.usage = USAGE
 
-    parser.add_option('-M', '--mrs-master', dest='mrs_master',
-            help='URL of the Master RPC server (slave only)')
     parser.add_option('-P', '--mrs-port', dest='mrs_port', type='int',
             help='RPC Port for incoming requests')
-    parser.add_option('-S', '--mrs-shared', dest='mrs_shared',
-            help='Shared area for temporary storage (parallel only)')
-    parser.add_option('-R', '--mrs-reduce-tasks', dest='mrs_reduce_tasks',
-            type='int', help='Default number of reduce tasks (parallel only)')
 
     parser.set_defaults(mrs_reduce_tasks=1, mrs_port=0,
             mrs_shared=os.getcwd())
 
     return parser
 
+
+def add_master_options(parser):
+    parser.add_option('-S', '--mrs-shared', dest='mrs_shared',
+            help='Shared area for temporary storage (parallel only)')
+    parser.add_option('-R', '--mrs-reduce-tasks', dest='mrs_reduce_tasks',
+            type='int', help='Default number of reduce tasks (parallel only)')
+
+
+def add_slave_options(parser):
+    parser.add_option('-M', '--mrs-master', dest='mrs_master',
+            help='URL of the Master RPC server (slave only)')
 
 # vim: et sw=4 sts=4
