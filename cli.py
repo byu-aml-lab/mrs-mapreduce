@@ -47,8 +47,8 @@ def main(registry, run=None, parser=None):
         parser.error("Mrs Implementation must be specified.")
 
     if run is None:
-        import mapreduce
-        run = mapreduce.mrs_simple
+        import job
+        run = job.mrs_simple
 
     if mrs_impl == 'master':
         from parallel import run_master
