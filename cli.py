@@ -26,33 +26,45 @@ from registry import Registry
 from io import TextWriter, HexWriter
 
 USAGE = (""
-"""%prog [OPTIONS] [ARGS]
+"""%prog IMPLEMENTATION [OPTIONS] [ARGS]
 
-Mrs Version """ + VERSION)
+Mrs Version """ + VERSION + """
+
+The subcommand IMPLEMENTATION must be the first argument and can be "master",
+"slave", "serial", or "mock_parallel"."""
+)
 
 
-def main(registry, run=None, parser=None):
+def main(registry, run=None, update_parser=None):
     """Run a MapReduce program.
 
-    Requires a run function and a Registry.  If you want to, you can pass in
-    an OptionParser instance called parser with your own custom options.  If
-    you want to modify the basic Mrs Parser, call mrs.option_parser().
+    Requires a run function and a Registry.  If you want to modify the basic
+    Mrs Parser, provide an update_parser function that takes a parser and
+    either modifies it or returns a new one.  The parser will be given all
+    options/arguments except the Mrs Implementation.
     """
-    if parser is None:
-        parser = option_parser()
-    (options, args) = parser.parse_args()
-
-    mrs_impl = options.mrs_impl
-    if mrs_impl is None:
+    parser = option_parser()
+    import sys
+    if len(sys.argv) < 2:
         parser.error("Mrs Implementation must be specified.")
+
+    mrs_impl = sys.argv[1]
 
     if run is None:
         import job
         run = job.mrs_simple
 
-    if mrs_impl == 'master':
+    if mrs_impl == '--help':
+        # It's not a Mrs Implementation, but try to help anyway.
+        if update_parser:
+            parser = update_parser(parser)
+        parser.print_help()
+        return
+    elif mrs_impl == 'master':
         from parallel import run_master
         impl_function = run_master
+        if update_parser:
+            parser = update_parser(parser)
     elif mrs_impl == 'slave':
         from slave import run_slave
         impl_function = run_slave
@@ -61,13 +73,19 @@ def main(registry, run=None, parser=None):
                 'temporarily broken.  Sorry.')
         from serial import run_mockparallel
         impl_function = run_mockparallel
+        if update_parser:
+            parser = update_parser(parser)
     elif mrs_impl == 'serial':
         raise NotImplementedError('The serial implementation is '
                 'temporarily broken.  Sorry.')
         from serial import run_serial
         impl_function = run_serial
+        if update_parser:
+            parser = update_parser(parser)
     else:
         parser.error("Invalid Mrs Implementation: %s" % mrs_impl)
+
+    (options, args) = parser.parse_args(sys.argv[2:])
 
     try:
         retcode = impl_function(registry, run, args, options)
@@ -105,8 +123,6 @@ def option_parser():
     parser = optparse.OptionParser(conflict_handler='resolve')
     parser.usage = USAGE
 
-    parser.add_option('-I', '--mrs-impl', dest='mrs_impl',
-            help='Mrs Implementation')
     parser.add_option('-M', '--mrs-master', dest='mrs_master',
             help='URL of the Master RPC server (slave only)')
     parser.add_option('-P', '--mrs-port', dest='mrs_port', type='int',
