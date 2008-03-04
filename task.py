@@ -44,7 +44,24 @@ class Task(object):
         self.dataset.task_canceled(self)
 
     def inurls(self):
-        return [bucket.url for bucket in self.input[:, self.taskid]]
+        splits = self.input[:, self.taskid]
+
+        urls = []
+        for bucket in splits:
+            url = bucket.url
+            if url is None:
+                urls.append('')
+            else:
+                urls.append(url)
+        return urls
+
+        # This one is bad because it produces Nones:
+        #return [bucket.url for bucket in splits]
+
+        # This one is better, but it takes more space and requires more
+        # changes in other code:
+        #return [(i, bucket.url) for i, bucket in enumerate(splits)
+        #        if bucket.url is not None]
 
     def outurls(self):
         # Normally, there's an output object, but the master only holds a

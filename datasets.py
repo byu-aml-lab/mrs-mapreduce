@@ -372,16 +372,21 @@ class FileData(DataSet):
             for bucket in self:
                 bucket.heap = True
 
+        work_to_do = False
         for bucket in self:
-            reader = openreader(bucket.url)
-            reader.buf.deferred.addCallback(self.callback, bucket, reader)
+            url = bucket.url
+            if url:
+                reader = openreader(url)
+                reader.buf.deferred.addCallback(self.callback, bucket, reader)
+                work_to_do = True
 
-        from twisted.internet import reactor
-        # Note that we can't do reactor.run() twice, so we cheat.
-        #reactor.run()
-        #reactor.run(installSignalHandlers=0)
-        reactor.running = True
-        reactor.mainLoop()
+        if work_to_do:
+            from twisted.internet import reactor
+            # Note that we can't do reactor.run() twice, so we cheat.
+            #reactor.run()
+            #reactor.run(installSignalHandlers=0)
+            reactor.running = True
+            reactor.mainLoop()
 
     def callback(self, eof, bucket, reader):
         """Called by Twisted when data are available for reading."""
