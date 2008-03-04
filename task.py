@@ -129,8 +129,8 @@ class ReduceTask(Task):
 
         # PREP
         directory = self.tempdir('reduce')
-        self.output = datasets.Output(None, 1, directory=directory,
-                format=self.format)
+        self.output = datasets.Output(self.partition, self.nparts,
+                directory=directory, format=self.format)
 
         # SORT PHASE
         # TODO: Set heap=True when there are still mappers running.  If all
