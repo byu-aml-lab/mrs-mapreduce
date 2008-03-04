@@ -46,7 +46,7 @@ def main(registry, run=None, setup=None, update_parser=None):
     If you want to modify the basic Mrs Parser, provide an update_parser
     function that takes a parser and either modifies it or returns a new one.
     The parser will be given all options/arguments except the Mrs
-    Implementation.
+    Implementation.  Note that no option should ever have the value None.
     """
     parser = option_parser()
     import sys

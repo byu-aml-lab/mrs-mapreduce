@@ -63,18 +63,19 @@ class MasterInterface(object):
             host=None, port=None):
         """Slave reporting for duty.
 
-        Returns -1 if the signin is rejected.
+        It returns the slave_id and option dictionary.  Returns (-1, {}) if
+        the signin is rejected.
         """
         if version != VERSION:
             print "Client tried to sign in with mismatched version."
-            return -1
+            return -1, {}
         if not self.registry.verify(source_hash, reg_hash):
             # The slaves are running different code than the master is.
             print "Client tried to sign in with nonmatching code."
-            return -1
+            return -1, {}
         slave = self.slaves.new_slave(host, slave_port, cookie)
         if slave is None:
-            return -1
+            return -1, {}
         else:
             return (slave.id, self.options.__dict__)
 
