@@ -321,45 +321,13 @@ class Output(DataSet):
                 bucket.append(kvpair)
 
 
-class FileData(DataSet):
-    """A list of static files or urls to be used as input to an operation.
-
-    For now, all of the files come from a single source, with one split for
-    each file.
-
-    >>> urls = ['http://aml.cs.byu.edu/', __file__]
-    >>> data = FileData(urls)
-    >>> len(data)
-    2
-    >>> data.fetchall(mainthread=True)
-    >>> data[0, 0][0]
-    (0, '<html>\\n')
-    >>> data[0, 0][1]
-    (1, '<head>\\n')
-    >>> data[0, 1][0]
-    (0, '#!/usr/bin/env python\\n')
-    >>>
+class RemoteData(DataSet):
+    """A DataSet whose contents can be downloaded and read.
+    
+    Subclasses need to set the url for each bucket.
     """
-    def __init__(self, urls, sources=None, splits=None, **kwds):
-        n = len(urls)
-
-        if sources is None and splits is None:
-            # Nothing specified, so we assume one split per url
-            sources = 1
-            splits = n
-        elif sources is None:
-            sources = n / splits
-        elif splits is None:
-            splits = n / sources
-
-        # TODO: relax this requirement
-        assert(sources * splits == n)
-
-        super(FileData, self).__init__(sources=sources, splits=splits, **kwds)
-
-        from itertools import izip
-        for bucket, url in zip(self, urls):
-            bucket.url = url
+    def __init__(self, **kwds):
+        super(RemoteData, self).__init__(**kwds)
 
         self.needed_buckets = set()
         self.ready_buckets = set()
@@ -418,7 +386,48 @@ class FileData(DataSet):
         pass
 
 
-class ComputedData(DataSet):
+class FileData(RemoteData):
+    """A list of static files or urls to be used as input to an operation.
+
+    For now, all of the files come from a single source, with one split for
+    each file.
+
+    >>> urls = ['http://aml.cs.byu.edu/', __file__]
+    >>> data = FileData(urls)
+    >>> len(data)
+    2
+    >>> data.fetchall(mainthread=True)
+    >>> data[0, 0][0]
+    (0, '<html>\\n')
+    >>> data[0, 0][1]
+    (1, '<head>\\n')
+    >>> data[0, 1][0]
+    (0, '#!/usr/bin/env python\\n')
+    >>>
+    """
+    def __init__(self, urls, sources=None, splits=None, **kwds):
+        n = len(urls)
+
+        if sources is None and splits is None:
+            # Nothing specified, so we assume one split per url
+            sources = 1
+            splits = n
+        elif sources is None:
+            sources = n / splits
+        elif splits is None:
+            splits = n / sources
+
+        # TODO: relax this requirement
+        assert(sources * splits == n)
+
+        super(FileData, self).__init__(sources=sources, splits=splits, **kwds)
+
+        from itertools import izip
+        for bucket, url in zip(self, urls):
+            bucket.url = url
+
+
+class ComputedData(RemoteData):
     """Manage input to or output from a map or reduce operation.
     
     The data are evaluated lazily.  A DataSet knows how to generate or
@@ -484,12 +493,12 @@ class ComputedData(DataSet):
         else:
             return
 
-    def print_status(self):
+    def status(self):
         active = len(self.tasks_active)
         todo = len(self.tasks_todo)
         done = len(self.tasks_done)
         total = active + todo + done
-        print 'Completed: %s/%s, Active: %s' % (done, total, active)
+        return 'Completed: %s/%s, Active: %s' % (done, total, active)
 
     def task_started(self, task):
         self.tasks_active.append(task)
