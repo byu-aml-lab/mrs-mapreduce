@@ -26,8 +26,7 @@ SOCKET_TIMEOUT = 5.0
 PING_LOOP_WAIT = 1.0
 
 import socket, threading
-from job import Job, Implementation
-from task import MapTask, ReduceTask
+from job import Implementation
 
 # NOTE: This is a _global_ setting:
 socket.setdefaulttimeout(SOCKET_TIMEOUT)
@@ -44,6 +43,7 @@ def run_master(registry, user_run, user_setup, args, opts):
     jobdir = tempfile.mkdtemp(prefix='mrs.job_', dir=shared_dir)
 
     # Create and run Job
+    from job import Job
     job = Job(registry, jobdir, user_run, user_setup, args, opts)
 
     mrs_exec = Parallel(job, registry, opts)
@@ -136,6 +136,7 @@ class PingThread(threading.Thread):
 
 class Assignment(object):
     def __init__(self, task):
+        from task import MapTask, ReduceTask
         self.map = isinstance(task, MapTask)
         self.reduce = isinstance(task, ReduceTask)
         self.task = task
