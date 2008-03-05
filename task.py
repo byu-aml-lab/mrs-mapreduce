@@ -65,7 +65,7 @@ class Task(object):
         # Normally, there's an output object, but the master only holds a
         # list of urls.
         if self.output:
-            return [bucket.url for bucket in self.output]
+            return [bucket.url for bucket in self.output if len(bucket)]
         else:
             return self._outurls
 
