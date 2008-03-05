@@ -73,8 +73,6 @@ def main(registry, run=None, setup=None, update_parser=None):
         impl_function = run_slave
         add_slave_options(parser)
     elif mrs_impl == 'mockparallel':
-        raise NotImplementedError('The mockparallel implementation is '
-                'temporarily broken.  Sorry.')
         from serial import run_mockparallel
         impl_function = run_mockparallel
         add_master_options(parser)

@@ -42,7 +42,7 @@ def run_master(registry, user_run, user_setup, args, opts):
     import tempfile
     jobdir = tempfile.mkdtemp(prefix='mrs.job_', dir=shared_dir)
 
-    # Create and run Job
+    # Create Job
     from job import Job
     job = Job(registry, jobdir, user_run, user_setup, args, opts)
 

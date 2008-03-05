@@ -21,7 +21,7 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
-from job import Job, Implementation
+from job import Implementation
 
 def run_mockparallel(registry, user_run, user_setup, args, opts):
     # Set up job directory
@@ -32,14 +32,10 @@ def run_mockparallel(registry, user_run, user_setup, args, opts):
     jobdir = tempfile.mkdtemp(prefix='mrs.job_', dir=shared_dir)
 
     # Create Job
-    job = Job(registry, jobdir, user_run, args, opts)
+    from job import Job
+    job = Job(registry, jobdir, user_run, user_setup, args, opts)
 
-    # TODO: later, don't assume that this is a short-running function:
-    job.run()
-
-    # TODO: this should spin off as another thread while job runs in the
-    # current thread:
-    mrs_exec = MockParallel(job, registry)
+    mrs_exec = MockParallel(job, registry, opts)
     mrs_exec.run()
     return 0
 
@@ -48,6 +44,7 @@ def run_serial(registry, user_run, user_setup, args, opts):
     """Mrs Serial
     """
     # Create Job
+    from job import Job
     job = Job(registry, jobdir, user_run, user_setup, args, opts)
 
     # TODO: later, don't assume that this is a short-running function:
@@ -70,7 +67,7 @@ class Serial(Implementation):
         self.registry = registry
 
     def run(self):
-        """Run a MapReduce operation in serial.
+        """Run a MapReduce job in serial.
         """
         from itertools import chain
         import io
@@ -102,21 +99,27 @@ class MockParallel(Implementation):
     Specify a directory located in shared storage which can be used as scratch
     space.
     """
-    def __init__(self, job, registry, **kwds):
+    def __init__(self, job, registry, options, **kwds):
         Implementation.__init__(self, **kwds)
         self.job = job
         self.registry = registry
+        self.options = options
 
     def run(self):
         import sys, os
 
         job = self.job
+        job.start()
 
         # Run Tasks:
-        for task in iter(job.schedule, None):
+        while not job.done():
+            task = job.schedule()
+            # FIXME (busy loop):
+            if task is None:
+                continue
             task.active()
-            job.print_status()
             task.run()
-            task.finished(task.outurls)
+            task.finished(task.outurls())
+            job.check_done()
 
 # vim: et sw=4 sts=4
