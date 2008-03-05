@@ -422,7 +422,7 @@ class FileData(RemoteData):
             bucket.url = url
 
 
-class ComputedData(DataSet):
+class ComputedData(RemoteData):
     """Manage input to or output from a map or reduce operation.
     
     The data are evaluated lazily.  A DataSet knows how to generate or
