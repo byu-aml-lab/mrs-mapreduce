@@ -52,7 +52,7 @@ class Task(object):
         urls = []
         for bucket in splits:
             url = bucket.url
-            if (url is None) or (not len(bucket)):
+            if (url is None) and (not len(bucket)):
                 urls.append('')
             else:
                 urls.append(url)
