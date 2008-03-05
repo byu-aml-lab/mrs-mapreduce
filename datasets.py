@@ -479,12 +479,12 @@ class ComputedData(DataSet):
         else:
             return
 
-    def print_status(self):
+    def status(self):
         active = len(self.tasks_active)
         todo = len(self.tasks_todo)
         done = len(self.tasks_done)
         total = active + todo + done
-        print 'Completed: %s/%s, Active: %s' % (done, total, active)
+        return 'Completed: %s/%s, Active: %s' % (done, total, active)
 
     def task_started(self, task):
         self.tasks_active.append(task)

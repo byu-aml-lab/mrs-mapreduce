@@ -110,7 +110,7 @@ class MockParallel(Implementation):
         # Run Tasks:
         for task in iter(job.schedule, None):
             task.active()
-            job.print_status()
+            print job.status()
             task.run()
             task.finished(task.outurls)
 
