@@ -356,6 +356,7 @@ class FileData(DataSet):
         for bucket, url in zip(self, urls):
             bucket.url = url
 
+        self.needed_buckets = set()
         self.ready_buckets = set()
 
     #def fetchall(self, mainthread=False):
@@ -378,15 +379,14 @@ class FileData(DataSet):
             for bucket in self:
                 bucket.heap = True
 
-        work_to_do = False
         for bucket in self:
             url = bucket.url
             if url:
                 reader = openreader(url)
                 reader.buf.deferred.addCallback(self.callback, bucket, reader)
-                work_to_do = True
+                self.needed_buckets.add(bucket)
 
-        if work_to_do:
+        if self.needed_buckets:
             from twisted.internet import reactor
             # Note that we can't do reactor.run() twice, so we cheat.
             #reactor.run()
@@ -402,7 +402,7 @@ class FileData(DataSet):
         if eof:
             #print >>sys.stderr, "EOF"
             self.ready_buckets.add(bucket)
-            if len(self.ready_buckets) == len(self):
+            if len(self.ready_buckets) == len(self.needed_buckets):
                 from twisted.internet import reactor
                 # Note that we can't do reactor.run() twice, so we cheat.
                 #reactor.stop()

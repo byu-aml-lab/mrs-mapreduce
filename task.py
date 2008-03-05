@@ -47,7 +47,7 @@ class Task(object):
         urls = []
         for bucket in splits:
             url = bucket.url
-            if (url is None) and (not len(bucket)):
+            if url is None:
                 urls.append('')
             else:
                 urls.append(url)
@@ -65,7 +65,13 @@ class Task(object):
         # Normally, there's an output object, but the master only holds a
         # list of urls.
         if self.output:
-            return [bucket.url for bucket in self.output if len(bucket)]
+            urls = []
+            for bucket in self.output:
+                if len(bucket):
+                    urls.append(bucket.url)
+                else:
+                    urls.append('')
+            return urls
         else:
             return self._outurls
 
