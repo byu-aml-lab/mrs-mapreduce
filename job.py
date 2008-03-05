@@ -35,7 +35,7 @@ def mrs_simple(job, args, opts):
     ready = []
     while not ready:
         ready = job.wait(output, timeout=2.0)
-        job.print_status()
+        print job.status()
 
 
 # TODO: add a DataSet for resplitting input.
@@ -216,14 +216,15 @@ class Job(threading.Thread):
         self._runwaitcv.release()
         return ready
 
-    def print_status(self):
+    def status(self):
         """Report on the status of all active tasks.
 
-        Note that waiting DataSets are ignored.  This is necessary because
-        a waiting DataSet might not have created its tasks yet.
+        Returns a string.  Note that waiting DataSets are ignored.  This is
+        necessary because a waiting DataSet might not have created its tasks
+        yet.
         """
         if self.done():
-            print 'Done'
+            return 'Done'
         else:
             active = 0
             done = 0
@@ -237,7 +238,7 @@ class Job(threading.Thread):
             self._lock.release()
 
             total = active + done + todo
-            print 'Status: %s/%s done, %s active' % (done, total, active)
+            return 'Status: %s/%s done, %s active' % (done, total, active)
 
     def end(self):
         """Mark that all DataSets have already been submitted.
