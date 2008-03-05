@@ -20,11 +20,10 @@
 
 # TODO: right now we assume that input files are pre-split.
 
-import threading, os
 from heapq import heappush
 from itertools import chain, izip
 
-from io import fileformat, openreader, HexWriter
+from io import HexWriter
 
 
 # TODO: cache data to disk when memory usage is high
@@ -86,6 +85,9 @@ class Bucket(object):
         """Remove all key-value pairs from the Bucket."""
         self._data = []
 
+    def __len__(self):
+        return len(self._data)
+
     def __getitem__(self, item):
         """Get a particular item, mainly for debugging purposes"""
         return self._data[item]
@@ -96,11 +98,12 @@ class Bucket(object):
     # TODO: write doctest for dump
     def dump(self):
         assert(self.filename is not None)
-        f = open(self.filename, 'w')
-        writer = self.format(f)
-        for key, value in self:
-            writer.writepair(key, value)
-        f.close()
+        if len(self):
+            f = open(self.filename, 'w')
+            writer = self.format(f)
+            for key, value in self:
+                writer.writepair(key, value)
+            f.close()
 
 
 class DataSet(object):
@@ -213,6 +216,7 @@ class DataSet(object):
         '/tmp/source_2_split_4.mrsx'
         >>>
         """
+        import os
         filename = "source_%s_split_%s.%s" % (source, split, self.format.ext)
         return os.path.join(self.directory, filename)
 
@@ -365,6 +369,8 @@ class FileData(DataSet):
         """
         # TODO: set a maximum number of files to read at the same time (do we
         # really want to have 500 sockets open at once?)
+
+        from io import openreader
 
         assert(not self.closed)
 

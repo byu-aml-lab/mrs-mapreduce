@@ -16,8 +16,6 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Mrs.  If not, see <http://www.gnu.org/licenses/>.
 
-from partition import hash_partition
-
 class Task(object):
     def __init__(self, taskid, input, outdir, format):
         self.taskid = taskid
@@ -49,7 +47,7 @@ class Task(object):
         urls = []
         for bucket in splits:
             url = bucket.url
-            if url is None:
+            if (url is None) or (not len(bucket)):
                 urls.append('')
             else:
                 urls.append(url)
@@ -86,6 +84,7 @@ class MapTask(Task):
         self.mapper = registry[map_name]
         self.part_name = part_name
         if part_name == '':
+            from partition import hash_partition
             self.partition = hash_partition
         else:
             self.partition = registry[part_name]
@@ -118,6 +117,7 @@ class ReduceTask(Task):
         self.reducer = registry[reduce_name]
         self.part_name = part_name
         if part_name == '':
+            from partition import hash_partition
             self.partition = hash_partition
         else:
             self.partition = registry[part_name]

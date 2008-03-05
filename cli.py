@@ -17,8 +17,6 @@
 # along with Mrs.  If not, see <http://www.gnu.org/licenses/>.
 
 from version import VERSION
-from registry import Registry
-from io import TextWriter, HexWriter
 
 USAGE = (""
 """%prog IMPLEMENTATION [OPTIONS] [ARGS]

@@ -19,8 +19,6 @@
 # TODO: Switch to using "with" for locks when we stop supporting pre-2.5.
 # from __future__ import with_statement
 
-from version import VERSION
-
 MASTER_PING_INTERVAL = 5.0
 
 
@@ -61,6 +59,8 @@ class MasterInterface(object):
         It returns the slave_id and option dictionary.  Returns (-1, {}) if
         the signin is rejected.
         """
+        from version import VERSION
+
         if version != VERSION:
             print "Client tried to sign in with mismatched version."
             return -1, {}

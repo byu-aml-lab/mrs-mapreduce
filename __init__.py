@@ -32,14 +32,18 @@ if __name__ == '__main__':
     mrs.main(mapper, reducer)
 """
 
-import datasets, job, master, parallel, registry, rpc, serial, slave, task, \
-        util, version
+# rather than importing all submodules, we just import the ones that are
+# expected to be useful outside of Mrs internals.
+import cli, datasets, job, parallel, partition, registry, serial, task, \
+        version
 
-from version import VERSION
-from registry import Registry
-from io import TextWriter, HexWriter
-from cli import main, primary_impl, option_parser
-from partition import hash_partition, mod_partition
-
+VERSION = version.VERSION
+Registry = registry.Registry
+HexWriter = io.HexWriter
+TextWriter = io.TextWriter
+main = cli.main
+primary_impl = cli.primary_impl
+hash_partition = partition.hash_partition
+mod_partition = partition.mod_partition
 
 # vim: et sw=4 sts=4

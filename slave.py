@@ -19,9 +19,7 @@
 COOKIE_LEN = 8
 SLAVE_PING_INTERVAL = 5.0
 
-from version import VERSION
-import threading, xmlrpclib
-import optparse
+import threading
 
 class SlaveInterface(object):
     """Public XML-RPC Interface
@@ -129,7 +127,8 @@ class Slave(object):
             return False
 
     def run(self):
-        import socket
+        import socket, optparse
+        from version import VERSION
 
         # Register with master.
         source_hash = self.registry.source_hash()

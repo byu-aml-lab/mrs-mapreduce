@@ -16,10 +16,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Mrs.  If not, see <http://www.gnu.org/licenses/>.
 
-import io
 from job import Job, Implementation
-from task import mrs_map, mrs_reduce
-from util import try_makedirs
 
 def run_mockparallel(registry, user_run, user_setup, args, opts):
     # Set up job directory
@@ -71,6 +68,9 @@ class Serial(Implementation):
         """Run a MapReduce operation in serial.
         """
         from itertools import chain
+        import io
+        from task import mrs_map, mrs_reduce
+
         # MAP PHASE
         input_files = [io.openfile(filename) for filename in self.inputs]
         all_input = chain(*input_files)
