@@ -29,7 +29,8 @@ USAGE = (""
 Mrs Version """ + VERSION + """
 
 The subcommand IMPLEMENTATION must be the first argument and can be "master",
-"slave", "serial", or "mock_parallel"."""
+"slave", "serial", or "mock_parallel".  Note that you can give --help
+separately for each subcommand."""
 )
 
 
@@ -59,8 +60,6 @@ def main(registry, run=None, setup=None, update_parser=None):
 
     if mrs_impl in ('-h', '--help'):
         # It's not a Mrs Implementation, but try to help anyway.
-        if update_parser:
-            parser = update_parser(parser)
         parser.print_help()
         return
     elif mrs_impl == 'master':
