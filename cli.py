@@ -58,17 +58,14 @@ def main(registry, run=None, setup=None, update_parser=None):
         parser.print_help()
         return
     elif mrs_impl == 'master':
-        from parallel import run_master
         impl_function = run_master
         add_master_options(parser)
         if update_parser:
             parser = update_parser(parser)
     elif mrs_impl == 'slave':
-        from slave import run_slave
         impl_function = run_slave
         add_slave_options(parser)
     elif mrs_impl == 'mockparallel':
-        from serial import run_mockparallel
         impl_function = run_mockparallel
         add_master_options(parser)
         if update_parser:
@@ -76,7 +73,6 @@ def main(registry, run=None, setup=None, update_parser=None):
     elif mrs_impl == 'serial':
         raise NotImplementedError('The serial implementation is '
                 'temporarily broken.  Sorry.')
-        from serial import run_serial
         impl_function = run_serial
         add_master_options(parser)
         if update_parser:
@@ -142,5 +138,80 @@ def add_master_options(parser):
 def add_slave_options(parser):
     parser.add_option('-M', '--mrs-master', dest='mrs_master',
             help='URL of the Master RPC server (slave only)')
+
+
+# FIXME:
+def run_serial(registry, user_run, user_setup, args, opts):
+    """Mrs Serial
+    """
+    from serial import Serial
+    from job import Job
+
+    # Create Job
+    job = Job(registry, jobdir, user_run, user_setup, args, opts)
+
+    # TODO: later, don't assume that this is a short-running function:
+    job.run()
+
+    # TODO: this should spin off as another thread while job runs in the
+    # current thread:
+    mrs_exec = Serial(job, registry)
+    mrs_exec.run()
+    return 0
+
+def run_mockparallel(registry, user_run, user_setup, args, opts):
+    from serial import MockParallel
+    from job import Job
+
+    # Set up job directory
+    shared_dir = opts.mrs_shared
+    from util import try_makedirs
+    try_makedirs(shared_dir)
+    import tempfile
+    jobdir = tempfile.mkdtemp(prefix='mrs.job_', dir=shared_dir)
+
+    # Create Job
+    job = Job(registry, jobdir, user_run, user_setup, args, opts)
+
+    mrs_exec = MockParallel(job, registry, opts)
+    mrs_exec.run()
+    return 0
+
+def run_master(registry, user_run, user_setup, args, opts):
+    """Mrs Master
+    """
+    from parallel import Parallel
+    from job import Job
+
+    # Set up job directory
+    shared_dir = opts.mrs_shared
+    from util import try_makedirs
+    try_makedirs(shared_dir)
+    import tempfile
+    jobdir = tempfile.mkdtemp(prefix='mrs.job_', dir=shared_dir)
+
+    # Create Job
+    job = Job(registry, jobdir, user_run, user_setup, args, opts)
+
+    mrs_exec = Parallel(job, registry, opts)
+    mrs_exec.run()
+    return 0
+
+def run_slave(registry, user_run, user_setup, args, opts):
+    """Mrs Slave
+
+    The uri is of the form scheme://username:password@host/target with
+    username and password possibly omitted.
+    """
+    from slave import Slave
+    import xmlrpclib
+
+    # Create an RPC proxy to the master's RPC Server
+    master = xmlrpclib.ServerProxy(opts.mrs_master)
+    slave = Slave(master, registry, user_setup, opts.mrs_port)
+
+    slave.run()
+    return 0
+
 
 # vim: et sw=4 sts=4
