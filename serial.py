@@ -56,36 +56,19 @@ def run_serial(registry, user_run, user_setup, args, opts):
 class Serial(Implementation):
     """MapReduce execution on a single processor
     """
-    def __init__(self, job, registry, **kwds):
-        Implementation.__init__(self, **kwds)
-        self.job = job
-        self.registry = registry
-
     def run(self):
         """Run a MapReduce job in serial.
         """
-        from itertools import chain
-        import io
-        from task import mrs_map, mrs_reduce
+        job = self.job
+        job.start()
 
-        # MAP PHASE
-        input_files = [io.openfile(filename) for filename in self.inputs]
-        all_input = chain(*input_files)
-        map_output = mrs_map(registry['mapper'], all_input)
+        # Run Tasks:
+        while not job.done():
+            # do stuff here
 
-        # SORT PHASE
-        import operator
-        interm = sorted(map_output, key=operator.itemgetter(0))
+            job.check_done()
 
-        # REDUCE PHASE
-        output_file = io.openfile(self.output, 'w')
-        for k, v in mrs_reduce(registry['reducer'], interm):
-            output_file.write(k, v)
-
-        # cleanup
-        for f in input_files:
-            f.close()
-        output_file.close()
+        job.join()
 
 
 class MockParallel(Implementation):
@@ -98,15 +81,7 @@ class MockParallel(Implementation):
     that most of the execution time is in I/O, and mockparallel tries to load
     the input for all reduce tasks before doing the first reduce task.
     """
-    def __init__(self, job, registry, options, **kwds):
-        Implementation.__init__(self, **kwds)
-        self.job = job
-        self.registry = registry
-        self.options = options
-
     def run(self):
-        import sys, os
-
         job = self.job
         job.start()
 
