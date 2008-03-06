@@ -314,7 +314,7 @@ class Implementation(threading.Thread):
     By the way, since Implementation inherits from threading.Thread, you can
     execute a MapReduce operation as a thread.  Slick, eh?
     """
-    def __init__(self, **kwds):
+    def __init__(self, job, registry, options, **kwds):
         threading.Thread.__init__(self, **kwds)
         self.inputs = []
         self.operations = []

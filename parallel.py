@@ -57,14 +57,11 @@ class Parallel(Implementation):
     For right now, we require POSIX shared storage (e.g., NFS).
     """
     def __init__(self, job, registry, options, **kwds):
-        Implementation.__init__(self, **kwds)
-        self.job = job
-        self.registry = registry
+        Implementation.__init__(self, job, registry, options, **kwds)
         self.port = options.mrs_port
-        self.options = options
 
     def run(self):
-        import sys, os
+        import sys
         import master, rpc
 
         job = self.job
