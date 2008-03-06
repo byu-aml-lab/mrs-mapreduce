@@ -329,8 +329,9 @@ class RemoteData(DataSet):
     def __init__(self, **kwds):
         super(RemoteData, self).__init__(**kwds)
 
-        self.needed_buckets = set()
-        self.ready_buckets = set()
+        self._fetched = False
+        self._needed_buckets = set()
+        self._ready_buckets = set()
 
     #def fetchall(self, mainthread=False):
     def fetchall(self, heap=False):
@@ -346,6 +347,12 @@ class RemoteData(DataSet):
 
         from io import openreader
 
+        # Don't call fetchall twice:
+        if self._fetched:
+            return
+        else:
+            self._fetched = True
+
         assert(not self.closed)
 
         if heap:
@@ -357,9 +364,9 @@ class RemoteData(DataSet):
             if url:
                 reader = openreader(url)
                 reader.buf.deferred.addCallback(self.callback, bucket, reader)
-                self.needed_buckets.add(bucket)
+                self._needed_buckets.add(bucket)
 
-        if self.needed_buckets:
+        if self._needed_buckets:
             from twisted.internet import reactor
             # Note that we can't do reactor.run() twice, so we cheat.
             #reactor.run()
@@ -374,8 +381,8 @@ class RemoteData(DataSet):
         #print >>sys.stderr, "Got data"
         if eof:
             #print >>sys.stderr, "EOF"
-            self.ready_buckets.add(bucket)
-            if len(self.ready_buckets) == len(self.needed_buckets):
+            self._ready_buckets.add(bucket)
+            if len(self._ready_buckets) == len(self._needed_buckets):
                 from twisted.internet import reactor
                 # Note that we can't do reactor.run() twice, so we cheat.
                 #reactor.stop()
@@ -528,8 +535,9 @@ class MapData(ComputedData):
     def make_tasks(self):
         from task import MapTask
         for taskid in xrange(self.sources):
-            task = MapTask(taskid, self.input, self.func_name, self.part_name,
-                    self.splits, self.outdir, self.format, self.registry)
+            task = MapTask(taskid, self.input, taskid, self.func_name,
+                    self.part_name, self.splits, self.outdir, self.format,
+                    self.registry)
             task.dataset = self
             self.tasks_todo.append(task)
         self.tasks_made = True
@@ -546,9 +554,9 @@ class ReduceData(ComputedData):
     def make_tasks(self):
         from task import ReduceTask
         for taskid in xrange(self.sources):
-            task = ReduceTask(taskid, self.input, self.func_name,
-                    self.part_name, self.splits, self.outdir,
-                    self.format, self.registry)
+            task = ReduceTask(taskid, self.input, taskid, self.func_name,
+                    self.part_name, self.splits, self.outdir, self.format,
+                    self.registry)
             task.dataset = self
             self.tasks_todo.append(task)
         self.tasks_made = True

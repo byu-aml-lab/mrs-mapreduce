@@ -21,10 +21,16 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
+
+# TODO: taskid is really just used for naming output files; it should be
+# replaced by a more descriptive parameter that makes it clear that it's
+# not necessarily the taskid number.
+
 class Task(object):
-    def __init__(self, taskid, input, outdir, format):
+    def __init__(self, taskid, input, split, outdir, format):
         self.taskid = taskid
         self.input = input
+        self.split = split
         self.outdir = outdir
         self.dataset = None
         self.format = format
@@ -39,15 +45,16 @@ class Task(object):
     def active(self):
         self.dataset.task_started(self)
 
-    def finished(self, urls):
-        self._outurls = urls
+    def finished(self, urls=None):
+        if urls:
+            self._outurls = urls
         self.dataset.task_finished(self)
 
     def canceled(self):
         self.dataset.task_canceled(self)
 
     def inurls(self):
-        splits = self.input[:, self.taskid]
+        splits = self.input[:, self.split]
 
         urls = []
         for bucket in splits:
@@ -57,14 +64,6 @@ class Task(object):
             else:
                 urls.append(url)
         return urls
-
-        # This one is bad because it produces Nones:
-        #return [bucket.url for bucket in splits]
-
-        # This one is better, but it takes more space and requires more
-        # changes in other code:
-        #return [(i, bucket.url) for i, bucket in enumerate(splits)
-        #        if bucket.url is not None]
 
     def outurls(self):
         # Normally, there's an output object, but the master only holds a
@@ -88,9 +87,9 @@ class Task(object):
 
 
 class MapTask(Task):
-    def __init__(self, taskid, input, map_name, part_name, nparts, outdir,
-            format, registry):
-        Task.__init__(self, taskid, input, outdir, format)
+    def __init__(self, taskid, input, split, map_name, part_name, nparts,
+            outdir, format, registry):
+        Task.__init__(self, taskid, input, split, outdir, format)
         self.map_name = map_name
         self.mapper = registry[map_name]
         self.part_name = part_name
@@ -112,7 +111,7 @@ class MapTask(Task):
 
         # SETUP INPUT
         self.input.fetchall()
-        all_input = self.input.itersplit(0)
+        all_input = self.input.itersplit(self.split)
 
         # MAP PHASE
         self.output.collect(mrs_map(self.mapper, all_input))
@@ -121,9 +120,9 @@ class MapTask(Task):
 
 
 class ReduceTask(Task):
-    def __init__(self, taskid, input, reduce_name, part_name, nparts, outdir,
-            format, registry):
-        Task.__init__(self, taskid, input, outdir, format)
+    def __init__(self, taskid, input, split, reduce_name, part_name, nparts,
+            outdir, format, registry):
+        Task.__init__(self, taskid, input, split, outdir, format)
         self.reduce_name = reduce_name
         self.reducer = registry[reduce_name]
         self.part_name = part_name
@@ -148,7 +147,7 @@ class ReduceTask(Task):
         # mappers are finished, it just slows things down.
         #self.input.fetchall(heap=True)
         self.input.fetchall()
-        all_input = sorted(self.input.itersplit(0))
+        all_input = sorted(self.input.itersplit(self.split))
 
         # Do the following if external sort is necessary (i.e., the input
         # files are too big to fit in memory):

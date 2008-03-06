@@ -119,7 +119,9 @@ class MockParallel(Implementation):
                 continue
             task.active()
             task.run()
-            task.finished(task.outurls())
+            task.finished()
             job.check_done()
+
+        job.join()
 
 # vim: et sw=4 sts=4
