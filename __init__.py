@@ -39,8 +39,7 @@ if __name__ == '__main__':
 
 # rather than importing all submodules, we just import the ones that are
 # expected to be useful outside of Mrs internals.
-import cli, datasets, job, parallel, partition, registry, serial, task, \
-        version
+import cli, datasets, partition, registry, version
 
 VERSION = version.VERSION
 Registry = registry.Registry
