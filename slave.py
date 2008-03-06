@@ -201,7 +201,7 @@ class Worker(threading.Thread):
         self._cond.acquire()
         if self._task is None:
             registry = self.slave.registry
-            self._task = MapTask(taskid, input_data, map_name, part_name,
+            self._task = MapTask(taskid, input_data, 0, map_name, part_name,
                     nparts, output, format, registry)
             success = True
             self._cond.notify()
@@ -225,7 +225,7 @@ class Worker(threading.Thread):
         self._cond.acquire()
         if self._task is None:
             registry = self.slave.registry
-            self._task = ReduceTask(taskid, input_data, reduce_name,
+            self._task = ReduceTask(taskid, input_data, 0, reduce_name,
                     part_name, nparts, output, format, registry)
             success = True
             self._cond.notify()
