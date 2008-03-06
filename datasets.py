@@ -359,6 +359,10 @@ class RemoteData(DataSet):
             for bucket in self:
                 bucket.heap = True
 
+        # TODO: It might be a good idea to make it so fetchall only tries to
+        # load a particular split.  The reason is that mockparallel's status
+        # report looks very confusing since the input for all reduce tasks is
+        # being loaded at the beginning of the first reduce task.
         for bucket in self:
             url = bucket.url
             if url:

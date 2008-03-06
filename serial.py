@@ -98,6 +98,10 @@ class MockParallel(Implementation):
     
     Specify a directory located in shared storage which can be used as scratch
     space.
+
+    Note that progress times often seem wrong in mockparallel.  The reason is
+    that most of the execution time is in I/O, and mockparallel tries to load
+    the input for all reduce tasks before doing the first reduce task.
     """
     def __init__(self, job, registry, options, **kwds):
         Implementation.__init__(self, **kwds)
