@@ -55,8 +55,8 @@ def main(registry, run=None, setup=None, update_parser=None):
     mrs_impl = sys.argv[1]
 
     if run is None:
-        import job
-        run = job.mrs_simple
+        from run import mrs_simple
+        run = mrs_simple
 
     if mrs_impl in ('-h', '--help'):
         # It's not a Mrs Implementation, but try to help anyway.

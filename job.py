@@ -22,25 +22,7 @@
 # copyright@byu.edu.
 
 import threading
-from io import HexWriter, TextWriter
-
-def mrs_simple(job, args, opts):
-    """Default run function for a map phase and reduce phase"""
-    if len(args) < 2:
-        import sys
-        print >>sys.stderr, "Requires input(s) and an output."
-        return
-
-    source = job.file_data(args[:-1])
-    intermediate = job.map_data(source, 'mapper')
-    output = job.reduce_data(intermediate, 'reducer', outdir=args[-1],
-            format=TextWriter)
-    job.end()
-
-    ready = []
-    while not ready:
-        ready = job.wait(output, timeout=2.0)
-        print job.status()
+from io import HexWriter
 
 
 # TODO: add a DataSet for resplitting input.
@@ -296,37 +278,6 @@ class Job(threading.Thread):
                 registry=self.registry, format=format)
         self.submit(ds)
         return ds
-
-
-class Implementation(threading.Thread):
-    """Abstract class for carrying out the work.
-
-    There are various ways to implement MapReduce:
-    - serial execution on one processor
-    - parallel execution on a shared-memory system
-    - parallel execution with shared storage on a POSIX filesystem (like NFS)
-    - parallel execution with a non-POSIX distributed filesystem
-
-    To execute, make sure to do:
-    job.inputs.append(input_filename)
-    job.operations.append(mrs_operation)
-
-    By the way, since Implementation inherits from threading.Thread, you can
-    execute a MapReduce operation as a thread.  Slick, eh?
-    """
-    def __init__(self, job, registry, options, **kwds):
-        threading.Thread.__init__(self, **kwds)
-        self.inputs = []
-        self.operations = []
-
-    def add_input(self, input):
-        """Add a filename to be used for input to the map task.
-        """
-        self.inputs.append(input)
-
-    def run(self):
-        raise NotImplementedError("I think you should have"
-                " instantiated a subclass of Implementation.")
 
 
 # vim: et sw=4 sts=4
