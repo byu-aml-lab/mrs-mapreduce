@@ -32,25 +32,6 @@ from mapreduce import Implementation
 socket.setdefaulttimeout(SOCKET_TIMEOUT)
 
 
-def run_master(registry, user_run, user_setup, args, opts):
-    """Mrs Master
-    """
-    # Set up job directory
-    shared_dir = opts.mrs_shared
-    from util import try_makedirs
-    try_makedirs(shared_dir)
-    import tempfile
-    jobdir = tempfile.mkdtemp(prefix='mrs.job_', dir=shared_dir)
-
-    # Create Job
-    from job import Job
-    job = Job(registry, jobdir, user_run, user_setup, args, opts)
-
-    mrs_exec = Parallel(job, registry, opts)
-    mrs_exec.run()
-    return 0
-
-
 class Parallel(Implementation):
     """MapReduce execution in parallel, with a master and slaves.
 
