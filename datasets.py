@@ -46,10 +46,10 @@ class Bucket(object):
     >>> b = Bucket()
     >>> b.append((4, 'test'))
     >>> b.collect([(3, 'a'), (1, 'This'), (2, 'is')])
-    >>> ' '.join([value for key, value in b])
+    >>> ' '.join(value for key, value in b)
     'test a This is'
     >>> b.sort()
-    >>> ' '.join([value for key, value in b])
+    >>> ' '.join(value for key, value in b)
     'This is a test'
     >>>
     """
