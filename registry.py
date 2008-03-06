@@ -201,8 +201,8 @@ class Registry(object):
     def source_hash(self):
         """Hash the source file of each function in the registry."""
         if self.dirty:
-            filenames = set([self[name].func_globals.get('__file__', '')
-                for name in self.names if hasattr(self[name], 'func_globals')])
+            filenames = set(self[name].func_globals.get('__file__', '')
+                for name in self.names if hasattr(self[name], 'func_globals'))
             hashes = [str(hash(open(filename).read())) for
                 filename in sorted(filenames) if filename]
             self.source_hash_cache = ''.join(hashes)
@@ -211,8 +211,8 @@ class Registry(object):
     def reg_hash(self):
         """Hash each function in the registry."""
         if self.dirty:
-            self.reg_hash_cache = ''.join([name + self.gethash(name)
-                for name in sorted(self.names.keys())])
+            self.reg_hash_cache = ''.join(name + self.gethash(name)
+                for name in sorted(self.names.keys()))
         return self.reg_hash_cache
 
     def verify(self, source_hash, reg_hash):
