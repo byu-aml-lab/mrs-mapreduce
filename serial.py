@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Mrs.  If not, see <http://www.gnu.org/licenses/>.
 
-from job import Implementation
+from mapreduce import Implementation
 
 def run_mockparallel(registry, user_run, user_setup, args, opts):
     # Set up job directory
