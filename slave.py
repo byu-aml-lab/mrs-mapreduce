@@ -23,38 +23,40 @@ COOKIE_LEN = 8
 SLAVE_PING_INTERVAL = 5.0
 
 import threading
+from twisted.web.xmlrpc import XMLRPC
 
-class SlaveInterface(object):
-    """Public XML-RPC Interface
+class SlaveInterface(XMLRPC):
+    """Public XML RPC Interface
     
-    Note that any method not beginning with an underscore will be exposed to
-    remote hosts.
+    Note that any method not beginning with "xmlrpc_" will be exposed to
+    remote hosts.  Any of these can return either a result or a deferred.
     """
-    def __init__(self, slave):
+    def __init__(self, slave, **kwds):
+        XMLRPC.__init__(self, **kwds)
         self.slave = slave
 
     def _listMethods(self):
         return SimpleXMLRPCServer.list_public_methods(self)
 
-    def start_map(self, taskid, inputs, func_name, part_name, nparts, output,
-            extension, cookie, **kwds):
+    def xmlrpc_start_map(self, taskid, inputs, func_name, part_name, nparts,
+            output, extension, cookie, **kwds):
         self.slave.check_cookie(cookie)
         return self.slave.worker.start_map(taskid, inputs, func_name,
                 part_name, nparts, output, extension)
 
-    def start_reduce(self, taskid, inputs, func_name, part_name, nparts,
-            output, extension, cookie, **kwds):
+    def xmlrpc_start_reduce(self, taskid, inputs, func_name, part_name,
+            nparts, output, extension, cookie, **kwds):
         return self.slave.worker.start_reduce(taskid, inputs, func_name,
                 part_name, nparts, output, extension)
 
-    def quit(self, cookie, **kwds):
+    def xmlrpc_quit(self, cookie, **kwds):
         self.slave.check_cookie(cookie)
         self.slave.alive = False
         import sys
         print >>sys.stderr, "Quitting as requested by an RPC call."
         return True
 
-    def ping(self, **kwds):
+    def xmlrpc_ping(self, **kwds):
         """Master checking if we're still here.
         """
         return True
@@ -65,13 +67,11 @@ class CookieValidationError(Exception):
 
 
 class Slave(object):
-    def __init__(self, master, registry, user_setup, port):
-        import rpc
-
+    def __init__(self, master, registry, user_setup, options):
         self.master = master
         self.registry = registry
         self.user_setup = user_setup
-        self.port = port
+        self.options = options
 
         self.id = None
         self.alive = True
@@ -79,12 +79,6 @@ class Slave(object):
 
         # Create a worker thread.  This thread will die when we do.
         self.worker = Worker(self, master)
-
-        # Create a slave RPC Server
-        self.interface = SlaveInterface(self)
-        self.server = rpc.new_server(self.interface, port)
-
-        self.host, self.port = self.server.socket.getsockname()
 
     @classmethod
     def rand_cookie(cls):
@@ -98,35 +92,27 @@ class Slave(object):
         if cookie != self.cookie:
             raise CookieValidationError
 
-    def handle_request(self):
-        """Try to handle a request on the RPC connection.
-
-        Timeout after SLAVE_PING_INTERVAL seconds.
-        """
-        import select
-        server_fd = self.server.fileno()
-        rlist, wlist, xlist = select.select([server_fd], [], [],
-                SLAVE_PING_INTERVAL)
-        if server_fd in rlist:
-            self.server.handle_request()
-            return True
-        else:
-            return False
-
     def run(self):
         import socket, optparse
         from version import VERSION
         from twist import ErrbackException, TwistedThread
+        import rpc
+
+        source_hash = self.registry.source_hash()
+        reg_hash = self.registry.reg_hash()
 
         # Start Twisted thread
         twisted_thread = TwistedThread()
         twisted_thread.start()
 
+        # Create and start a slave RPC Server
+        interface = SlaveInterface(self)
+        address = rpc.start_xmlrpc(interface, self.options.mrs_port)
+        port = address.port
+
         # Register with master.
-        source_hash = self.registry.source_hash()
-        reg_hash = self.registry.reg_hash()
         slave_id, optdict = self.master.blocking_call('signin', VERSION,
-                self.cookie, self.port, source_hash, reg_hash)
+                self.cookie, port, source_hash, reg_hash)
         if slave_id < 0:
             import sys
             print >>sys.stderr, "Master rejected signin."
@@ -146,6 +132,9 @@ class Slave(object):
 
         # Handle requests on the RPC server.
         while self.alive:
+            import time
+            time.sleep(2)
+            """
             if not self.handle_request():
                 try:
                     master_alive = self.master.blocking_call('ping', self.id,
@@ -156,6 +145,8 @@ class Slave(object):
                     import sys
                     print >>sys.stderr, "Master failed to respond to ping."
                     return -1
+            """
+            # FIXME
 
         twisted_thread.shutdown()
 
