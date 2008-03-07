@@ -60,39 +60,40 @@ class FromThreadProxy(object):
 
     def deferred_call(self, *args):
         """Make a deferred XMLRPC call to a remote server."""
-        deferred = self._reactor_call(self.proxy.callRemote, *args)
+        deferred = reactor_call(self.proxy.callRemote, *args)
         return deferred
 
-    def _reactor_call(self, f, *args):
-        """Call the given function inside the reactor.
 
-        Save the result to self._reactor_result.
-        """
-        target = []
-        condition = threading.Condition()
-        condition.acquire()
-        reactor.callFromThread(self._reactor_call2, condition, target, f, *args)
-        # FIXME: this operation occasionally hangs for a second or two when
-        # there's a lot of IO.  The reason seems to be that there are two many
-        # IO-related callbacks, so the reactor can get to our request quickly.
-        # The solution is probably to redo the IO using Twisted's producer
-        # and consumer interfaces.
-        condition.wait()
-        condition.release()
-        deferred = target[0]
-        return deferred
+def reactor_call(f, *args):
+    """Call the given function inside the reactor.
 
-    def _reactor_call2(self, condition, target, f, *args):
-        """Call the given function.
+    Return the result.
+    """
+    target = []
+    condition = threading.Condition()
+    condition.acquire()
+    reactor.callFromThread(_reactor_call2, condition, target, f, *args)
+    # FIXME: this operation occasionally hangs for a second or two when
+    # there's a lot of IO.  The reason seems to be that there are two many
+    # IO-related callbacks, so the reactor can get to our request quickly.
+    # The solution is probably to redo the IO using Twisted's producer
+    # and consumer interfaces.
+    condition.wait()
+    condition.release()
+    deferred = target[0]
+    return deferred
 
-        Save the result to self._reactor_result.  WARNING: this function
-        should only be called within the reactor thread.
-        """
-        result = f(*args)
-        condition.acquire()
-        target.append(result)
-        condition.notify()
-        condition.release()
+def _reactor_call2(condition, target, f, *args):
+    """Call the given function.
+
+    Append the result to the target list.  WARNING: this function should only
+    be called within the reactor thread.
+    """
+    result = f(*args)
+    condition.acquire()
+    target.append(result)
+    condition.notify()
+    condition.release()
 
 
 class ErrbackException(RuntimeError):
