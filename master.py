@@ -146,6 +146,8 @@ class RemoteSlave(object):
 
         The request will be made over RPC.
         """
+        from twist import ErrbackException
+
         task = assignment.task
         extension = task.format.ext
         # TODO: convert these RPC calls to be asynchronous!
