@@ -19,8 +19,6 @@
 # TODO: Switch to using "with" for locks when we stop supporting pre-2.5.
 # from __future__ import with_statement
 
-MASTER_PING_INTERVAL = 5.0
-
 
 class MasterInterface(object):
     """Public XML-RPC Interface
@@ -125,9 +123,14 @@ class RemoteSlave(object):
 
         import xmlrpclib
         uri = "http://%s:%s" % (host, port)
-        self.slave_rpc = xmlrpclib.ServerProxy(uri)
+        self.rpc = xmlrpclib.ServerProxy(uri)
 
         self.update_timestamp()
+        self._alive = True
+
+        from net import PingTask
+        self.ping_task = PingTask(self)
+        self.ping_task.start()
 
     def check_cookie(self, cookie):
         return (cookie == self.cookie)
@@ -143,11 +146,11 @@ class RemoteSlave(object):
         task = assignment.task
         extension = task.format.ext
         if assignment.map:
-            self.slave_rpc.start_map(task.taskid, task.inurls(),
+            self.rpc.start_map(task.taskid, task.inurls(),
                     task.map_name, task.part_name, task.nparts, task.outdir,
                     extension, self.cookie)
         elif assignment.reduce:
-            self.slave_rpc.start_reduce(task.taskid, task.inurls(),
+            self.rpc.start_reduce(task.taskid, task.inurls(),
                     task.reduce_name, task.part_name, task.nparts,
                     task.outdir, extension, self.cookie)
         else:
@@ -155,39 +158,32 @@ class RemoteSlave(object):
         self.assignment = assignment
 
     def update_timestamp(self):
+        """Set the timestamp to the current time."""
         from datetime import datetime
         self.timestamp = datetime.utcnow()
 
-    def alive(self, now=None):
-        """Checks whether the Slave has been checked on recently.
+    def timestamp_since(self, other):
+        """Report whether the timestamp is newer than the given time."""
+        return self.timestamp > other
 
-        Note that MASTER_PING_INTERVAL defines "recently."  We will ping the
-        slave if we haven't heard from them in that amount of time.  If now is
-        given (as a result from datetime.datetime.utcnow()), use it to avoid
-        having to check too often.
+    def rpc_failure(self):
+        """Report that a slave failed to respond to an RPC request.
+
+        This may be either a ping or some other request.  At the moment,
+        we aren't very lenient, but in the future we could allow a few
+        failures before disconnecting the slave.
         """
-        import datetime
-        ping_delta = datetime.timedelta(seconds=MASTER_PING_INTERVAL)
-        if now is None:
-            now = datetime.datetime.utcnow()
-        delta = now - self.timestamp
-        if delta < ping_delta:
-            return True
-        else:
-            #timestamp = datetime.datetime.utcnow()
-            try:
-                alive = self.slave_rpc.ping()
-            except Exception, e:
-                print 'Ping failed with exception:', e
-                alive = False
-            #elapsed = datetime.datetime.utcnow() - timestamp
-            #print 'Elapsed time for ping (alive=%s):' % alive, elapsed
-            if alive:
-                self.update_timestamp()
-            return alive
+        self.ping_task.stop()
+        self._alive = False
+
+    def alive(self):
+        """Checks whether the Slave is responding."""
+        return self._alive
 
     def quit(self):
-        self.slave_rpc.quit(self.cookie)
+        self._alive = False
+        self.ping_task.stop()
+        self.rpc.quit(self.cookie)
 
 
 # TODO: Reimplement _idle_sem as a Condition variable.  Also, reimplement
