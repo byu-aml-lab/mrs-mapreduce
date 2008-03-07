@@ -341,6 +341,8 @@ class RemoteData(DataSet):
         # really want to have 500 sockets open at once?)
 
         from io import openreader
+        import threading
+        from twisted.internet import reactor
 
         # Don't call fetchall twice:
         if self._fetched:
@@ -354,6 +356,9 @@ class RemoteData(DataSet):
             for bucket in self:
                 bucket.heap = True
 
+        self._download_done = threading.Condition()
+        self._download_done.acquire()
+
         # TODO: It might be a good idea to make it so fetchall only tries to
         # load a particular split.  The reason is that mockparallel's status
         # report looks very confusing since the input for all reduce tasks is
@@ -362,30 +367,29 @@ class RemoteData(DataSet):
             url = bucket.url
             if url:
                 reader = openreader(url)
-                reader.buf.deferred.addCallback(self.callback, bucket, reader)
+                #reader.buf.deferred.addCallback(self.callback, bucket, reader)
+                reactor.callFromThread(reader.buf.deferred.addCallback,
+                        self.callback, bucket, reader)
                 self._needed_buckets.add(bucket)
 
         if self._needed_buckets:
-            from twisted.internet import reactor
-            # Note that we can't do reactor.run() twice, so we cheat.
-            #reactor.run()
-            #reactor.run(installSignalHandlers=0)
-            reactor.running = True
-            reactor.mainLoop()
+            # block until all downloads finished
+            self._download_done.wait()
+
+        self._download_done.release()
 
     def callback(self, eof, bucket, reader):
         """Called by Twisted when data are available for reading."""
         bucket.collect(reader)
-        #import sys
-        #print >>sys.stderr, "Got data"
         if eof:
-            #print >>sys.stderr, "EOF"
+            self._download_done.acquire()
             self._ready_buckets.add(bucket)
             if len(self._ready_buckets) == len(self._needed_buckets):
-                from twisted.internet import reactor
+                self._download_done.notify()
+                #from twisted.internet import reactor
                 # Note that we can't do reactor.run() twice, so we cheat.
-                #reactor.stop()
-                reactor.running = False
+                #reactor.running = False
+            self._download_done.release()
 
     def errback(self, value):
         # TODO: write me

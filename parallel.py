@@ -54,6 +54,11 @@ class Parallel(Implementation):
         port = rpc_thread.server.socket.getsockname()[1]
         print >>sys.stderr, "Listening on port %s" % port
 
+        # Start Twisted thread
+        from net import TwistedThread
+        twisted_thread = TwistedThread()
+        twisted_thread.start()
+
         # Start pinging thread
         ping_thread = PingThread(slaves)
         ping_thread.start()
