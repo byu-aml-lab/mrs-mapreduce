@@ -204,7 +204,7 @@ def run_slave(registry, user_run, user_setup, args, opts):
     username and password possibly omitted.
     """
     from slave import Slave
-    from net import FromThreadProxy
+    from twist import FromThreadProxy
 
     # Create an RPC proxy to the master's RPC Server
     master = FromThreadProxy(opts.mrs_master)

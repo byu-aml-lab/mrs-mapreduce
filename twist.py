@@ -16,6 +16,11 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Mrs.  If not, see <http://www.gnu.org/licenses/>.
 
+"""Mrs. Twist (no relation to Oliver)
+
+Helper functions and classes for Python Twisted.
+"""
+
 PING_INTERVAL = 5.0
 PING_STDDEV = 0.1
 

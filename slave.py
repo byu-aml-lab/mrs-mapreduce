@@ -116,10 +116,9 @@ class Slave(object):
     def run(self):
         import socket, optparse
         from version import VERSION
-        from net import ErrbackException
+        from twist import ErrbackException, TwistedThread
 
         # Start Twisted thread
-        from net import TwistedThread
         twisted_thread = TwistedThread()
         twisted_thread.start()
 

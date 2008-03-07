@@ -56,7 +56,7 @@ class Parallel(Implementation):
         print >>sys.stderr, "Listening on port %s" % port
 
         # Start Twisted thread
-        from net import TwistedThread
+        from twist import TwistedThread
         twisted_thread = TwistedThread()
         twisted_thread.start()
 

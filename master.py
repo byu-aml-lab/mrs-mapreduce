@@ -124,14 +124,14 @@ class RemoteSlave(object):
         # An event that is set if activity happens in any of the slaves.
         self.activity = activity
 
-        from net import FromThreadProxy
+        from twist import FromThreadProxy
         uri = "http://%s:%s" % (host, port)
         self.rpc = FromThreadProxy(uri)
 
         self.update_timestamp()
         self._alive = True
 
-        from net import PingTask
+        from twist import PingTask
         self.ping_task = PingTask(self)
         self.ping_task.start()
 
