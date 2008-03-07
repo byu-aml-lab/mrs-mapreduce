@@ -77,8 +77,11 @@ class FromThreadProxy(object):
         condition = threading.Condition()
         condition.acquire()
         reactor.callFromThread(self._reactor_call2, condition, target, f, *args)
-        # FIXME: this operation occasionally hangs longer than it should (it
-        # hangs between "before wait" and "calling")!
+        # FIXME: this operation occasionally hangs for a second or two when
+        # there's a lot of IO.  The reason seems to be that there are two many
+        # IO-related callbacks, so the reactor can get to our request quickly.
+        # The solution is probably to redo the IO using Twisted's producer
+        # and consumer interfaces.
         condition.wait()
         condition.release()
         deferred = target[0]
