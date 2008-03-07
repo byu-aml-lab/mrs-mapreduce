@@ -330,6 +330,8 @@ class RemoteData(DataSet):
         super(RemoteData, self).__init__(**kwds)
 
         self._fetched = False
+        # TODO: instead of needed_buckets and ready_buckets, just do a
+        # defer.deferredList.
         self._needed_buckets = set()
         self._ready_buckets = set()
 
