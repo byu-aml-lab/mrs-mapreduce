@@ -149,10 +149,8 @@ class Slave(object):
         while self.alive:
             if not self.handle_request():
                 try:
-                    print 'before ping'
                     master_alive = self.master.blocking_call('ping', self.id,
                             self.cookie)
-                    print 'after ping'
                 except ErrbackException:
                     master_alive = False
                 if not master_alive:
