@@ -114,12 +114,15 @@ class RemoteSlave(object):
 
     The master can use this object to make assignments, check status, etc.
     """
-    def __init__(self, slave_id, host, port, cookie):
+    def __init__(self, slave_id, host, port, cookie, activity):
         self.host = host
         self.port = port
         self.assignment = None
         self.id = slave_id
         self.cookie = cookie
+
+        # An event that is set if activity happens in any of the slaves.
+        self.activity = activity
 
         import xmlrpclib
         uri = "http://%s:%s" % (host, port)
@@ -176,6 +179,9 @@ class RemoteSlave(object):
         self.ping_task.stop()
         self._alive = False
 
+        # Alert the main thread that activity has occurred.
+        self.activity.set()
+
     def alive(self):
         """Checks whether the Slave is responding."""
         return self._alive
@@ -187,7 +193,7 @@ class RemoteSlave(object):
 
 
 # TODO: Reimplement _idle_sem as a Condition variable.  Also, reimplement
-# _done_slaves and _gone_slaves as shared queues.
+# _done_slaves as a shared queue.
 class Slaves(object):
     """List of remote slaves.
 
@@ -200,7 +206,6 @@ class Slaves(object):
         self._slaves = []
         self._idle_slaves = []
         self._done_slaves = []
-        self._gone_slaves = []
 
         self._lock = threading.Lock()
         self._idle_sem = threading.Semaphore()
@@ -233,7 +238,7 @@ class Slaves(object):
         """
         self._lock.acquire()
         slave_id = len(self._slaves)
-        slave = RemoteSlave(slave_id, host, slave_port, cookie)
+        slave = RemoteSlave(slave_id, host, slave_port, cookie, self.activity)
         self._slaves.append(slave)
         self._lock.release()
         return slave
@@ -290,6 +295,7 @@ class Slaves(object):
         self._done_slaves.append((slave, files))
         self._lock.release()
 
+        # Alert the main thread that activity has occurred.
         self.activity.set()
 
     def pop_done(self):
@@ -300,22 +306,6 @@ class Slaves(object):
             done = None
         self._lock.release()
         return done
-
-    def add_gone(self, slave):
-        self._lock.acquire()
-        self._gone_slaves.append(slave)
-        self._lock.release()
-
-        self.activity.set()
-
-    def pop_gone(self):
-        self._lock.acquire()
-        if self._gone_slaves:
-            slave = self._gone_slaves.pop()
-        else:
-            slave = None
-        self._lock.release()
-        return slave
 
 
 if __name__ == '__main__':
