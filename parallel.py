@@ -62,7 +62,7 @@ class Parallel(Implementation):
 
         # Drive Slaves:
         while not job.done():
-            self.slaves.activity.wait()
+            slaves.activity.wait()
 
             tasks.check_gone()
             tasks.check_done()
@@ -155,7 +155,7 @@ class Supervisor(object):
 
     def check_gone(self):
         """Check for slaves that have disappeared."""
-        for slave in slaves.slave_list():
+        for slave in self.slaves.slave_list():
             if not slave.alive():
                 self.remove_slave(slave)
 

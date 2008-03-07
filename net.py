@@ -79,7 +79,8 @@ class PingTask(object):
         self.running = False
         self._callid = None
 
-        self.last_timestamp = self.slave.timestamp
+        # Last time that we checked to see if the slave is alive:
+        self.timestamp = self.slave.timestamp
 
     def start(self):
         assert(not self.running)
@@ -96,35 +97,53 @@ class PingTask(object):
         
         This _must_ be called from the reactor thread.
         """
+        # we can't schedule a new one if the old one hasn't executed yet.
+        assert(self._callid is None)
         import random
         delay = random.normalvariate(PING_INTERVAL, PING_STDDEV)
-        self._callid = reactor.callLater(delay, self._call)
+        self._callid = reactor.callLater(delay, self._task)
 
     def _cancel(self):
         if self._callid:
             self._callid.cancel()
+            self._callid = None
 
-    def _checkup(self):
-        """Ping the slave if it's necessary to do so.
-        
-        Checkup gets called periodically.
+    def _update_timestamp(self, activity=False):
+        """Update our timestamp of the last time we checked on the slave.
+
+        If we have received communication from the slave (activity is True),
+        update self.slave's timestamp, too.
         """
-        if self.slave.timestamp_since(self.last_timestamp):
+        if activity:
+            self.slave.update_timestamp()
+            self.timestamp = self.slave.timestamp
+        else:
+            from datetime import datetime
+            self.timestamp = datetime.utcnow()
+
+    def _task(self):
+        """The PingTask's repeatedly called function.
+        
+        Ping the slave if it's necessary to do so.
+        """
+        self._callid = None
+        if self.slave.timestamp_since(self.timestamp):
+            self._update_timestamp()
             self._schedule_next()
         else:
             deferred = self.slave.rpc.callRemote('ping')
             deferred.addCallback(self._callback)
-            deferred.addErrback(self_errback)
+            deferred.addErrback(self._errback)
 
     def _callback(self, value):
         """Called when the slave responds to a ping."""
-        self.slave.update_timestamp()
-        self.last_timestamp = self.slave.timestamp
+        self._update_timestamp(True)
         self._schedule_next()
 
     def _errback(self, failure):
         """Called when the slave fails to respond to a ping."""
-        self.slave.disconnected()
+        self._update_timestamp()
+        self.slave.rpc_failure()
         self.running = False
         self._cancel()
 
