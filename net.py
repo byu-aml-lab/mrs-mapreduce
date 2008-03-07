@@ -21,6 +21,9 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
+PING_INTERVAL = 5.0
+PING_STDDEV = 0.1
+
 import threading
 from twisted.internet import reactor
 
@@ -57,16 +60,78 @@ class FromThreadProxy(object):
         self.proxy = xmlrpc.Proxy(rpc_url(url))
 
     def blocking_call(self, *args):
-        """Make a blocking XMLRPC call to a remote server."""
+        """Make a blocking XML RPC call to a remote server."""
         # pause between 'blocking call' and 'calling'
         deferred = self.deferred_call(*args)
         result = block(deferred)
         return result
 
     def deferred_call(self, *args):
-        """Make a deferred XMLRPC call to a remote server."""
+        """Make a deferred XML RPC call to a remote server."""
         deferred = reactor_call(self.proxy.callRemote, *args)
         return deferred
+
+    def callRemote(self, *args):
+        """Make a deferred XML RPC call *from the reactor thread*."""
+        return self.proxy.callRemote(*args)
+
+
+# TODO: make it so the slave can use this, too
+class PingTask(object):
+    """Periodically make an XML RPC call to the ping procedure."""
+    def __init__(self, slave):
+        self.slave = slave
+        self.running = False
+        self._callid = None
+
+        self.last_timestamp = self.slave.timestamp
+
+    def start(self):
+        assert(not self.running)
+        self.running = True
+        reactor.callFromThread(self._schedule_next)
+
+    def stop(self):
+        assert(self.running)
+        self.running = False
+        reactor.callFromThread(self._cancel)
+
+    def _schedule_next(self):
+        """Set up the next call.  Randomly adjust the delay.
+        
+        This _must_ be called from the reactor thread.
+        """
+        import random
+        delay = random.normalvariate(PING_INTERVAL, PING_STDDEV)
+        self._callid = reactor.callLater(delay, self._call)
+
+    def _cancel(self):
+        if self._callid:
+            self._callid.cancel()
+
+    def _checkup(self):
+        """Ping the slave if it's necessary to do so.
+        
+        Checkup gets called periodically.
+        """
+        if self.slave.timestamp_since(self.last_timestamp):
+            self._schedule_next()
+        else:
+            deferred = self.slave.rpc.callRemote('ping')
+            deferred.addCallback(self._callback)
+            deferred.addErrback(self_errback)
+
+    def _callback(self, value):
+        """Called when the slave responds to a ping."""
+        self.slave.update_timestamp()
+        self.last_timestamp = self.slave.timestamp
+        self._schedule_next()
+
+    def _errback(self, failure):
+        """Called when the slave fails to respond to a ping."""
+        self.slave.disconnected()
+        self.running = False
+        self._cancel()
 
 
 def reactor_call(f, *args):
