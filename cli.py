@@ -213,7 +213,7 @@ def run_slave(registry, user_run, user_setup, args, opts):
 
     # Create an RPC proxy to the master's RPC Server
     master = FromThreadProxy(opts.mrs_master)
-    slave = Slave(master, registry, user_setup, opts.mrs_port)
+    slave = Slave(master, registry, user_setup, opts)
 
     slave.run()
     return 0
