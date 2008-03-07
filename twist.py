@@ -21,6 +21,11 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
+"""Mrs. Twist (no relation to Oliver)
+
+Helper functions and classes for Python Twisted.
+"""
+
 PING_INTERVAL = 5.0
 PING_STDDEV = 0.1
 
