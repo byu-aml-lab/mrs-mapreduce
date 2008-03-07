@@ -65,14 +65,9 @@ class Parallel(Implementation):
         twisted_thread = TwistedThread()
         twisted_thread.start()
 
-        # Start pinging thread
-        ping_thread = PingThread(slaves)
-        ping_thread.start()
-
         # Drive Slaves:
         while not job.done():
-            slaves.activity.wait(MAIN_LOOP_WAIT)
-            slaves.activity.clear()
+            self.slaves.activity.wait()
 
             tasks.check_gone()
             tasks.check_done()
@@ -83,39 +78,6 @@ class Parallel(Implementation):
 
         # Wait for the other thread to finish.
         job.join()
-
-
-class PingThread(threading.Thread):
-    """Occasionally ping slaves that need a little extra attention."""
-
-    def __init__(self, slaves, **kwds):
-        threading.Thread.__init__(self, **kwds)
-        # Die when all other non-daemon threads have exited:
-        self.setDaemon(True)
-        self.slaves = slaves
-
-    @classmethod
-    def seconds(cls, delta):
-        return ((delta.days * 24 * 3600) + delta.seconds +
-                (delta.microseconds / 1000000.0))
-
-    def run(self):
-        from datetime import datetime
-        import time
-        now = datetime.utcnow()
-
-        while True:
-            last = now
-            for slave in self.slaves.slave_list():
-                if not slave.alive(now):
-                    import sys
-                    print >>sys.stderr, "Slave not responding."
-                    self.slaves.add_gone(slave)
-                    self.slaves.activity.set()
-            now = datetime.utcnow()
-            delta = self.seconds(now - last)
-            if delta < PING_LOOP_WAIT:
-                time.sleep(PING_LOOP_WAIT - delta)
 
 
 class Assignment(object):
@@ -182,8 +144,7 @@ class Supervisor(object):
 
     # TODO: what if two slaves finish the same task?
     def check_done(self):
-        """Check for slaves that have completed their assignments.
-        """
+        """Check for slaves that have completed their assignments."""
         while True:
             next_done = self.slaves.pop_done()
             if next_done is None:
@@ -198,13 +159,10 @@ class Supervisor(object):
             self.slaves.push_idle(slave)
 
     def check_gone(self):
-        """Check for slaves that have disappeared.
-        """
-        while True:
-            slave = self.slaves.pop_gone()
-            if slave is None:
-                return
-            self.remove_slave(slave)
+        """Check for slaves that have disappeared."""
+        for slave in slaves.slave_list():
+            if not slave.alive():
+                self.remove_slave(slave)
 
     def make_assignments(self):
         """Go through the slaves list and make any possible task assignments.
