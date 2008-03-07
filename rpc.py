@@ -21,6 +21,7 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
+from twisted.internet import reactor
 import threading, SimpleXMLRPCServer
 
 # TODO: listen over SSL.  See
@@ -33,10 +34,28 @@ import threading, SimpleXMLRPCServer
 
 # TODO: check for basic HTTP authentication?
 
-def new_server(functions, port, host=None):
+def start_xmlrpc(resource, port):
+    """Start an RPC server for incoming RPC requests (Twisted version)
+
+    Returns a twisted.internet IPv4Address (which has attributes host,
+    port, and type).
+
+    Note that resource is an "instance" to be given to SimpleXMLRPCServer.
+    The Twisted reactor must be started before you make this call.
+    """
+    from twisted.web import server
+    from twist import reactor_call
+
+    site = server.Site(resource)
+    tcpport = reactor_call(reactor.listenTCP, port, site)
+    address = tcpport.getHost()
+    return address
+
+
+def new_server(resource, port, host=None):
     """Return an RPC server for incoming RPC requests.
 
-    Note that functions is an "instance" to be given to SimpleXMLRPCServer.
+    Note that resource is an "instance" to be given to SimpleXMLRPCServer.
     """
     if host is None:
         # (Using socket.INADDR_ANY doesn't seem to work)
@@ -44,12 +63,12 @@ def new_server(functions, port, host=None):
     server = SimpleXMLRPCServer.SimpleXMLRPCServer((host, port),
             requestHandler=MrsXMLRPCRequestHandler, logRequests=False)
     #server.register_introspection_functions()
-    server.register_instance(functions)
+    server.register_instance(resource)
 
     return server
 
 class RPCThread(threading.Thread):
-    """Thread for listening for incoming RPC requests.
+    """Thread for listening for incoming RPC requests (xmlrpclib version)
     
     Listen on port 8000 for slaves to connect:
     server = RPCServer(functions, 8000)
