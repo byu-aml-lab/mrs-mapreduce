@@ -16,6 +16,9 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Mrs.  If not, see <http://www.gnu.org/licenses/>.
 
+# TODO: Consider making Slave more asynchronous (and merging the main thread
+# in with the Twisted thread).
+
 COOKIE_LEN = 8
 SLAVE_PING_INTERVAL = 5.0
 
@@ -113,12 +116,18 @@ class Slave(object):
     def run(self):
         import socket, optparse
         from version import VERSION
+        from net import ErrbackException
+
+        # Start Twisted thread
+        from net import TwistedThread
+        twisted_thread = TwistedThread()
+        twisted_thread.start()
 
         # Register with master.
         source_hash = self.registry.source_hash()
         reg_hash = self.registry.reg_hash()
-        slave_id, optdict = self.master.signin(VERSION, self.cookie,
-                self.port, source_hash, reg_hash)
+        slave_id, optdict = self.master.blocking_call('signin', VERSION,
+                self.cookie, self.port, source_hash, reg_hash)
         if slave_id < 0:
             import sys
             print >>sys.stderr, "Master rejected signin."
@@ -134,19 +143,24 @@ class Slave(object):
         self.worker.start()
 
         # Report for duty.
-        self.master.ready(self.id, self.cookie)
+        self.master.blocking_call('ready', self.id, self.cookie)
 
         # Handle requests on the RPC server.
         while self.alive:
             if not self.handle_request():
                 try:
-                    master_alive = self.master.ping(self.id, self.cookie)
-                except socket.error:
+                    print 'before ping'
+                    master_alive = self.master.blocking_call('ping', self.id,
+                            self.cookie)
+                    print 'after ping'
+                except ErrbackException:
                     master_alive = False
                 if not master_alive:
                     import sys
                     print >>sys.stderr, "Master failed to respond to ping."
                     return -1
+
+        twisted_thread.shutdown()
 
 
 class Worker(threading.Thread):
@@ -219,11 +233,6 @@ class Worker(threading.Thread):
     def run(self):
         """Run the worker thread."""
 
-        # Start Twisted thread
-        from net import TwistedThread
-        twisted_thread = TwistedThread()
-        twisted_thread.start()
-
         while True:
             self._cond.acquire()
             while self._task is None:
@@ -240,7 +249,8 @@ class Worker(threading.Thread):
             # TODO: right now, dataset.dump() happens in task.run().  Instead,
             # we should tell the dataset to become available() here, and the
             # data should automatically be dumped.
-            self.master.done(self.slave.id, task.outurls(), self.slave.cookie)
+            self.master.blocking_call('done', self.slave.id, task.outurls(),
+                    self.slave.cookie)
 
 
 # vim: et sw=4 sts=4
