@@ -53,7 +53,7 @@ def openbuf(url):
     simultaneously.
     """
     import urlparse, urllib2
-    parsed_url = urlparse.urlparse(url, 'file')
+    parsed_url = urlparse.urlsplit(url, 'file')
     if parsed_url.scheme == 'file':
         f = open(parsed_url.path)
         buf = Buffer(filelike=f)

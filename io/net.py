@@ -68,8 +68,8 @@ def download(url):
 
     factory = HTTPLoader(url, buf)
 
-    from urlparse import urlparse
-    u = urlparse(url)
+    from urlparse import urlsplit
+    u = urlsplit(url)
     port = u.port
     if not port:
         if u.scheme == 'http':
