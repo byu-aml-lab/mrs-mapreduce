@@ -1,13 +1,18 @@
-- RPC over HTTPS
+- make the slave use two processes and one thread.  The first process would be
+  completely asynchronous in Twisted.  The second process would be the worker
+  thread.  It needs to be a process so that the subprocess module can work
+  properly within optimization functions.  Use the processing module for
+  communication.
+- fix IO by reimplementing downloading with the producer and consumer
+  interfaces.
 - logging
-- pass a dict of options from the application to the slaves
-- do input splitting
-- use the "Range:" header in HTTP requests as part of the split
-  implementation.  See also the "urlgrabber" module.  To implement this in the
-  HTTP server, you will have to implement do_GET on its own (see
+- add an input splitter; use the "Range:" header in HTTP requests as part of
+  the split implementation.  See also the "urlgrabber" module.  To implement
+  this in the HTTP server, you will have to implement do_GET on its own (see
   http://techlists.org/archives/programming/pythonlist/2002-02/msg04678.shtml)
-- show current status by creating an HTTP server on the master
-- have reducers start compiling data before all of the input files are ready
+- show current status by creating an HTTP server on the master (with an
+  option)
+- have reducers start collecting data before all of the input files are ready
 
 
 ########################################################################
