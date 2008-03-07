@@ -224,11 +224,10 @@ class Worker(threading.Thread):
     def run(self):
         """Run the worker thread."""
 
-        # We put this here because reactor.run() can only be called once.  We
-        # cheat by putting this here.  In the future, it would probably be
-        # best to build more of Mrs around the event loop.
-        from twisted.internet import reactor
-        reactor.startRunning(installSignalHandlers=0)
+        # Start Twisted thread
+        from net import TwistedThread
+        twisted_thread = TwistedThread()
+        twisted_thread.start()
 
         while True:
             self._cond.acquire()
