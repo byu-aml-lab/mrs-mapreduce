@@ -149,16 +149,19 @@ class RemoteSlave(object):
         task = assignment.task
         extension = task.format.ext
         # TODO: convert these RPC calls to be asynchronous!
-        if assignment.map:
-            self.rpc.blocking_call('start_map', task.taskid, task.inurls(),
-                    task.map_name, task.part_name, task.nparts, task.outdir,
-                    extension, self.cookie)
-        elif assignment.reduce:
-            self.rpc.blocking_call('start_reduce', task.taskid, task.inurls(),
-                    task.reduce_name, task.part_name, task.nparts,
-                    task.outdir, extension, self.cookie)
-        else:
-            raise RuntimeError
+        try:
+            if assignment.map:
+                self.rpc.blocking_call('start_map', task.taskid,
+                        task.inurls(), task.map_name, task.part_name,
+                        task.nparts, task.outdir, extension, self.cookie)
+            elif assignment.reduce:
+                self.rpc.blocking_call('start_reduce', task.taskid,
+                        task.inurls(), task.reduce_name, task.part_name,
+                        task.nparts, task.outdir, extension, self.cookie)
+            else:
+                raise RuntimeError
+        except ErrbackException:
+            self.rpc_failure()
         self.assignment = assignment
 
     def update_timestamp(self):
@@ -180,6 +183,8 @@ class RemoteSlave(object):
         self.ping_task.stop()
         self._alive = False
 
+        print 'Lost slave due to network error.'
+
         # Alert the main thread that activity has occurred.
         self.activity.set()
 
@@ -190,7 +195,10 @@ class RemoteSlave(object):
     def quit(self):
         self._alive = False
         self.ping_task.stop()
-        self.rpc.quit(self.cookie)
+        try:
+            self.rpc.blocking_call('quit', self.cookie)
+        except ErrbackException:
+            pass
 
 
 # TODO: Reimplement _idle_sem as a Condition variable.  Also, reimplement
