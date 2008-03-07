@@ -129,9 +129,9 @@ class RemoteSlave(object):
         # An event that is set if activity happens in any of the slaves.
         self.activity = activity
 
-        import xmlrpclib
+        from net import FromThreadProxy
         uri = "http://%s:%s" % (host, port)
-        self.rpc = xmlrpclib.ServerProxy(uri)
+        self.rpc = FromThreadProxy(uri)
 
         self.update_timestamp()
         self._alive = True
@@ -153,12 +153,13 @@ class RemoteSlave(object):
         """
         task = assignment.task
         extension = task.format.ext
+        # TODO: convert these RPC calls to be asynchronous!
         if assignment.map:
-            self.rpc.start_map(task.taskid, task.inurls(),
+            self.rpc.blocking_call('start_map', task.taskid, task.inurls(),
                     task.map_name, task.part_name, task.nparts, task.outdir,
                     extension, self.cookie)
         elif assignment.reduce:
-            self.rpc.start_reduce(task.taskid, task.inurls(),
+            self.rpc.blocking_call('start_reduce', task.taskid, task.inurls(),
                     task.reduce_name, task.part_name, task.nparts,
                     task.outdir, extension, self.cookie)
         else:
