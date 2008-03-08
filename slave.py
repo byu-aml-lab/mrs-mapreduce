@@ -23,7 +23,9 @@ COOKIE_LEN = 8
 SLAVE_PING_INTERVAL = 5.0
 
 import threading
+from twisted.internet import reactor
 from twisted.web.xmlrpc import XMLRPC
+from twist import TwistedThread
 
 class SlaveInterface(XMLRPC):
     """Public XML RPC Interface
@@ -31,9 +33,10 @@ class SlaveInterface(XMLRPC):
     Note that any method not beginning with "xmlrpc_" will be exposed to
     remote hosts.  Any of these can return either a result or a deferred.
     """
-    def __init__(self, slave, **kwds):
+    def __init__(self, slave, worker, **kwds):
         XMLRPC.__init__(self, **kwds)
         self.slave = slave
+        self.worker = worker
 
     def _listMethods(self):
         return SimpleXMLRPCServer.list_public_methods(self)
@@ -41,12 +44,12 @@ class SlaveInterface(XMLRPC):
     def xmlrpc_start_map(self, taskid, inputs, func_name, part_name, nparts,
             output, extension, cookie, **kwds):
         self.slave.check_cookie(cookie)
-        return self.slave.worker.start_map(taskid, inputs, func_name,
+        return self.worker.start_map(taskid, inputs, func_name,
                 part_name, nparts, output, extension)
 
     def xmlrpc_start_reduce(self, taskid, inputs, func_name, part_name,
             nparts, output, extension, cookie, **kwds):
-        return self.slave.worker.start_reduce(taskid, inputs, func_name,
+        return self.worker.start_reduce(taskid, inputs, func_name,
                 part_name, nparts, output, extension)
 
     def xmlrpc_quit(self, cookie, **kwds):
@@ -66,19 +69,123 @@ class CookieValidationError(Exception):
     pass
 
 
+def do_stuff(registry, user_setup, opts):
+    from twist import FromThreadProxy
+    # Create an RPC proxy to the master's RPC Server.  This will be used
+    # mostly from the Worker thread.
+    master = FromThreadProxy(opts.mrs_master)
+
+    slave = Slave(registry, user_setup, master)
+    worker = Worker(slave, master)
+
+    twisted_thread = SlaveThread(slave, worker)
+
+    try:
+        twisted_thread.start()
+
+        # Run the Worker:
+        worker.run()
+    except KeyboardInterrupt:
+        twisted_thread.shutdown()
+
+
+# TODO: when we stop supporting Python older than 2.5, use inlineCallbacks:
+class SlaveThread(TwistedThread):
+    """All of this stuff runs within the Twisted reactor."""
+
+    def __init__(self, slave, worker):
+        TwistedThread.__init__(self)
+        self.slave = slave
+        self.worker = worker
+
+    def die(self, message):
+        import sys
+        print >>sys.stderr, message
+        reactor.stop()
+        # TODO: alert Worker thread???
+
+    def run(self):
+        """Called when the TwistedThread is first initialized.
+        
+        It starts the reactor and schedules signin() to be called.
+        """
+        reactor.callLater(0, self.signin)
+        TwistedThread.run(self)
+
+    # state 1
+    def signin(self):
+        """Start Slave RPC Server and sign in to master."""
+        from twisted.web import server
+
+        resource = SlaveInterface(self.slave, self.worker)
+        site = server.Site(resource)
+        tcpport = reactor.listenTCP(0, site)
+        address = tcpport.getHost()
+
+        # Initiate signin to master
+        from version import VERSION
+        cookie = self.slave.cookie
+        port = address.port
+        source_hash = self.slave.registry.source_hash()
+        reg_hash = self.slave.registry.reg_hash()
+
+        master = self.slave.master
+        deferred = master.callRemote('signin', VERSION, cookie, port,
+                source_hash, reg_hash)
+
+        deferred.addCallbacks(self.signin_callback, self.signin_errback)
+
+    def signin_errback(self, failure):
+        print failure
+        self.die('Unable to contact master.')
+
+    # state 2
+    def signin_callback(self, value):
+        """Process the results from the signin.
+
+        This is the callback after signin.  After saving the return values,
+        schedule the user_setup function to be run in the Worker.
+        """
+        slave_id, optdict = value
+
+        if slave_id < 0:
+            self.die('Master rejected signin.')
+
+        # Save the slave id given by the master.
+        self.slave.id = slave_id
+
+        # Tell the Worker to run the user_setup function.
+        import optparse
+        options = optparse.Values(optdict)
+        callback = self.report_ready
+        self.worker.start_setup(options, callback)
+
+    def report_ready(self):
+        """Report to the master that we are ready to accept tasks.
+        
+        This is the callback after user_setup is called.
+        """
+
+        # Report for duty.
+        master = self.slave.master
+        master.callRemote('ready', self.slave.id, self.slave.cookie)
+
+
+# TODO: ADD A PING TASK BACK IN HERE!!!
+    #master_alive = self.master.blocking_call('ping', self.id, self.cookie)
+
+
 class Slave(object):
-    def __init__(self, master, registry, user_setup, options):
+    """Mrs Slave"""
+
+    def __init__(self, registry, user_setup, master):
         self.master = master
         self.registry = registry
         self.user_setup = user_setup
-        self.options = options
 
         self.id = None
         self.alive = True
         self.cookie = self.rand_cookie()
-
-        # Create a worker thread.  This thread will die when we do.
-        self.worker = Worker(self, master)
 
     @classmethod
     def rand_cookie(cls):
@@ -92,76 +199,14 @@ class Slave(object):
         if cookie != self.cookie:
             raise CookieValidationError
 
-    def run(self):
-        import socket, optparse
-        from version import VERSION
-        from twist import ErrbackException, TwistedThread
-        import rpc
 
-        source_hash = self.registry.source_hash()
-        reg_hash = self.registry.reg_hash()
-
-        # Start Twisted thread
-        twisted_thread = TwistedThread()
-        twisted_thread.start()
-
-        # Create and start a slave RPC Server
-        interface = SlaveInterface(self)
-        address = rpc.start_xmlrpc(interface, self.options.mrs_port)
-        port = address.port
-
-        # Register with master.
-        slave_id, optdict = self.master.blocking_call('signin', VERSION,
-                self.cookie, port, source_hash, reg_hash)
-        if slave_id < 0:
-            import sys
-            print >>sys.stderr, "Master rejected signin."
-            raise RuntimeError
-        self.id = slave_id
-        options = optparse.Values(optdict)
-
-        # Call the user_setup function with the given options.
-        if self.user_setup:
-            self.user_setup(options)
-
-        # Spin off the worker thread.
-        self.worker.start()
-
-        # Report for duty.
-        self.master.blocking_call('ready', self.id, self.cookie)
-
-        # Handle requests on the RPC server.
-        while self.alive:
-            import time
-            time.sleep(2)
-            """
-            if not self.handle_request():
-                try:
-                    master_alive = self.master.blocking_call('ping', self.id,
-                            self.cookie)
-                except ErrbackException:
-                    master_alive = False
-                if not master_alive:
-                    import sys
-                    print >>sys.stderr, "Master failed to respond to ping."
-                    return -1
-            """
-            # FIXME
-
-        twisted_thread.shutdown()
-
-
-class Worker(threading.Thread):
+class Worker():
     """Execute map tasks and reduce tasks.
 
     The worker waits for other threads to make assignments by calling
     start_map and start_reduce.
     """
-    def __init__(self, slave, master, **kwds):
-        threading.Thread.__init__(self, **kwds)
-        # Die when all other non-daemon threads have exited:
-        self.setDaemon(True)
-
+    def __init__(self, slave, master):
         self.slave = slave
         self.master = master
 
@@ -169,6 +214,19 @@ class Worker(threading.Thread):
         self._cond = threading.Condition()
         self.active = False
         self.exception = None
+
+        self.options = None
+        self._setup_ready = threading.Event()
+        self._setup_callback = None
+
+    def start_setup(self, options, callback):
+        """Start running the user_setup function.
+        
+        The given callback function will be invoked in the reactor thread.
+        """
+        self.options = options
+        self._setup_ready.set()
+        self._setup_callback = callback
 
     def start_map(self, taskid, inputs, map_name, part_name, nparts, output,
             extension):
@@ -219,8 +277,18 @@ class Worker(threading.Thread):
         return success
 
     def run(self):
-        """Run the worker thread."""
+        """Run the worker."""
 
+        # Run user_setup if requested:
+        self._setup_ready.wait()
+        user_setup = self.slave.user_setup
+        if user_setup:
+            user_setup(self.options)
+
+        # Alert the Twisted thread that user_setup is done.
+        reactor.callFromThread(self._setup_callback)
+
+        # Process tasks:
         while True:
             self._cond.acquire()
             while self._task is None:
@@ -239,6 +307,8 @@ class Worker(threading.Thread):
             # data should automatically be dumped.
             self.master.blocking_call('done', self.slave.id, task.outurls(),
                     self.slave.cookie)
+
+            # TODO: Catch ErrbackException here
 
 
 # vim: et sw=4 sts=4

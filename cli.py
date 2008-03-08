@@ -203,14 +203,10 @@ def run_slave(registry, user_run, user_setup, args, opts):
     The uri is of the form scheme://username:password@host/target with
     username and password possibly omitted.
     """
-    from slave import Slave
-    from twist import FromThreadProxy
+    from slave import do_stuff
 
-    # Create an RPC proxy to the master's RPC Server
-    master = FromThreadProxy(opts.mrs_master)
-    slave = Slave(master, registry, user_setup, opts)
+    do_stuff(registry, user_setup, opts)
 
-    slave.run()
     return 0
 
 
