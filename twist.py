@@ -40,6 +40,8 @@ class TwistedThread(threading.Thread):
 
     def __init__(self, **kwds):
         threading.Thread.__init__(self, **kwds)
+
+        # Die when all other non-daemon threads have exited:
         self.setDaemon(True)
 
     def run(self):
@@ -159,30 +161,26 @@ def reactor_call(f, *args):
     Return the result.
     """
     target = []
-    condition = threading.Condition()
-    condition.acquire()
-    reactor.callFromThread(_reactor_call2, condition, target, f, *args)
+    event = threading.Event()
+    reactor.callFromThread(_reactor_call2, event, target, f, *args)
     # FIXME: this operation occasionally hangs for a second or two when
     # there's a lot of IO.  The reason seems to be that there are two many
     # IO-related callbacks, so the reactor can get to our request quickly.
     # The solution is probably to redo the IO using Twisted's producer
     # and consumer interfaces.
-    condition.wait()
-    condition.release()
+    event.wait()
     deferred = target[0]
     return deferred
 
-def _reactor_call2(condition, target, f, *args):
+def _reactor_call2(event, target, f, *args):
     """Call the given function.
 
     Append the result to the target list.  WARNING: this function should only
     be called within the reactor thread.
     """
     result = f(*args)
-    condition.acquire()
     target.append(result)
-    condition.notify()
-    condition.release()
+    event.set()
 
 
 class ErrbackException(RuntimeError):
@@ -192,25 +190,21 @@ class ErrbackException(RuntimeError):
     def __str__(self):
         return str(self.failure)
 
-def notify_callback(value, condition, target=None):
-    """Notifies a condition variable when callback occurs.
+def notify_callback(value, event, target=None):
+    """Notifies a event variable when callback occurs.
     
     If a target list is given, the result value will be appended to it.
     """
-    condition.acquire()
     target.append(value)
-    condition.notify()
-    condition.release()
+    event.set()
 
-def notify_errback(failure, condition, target=None):
-    """Notifies a condition variable when errback occurs.
+def notify_errback(failure, event, target=None):
+    """Sets an event when errback occurs.
     
     If a target list is given, the failure will be appended to it.
     """
-    condition.acquire()
     target.append(failure)
-    condition.notify()
-    condition.release()
+    event.set()
 
 def block(deferred):
     """Block on a deferred and return its result.
@@ -219,12 +213,10 @@ def block(deferred):
     """
     vals = []
     errs = []
-    cond = threading.Condition()
-    cond.acquire()
-    reactor.callFromThread(deferred.addCallback, notify_callback, cond, vals)
-    reactor.callFromThread(deferred.addErrback, notify_callback, cond, errs)
-    cond.wait()
-    cond.release()
+    event = threading.Event()
+    reactor.callFromThread(deferred.addCallback, notify_callback, event, vals)
+    reactor.callFromThread(deferred.addErrback, notify_callback, event, errs)
+    event.wait()
     if vals:
         return vals[0]
     elif errs:
