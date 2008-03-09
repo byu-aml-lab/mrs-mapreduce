@@ -21,6 +21,7 @@
 
 COOKIE_LEN = 8
 SLAVE_PING_INTERVAL = 5.0
+QUIT_DELAY = 0.5
 
 import threading
 from twisted.internet import reactor
@@ -57,6 +58,9 @@ class SlaveInterface(XMLRPC):
         self.slave.alive = False
         import sys
         print >>sys.stderr, "Quitting as requested by an RPC call."
+        # We delay before actually stopping because we need to make sure that
+        # the response gets sent back.
+        reactor.callLater(QUIT_DELAY, lambda: reactor.stop())
         return True
 
     def xmlrpc_ping(self, **kwds):
@@ -76,33 +80,50 @@ def do_stuff(registry, user_setup, opts):
     master = FromThreadProxy(opts.mrs_master)
 
     slave = Slave(registry, user_setup, master)
-    worker = Worker(slave, master)
 
-    twisted_thread = SlaveThread(slave, worker)
+    # Create threads.
+    worker = Worker(slave, master)
+    io_thread = SlaveIOThread(slave, worker)
+
+    # Start the other threads.
+    io_thread.start()
+    worker.start()
 
     try:
-        twisted_thread.start()
+        # Under normal circumstances, the reactor will quit on its own.
 
-        # Run the Worker:
-        worker.run()
+        while not io_thread.death.isSet():
+            io_thread.death.wait(100000)
+        # Theoretically we should be able to do the following instead of
+        # the above loop.  However, there's a Python bug where
+        # KeyboardInterrupt can't interrupt waiting on a Lock.
+        #io_thread.death.wait()
     except KeyboardInterrupt:
-        twisted_thread.shutdown()
+        io_thread.shutdown()
+
+    io_thread.join()
 
 
 # TODO: when we stop supporting Python older than 2.5, use inlineCallbacks:
-class SlaveThread(TwistedThread):
-    """All of this stuff runs within the Twisted reactor."""
+class SlaveIOThread(TwistedThread):
+    """The thread that runs the Twisted reactor.
+    
+    We don't trust the Twisted reactor's signal handlers, so we run it with
+    the handlers disabled.  As a result, it shouldn't be in the primary
+    thread.
+    """
 
     def __init__(self, slave, worker):
         TwistedThread.__init__(self)
         self.slave = slave
         self.worker = worker
 
+        self.death = threading.Event()
+
     def die(self, message):
         import sys
         print >>sys.stderr, message
         reactor.stop()
-        # TODO: alert Worker thread???
 
     def run(self):
         """Called when the TwistedThread is first initialized.
@@ -111,6 +132,9 @@ class SlaveThread(TwistedThread):
         """
         reactor.callLater(0, self.signin)
         TwistedThread.run(self)
+
+        # Let other threads know that we are quitting.
+        self.death.set()
 
     # state 1
     def signin(self):
@@ -200,13 +224,20 @@ class Slave(object):
             raise CookieValidationError
 
 
-class Worker():
+class Worker(threading.Thread):
     """Execute map tasks and reduce tasks.
 
     The worker waits for other threads to make assignments by calling
     start_map and start_reduce.
+
+    This needs to run in a daemon thread rather than in the main thread so
+    that it can be killed by other threads.
     """
     def __init__(self, slave, master):
+        threading.Thread.__init__(self)
+        # Die when all other non-daemon threads have exited:
+        self.setDaemon(True)
+
         self.slave = slave
         self.master = master
 

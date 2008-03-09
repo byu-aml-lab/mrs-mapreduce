@@ -27,6 +27,8 @@ PING_STDDEV = 0.1
 import threading
 from twisted.internet import reactor
 
+# TODO: Once the master uses TwistedThread for everything, remove setDaemon.
+
 class TwistedThread(threading.Thread):
     """The Twisted thread handles all network communication and slow IO.
     
@@ -46,12 +48,20 @@ class TwistedThread(threading.Thread):
 
     def run(self):
         """Run is called when the thread is started."""
+        # If the Twisted reactor is not the primary thread, then we need to
+        # disable installSignalHandlers.  If installSignalHandlers is set,
+        # then Twisted will override SIGINT, SIGBREAK, and SIGCHLD.  The
+        # primary thread will want to catch SIGINT and SIGBREAK.  Also note
+        # that Twisted's SIGCHLD handler apparently conflicts with Python's
+        # subprocess module.
         reactor.run(installSignalHandlers=0)
 
     def shutdown(self):
-        """Shutdown the reactor and wait for the thread to terminate."""
+        """Ask the reactor thread to stop.
+        
+        After shutdown, the thread still needs to be joined.
+        """
         reactor.callFromThread(reactor.stop)
-        self.join()
 
 class FromThreadProxy(object):
     """XMLRPC Proxy that operates in a separate thread from the reactor."""
