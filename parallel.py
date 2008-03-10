@@ -33,6 +33,7 @@ from mapreduce import Implementation
 socket.setdefaulttimeout(SOCKET_TIMEOUT)
 
 
+# TODO: make this asynchronous
 class Parallel(Implementation):
     """MapReduce execution in parallel, with a master and slaves.
 
@@ -44,7 +45,7 @@ class Parallel(Implementation):
 
     def run(self):
         import sys
-        import master, rpc
+        import master
         from twisted.web import server
         from twisted.internet import reactor
         from twist import TwistedThread, reactor_call
@@ -79,7 +80,9 @@ class Parallel(Implementation):
         for slave in slaves.slave_list():
             slave.quit()
 
-        # Wait for the other thread to finish.
+        # Wait for the other threads to finish.
+        twisted_thread.shutdown()
+        twisted_thread.join()
         job.join()
 
 
