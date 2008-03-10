@@ -38,13 +38,10 @@ class SlaveInterface(KeywordsXMLRPC):
     Note that any method not beginning with "xmlrpc_" will be exposed to
     remote hosts.  Any of these can return either a result or a deferred.
     """
-    def __init__(self, slave, worker, **kwds):
-        KeywordsXMLRPC.__init__(self, **kwds)
+    def __init__(self, slave, worker):
+        KeywordsXMLRPC.__init__(self)
         self.slave = slave
         self.worker = worker
-
-    def _listMethods(self):
-        return SimpleXMLRPCServer.list_public_methods(self)
 
     def xmlrpc_start_map(self, taskid, inputs, func_name, part_name, nparts,
             output, extension, cookie):
