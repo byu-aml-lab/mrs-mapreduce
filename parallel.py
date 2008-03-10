@@ -45,6 +45,9 @@ class Parallel(Implementation):
     def run(self):
         import sys
         import master, rpc
+        from twisted.web import server
+        from twisted.internet import reactor
+        from twist import TwistedThread, reactor_call
 
         job = self.job
         job.start()
@@ -53,17 +56,17 @@ class Parallel(Implementation):
         tasks = Supervisor(slaves)
         tasks.job = job
 
-        # Start RPC master server thread
-        interface = master.MasterInterface(slaves, self.registry, self.options)
-        rpc_thread = rpc.RPCThread(interface, self.port)
-        rpc_thread.start()
-        port = rpc_thread.server.socket.getsockname()[1]
-        print >>sys.stderr, "Listening on port %s" % port
-
         # Start Twisted thread
-        from twist import TwistedThread
         twisted_thread = TwistedThread()
         twisted_thread.start()
+
+        # Start RPC master server thread
+        resource = master.MasterInterface(slaves, self.registry, self.options)
+        site = server.Site(resource)
+        tcpport = reactor_call(reactor.listenTCP, self.port, site)
+        address = tcpport.getHost()
+
+        print >>sys.stderr, "Listening on port %s" % address.port
 
         # Drive Slaves:
         while not job.done():
