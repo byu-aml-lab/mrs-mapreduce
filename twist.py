@@ -242,29 +242,35 @@ def block(deferred):
     else:
         assert(False)
 
-class KeywordsXMLRPC(xmlrpc.XMLRPC):
+class RequestXMLRPC(xmlrpc.XMLRPC):
     """Extension of XMLRPC which passes the client to RPC methods."""
-
-    def keywords(self, request):
-        return {}
 
     # We redefine the render function to send in the named parameters.
     def render(self, request):
         request.content.seek(0, 0)
         args, functionPath = xmlrpclib.loads(request.content.read())
-        kwds = self.keywords(request)
         try:
             function = self._getFunction(functionPath)
         except Fault, f:
             self._cbRender(f, request)
         else:
             request.setHeader("content-type", "text/xml")
-            defer.maybeDeferred(function, *args, **kwds).addErrback(
+            if hasattr(function, "uses_request"):
+                args = (request,) + args
+            defer.maybeDeferred(function, *args).addErrback(
                 self._ebRender
             ).addCallback(
                 self._cbRender, request
             )
         return server.NOT_DONE_YET
 
+def uses_request(f):
+    """Decorate f with the attribute `uses_request`.
+
+    When XMLRPC renders the given XML RPC method, it will pass the Request
+    as the first argument.
+    """
+    f.uses_request = True
+    return f
 
 # vim: et sw=4 sts=4

@@ -30,16 +30,16 @@ QUIT_DELAY = 0.5
 
 import threading
 from twisted.internet import reactor
-from twist import TwistedThread, KeywordsXMLRPC
+from twist import TwistedThread, RequestXMLRPC
 
-class SlaveInterface(KeywordsXMLRPC):
+class SlaveInterface(RequestXMLRPC):
     """Public XML RPC Interface
     
     Note that any method not beginning with "xmlrpc_" will be exposed to
     remote hosts.  Any of these can return either a result or a deferred.
     """
     def __init__(self, slave, worker):
-        KeywordsXMLRPC.__init__(self)
+        RequestXMLRPC.__init__(self)
         self.slave = slave
         self.worker = worker
 
