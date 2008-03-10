@@ -31,6 +31,9 @@ PING_STDDEV = 0.1
 
 import threading
 from twisted.internet import reactor
+import xmlrpclib
+from twisted.internet import defer
+from twisted.web import server, xmlrpc
 
 # TODO: Once the master uses TwistedThread for everything, remove setDaemon.
 
@@ -238,5 +241,30 @@ def block(deferred):
         raise ErrbackException(errs[0])
     else:
         assert(False)
+
+class KeywordsXMLRPC(xmlrpc.XMLRPC):
+    """Extension of XMLRPC which passes the client to RPC methods."""
+
+    def keywords(self, request):
+        return {}
+
+    # We redefine the render function to send in the named parameters.
+    def render(self, request):
+        request.content.seek(0, 0)
+        args, functionPath = xmlrpclib.loads(request.content.read())
+        kwds = self.keywords(request)
+        try:
+            function = self._getFunction(functionPath)
+        except Fault, f:
+            self._cbRender(f, request)
+        else:
+            request.setHeader("content-type", "text/xml")
+            defer.maybeDeferred(function, *args, **kwds).addErrback(
+                self._ebRender
+            ).addCallback(
+                self._cbRender, request
+            )
+        return server.NOT_DONE_YET
+
 
 # vim: et sw=4 sts=4
