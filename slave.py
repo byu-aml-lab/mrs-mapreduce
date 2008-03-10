@@ -25,17 +25,16 @@ QUIT_DELAY = 0.5
 
 import threading
 from twisted.internet import reactor
-from twisted.web.xmlrpc import XMLRPC
-from twist import TwistedThread
+from twist import TwistedThread, KeywordsXMLRPC
 
-class SlaveInterface(XMLRPC):
+class SlaveInterface(KeywordsXMLRPC):
     """Public XML RPC Interface
     
     Note that any method not beginning with "xmlrpc_" will be exposed to
     remote hosts.  Any of these can return either a result or a deferred.
     """
     def __init__(self, slave, worker, **kwds):
-        XMLRPC.__init__(self, **kwds)
+        KeywordsXMLRPC.__init__(self, **kwds)
         self.slave = slave
         self.worker = worker
 
@@ -43,17 +42,17 @@ class SlaveInterface(XMLRPC):
         return SimpleXMLRPCServer.list_public_methods(self)
 
     def xmlrpc_start_map(self, taskid, inputs, func_name, part_name, nparts,
-            output, extension, cookie, **kwds):
+            output, extension, cookie):
         self.slave.check_cookie(cookie)
         return self.worker.start_map(taskid, inputs, func_name,
                 part_name, nparts, output, extension)
 
     def xmlrpc_start_reduce(self, taskid, inputs, func_name, part_name,
-            nparts, output, extension, cookie, **kwds):
+            nparts, output, extension, cookie):
         return self.worker.start_reduce(taskid, inputs, func_name,
                 part_name, nparts, output, extension)
 
-    def xmlrpc_quit(self, cookie, **kwds):
+    def xmlrpc_quit(self, cookie):
         self.slave.check_cookie(cookie)
         self.slave.alive = False
         import sys
@@ -63,7 +62,7 @@ class SlaveInterface(XMLRPC):
         reactor.callLater(QUIT_DELAY, lambda: reactor.stop())
         return True
 
-    def xmlrpc_ping(self, **kwds):
+    def xmlrpc_ping(self):
         """Master checking if we're still here.
         """
         return True
