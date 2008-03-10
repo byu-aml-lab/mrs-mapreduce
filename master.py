@@ -19,9 +19,9 @@
 # TODO: Switch to using "with" for locks when we stop supporting pre-2.5.
 # from __future__ import with_statement
 
-from twist import KeywordsXMLRPC
+from twist import RequestXMLRPC, uses_request
 
-class MasterInterface(KeywordsXMLRPC):
+class MasterInterface(RequestXMLRPC):
     """Public XML-RPC Interface
 
     Note that any method not beginning with an underscore will be exposed to
@@ -35,29 +35,24 @@ class MasterInterface(KeywordsXMLRPC):
         functions), and `options` (which is a optparse.Values instance
         containing command-line arguments on the master.
         """
-        KeywordsXMLRPC.__init__(self)
+        RequestXMLRPC.__init__(self)
         self.slaves = slaves
         self.registry = registry
         self.options = options
 
-    def keywords(self, request):
-        """Prepare keyword arguments for all of the xmlprc functions.
-        
-        Extract `host` from the request.
-        """
-        host = request.client.host
-        return {'host': host}
-
-    def xmlrpc_whoami(self, host=None):
+    @uses_request
+    def xmlrpc_whoami(self, request):
         """Return the host of the connecting client.
 
         The client can't always tell which IP address they're actually using
         from the server's perspective.  This solves that problem.
         """
+        host = request.client.host
         return host
 
-    def xmlrpc_signin(self, version, cookie, slave_port, source_hash,
-            reg_hash, host=None):
+    @uses_request
+    def xmlrpc_signin(self, request, version, cookie, slave_port, source_hash,
+            reg_hash):
         """Slave reporting for duty.
 
         It returns the slave_id and option dictionary.  Returns (-1, {}) if
@@ -72,13 +67,14 @@ class MasterInterface(KeywordsXMLRPC):
             # The slaves are running different code than the master is.
             print "Client tried to sign in with nonmatching code."
             return -1, {}
+        host = request.client.host
         slave = self.slaves.new_slave(host, slave_port, cookie)
         if slave is None:
             return -1, {}
         else:
             return (slave.id, self.options.__dict__)
 
-    def xmlrpc_ready(self, slave_id, cookie, **kwds):
+    def xmlrpc_ready(self, slave_id, cookie):
         """Slave is ready for work."""
         slave = self.slaves.get_slave(slave_id, cookie)
         if slave is not None:
@@ -90,7 +86,7 @@ class MasterInterface(KeywordsXMLRPC):
             return False
 
     # TODO: The slave should be specific about what it finished.
-    def xmlrpc_done(self, slave_id, files, cookie, **kwds):
+    def xmlrpc_done(self, slave_id, files, cookie):
         """Slave is done with whatever it was working on.
 
         The output is available in the list of files.
@@ -104,7 +100,7 @@ class MasterInterface(KeywordsXMLRPC):
             print "In done(), slave with id %s not found." % slave_id
             return False
 
-    def xmlrpc_ping(self, slave_id, cookie, **kwds):
+    def xmlrpc_ping(self, slave_id, cookie):
         """Slave checking if we're still here."""
         slave = self.slaves.get_slave(slave_id, cookie)
         if slave:
