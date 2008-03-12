@@ -1,20 +1,25 @@
 # Mrs
-# Copyright 2008 Andrew McNabb <amcnabb-mrs@mcnabbs.org>
+# Copyright 2008 Brigham Young University
 #
 # This file is part of Mrs.
 #
 # Mrs is free software: you can redistribute it and/or modify it under the
-# terms of the GNU Lesser General Public License as published by the Free
-# Software Foundation, either version 3 of the License, or (at your option)
-# any later version.
+# terms of the GNU General Public License as published by the Free Software
+# Foundation, either version 3 of the License, or (at your option) any later
+# version.
 #
 # Mrs is distributed in the hope that it will be useful, but WITHOUT ANY
 # WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-# FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
-# more details.
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
 #
-# You should have received a copy of the GNU Lesser General Public License
-# along with Mrs.  If not, see <http://www.gnu.org/licenses/>.
+# You should have received a copy of the GNU General Public License along with
+# Mrs.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Inquiries regarding any further use of the Materials contained on this site,
+# please contact the Copyright Licensing Office, Brigham Young University,
+# 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
+# copyright@byu.edu.
 
 MAIN_LOOP_WAIT = 2.0
 #SOCKET_TIMEOUT = 5.0
@@ -37,6 +42,7 @@ class Parallel(Implementation):
     def __init__(self, job, registry, options, **kwds):
         Implementation.__init__(self, job, registry, options, **kwds)
         self.port = options.mrs_port
+        self.runfile = options.mrs_runfile
 
     def run(self):
         import sys
@@ -63,10 +69,18 @@ class Parallel(Implementation):
         address = tcpport.getHost()
 
         print >>sys.stderr, "Listening on port %s" % address.port
+        if self.runfile:
+            portfile = open(self.runfile, 'w')
+            print >>portfile, address.port
+            portfile.close()
 
         # Drive Slaves:
         while not job.done():
-            slaves.activity.wait()
+            #slaves.activity.wait()
+            # work around Python bug where waiting on a Lock can't be
+            # interrupted:
+            while not slaves.activity.isSet():
+                slaves.activity.wait(100000)
 
             tasks.check_gone()
             tasks.check_done()
