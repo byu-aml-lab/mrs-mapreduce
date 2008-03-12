@@ -56,7 +56,7 @@ def main():
     # Variables for the job script:
     current_dir = os.getcwd()
     quoted_args = ['"%s"' % arg.replace('"', r'\"') for arg in mrs_args]
-    arg_array = "(%s)" % ",".join(quoted_args)
+    arg_array = "(%s)" % " ".join(quoted_args)
     script_vars = dict(python=PYTHON, program=mrs_program,
             arg_array=arg_array, interface=INTERFACE, jobdir=jobdir,
             current_dir=current_dir, output=options.output)
