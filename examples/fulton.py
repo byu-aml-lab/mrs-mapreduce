@@ -63,7 +63,8 @@ def main():
         parser.error('MRS_PROGRAM not specified.')
 
     # Set up the job directory for output, etc.
-    jobdir = os.path.join(RUN_DIRECTORY, name)
+    jobdir_raw = os.path.join(RUN_DIRECTORY, name)
+    jobdir = os.path.expandvars(jobdir_raw)
     try:
         os.makedirs(jobdir)
     except OSError:
@@ -78,19 +79,19 @@ def main():
     current_dir = os.getcwd()
     quoted_args = ['"%s"' % arg.replace('"', r'\"') for arg in mrs_args]
     arg_array = "(%s)" % ",".join(quoted_args)
-    script_vars = dict(program=mrs_program, arg_array=arg_array,
-            interface=INTERFACE, jobdir=jobdir,
+    script_vars = dict(python=PYTHON, program=mrs_program,
+            arg_array=arg_array, interface=INTERFACE, jobdir=jobdir,
             current_dir=current_dir, output=options.output)
 
     print "Submitting master job...",
-    jobid = submit_master(name, mrs_program, mrs_args)
+    jobid = submit_master(name, script_vars, cmdline, jobdir)
     print " done."
     print "Master jobid:", jobid
 
     script_vars['master_jobid'] = jobid
 
     for i in xrange(options.n):
-        submit_slave(name, script_vars, cmdline)
+        submit_slave(name, script_vars, cmdline, jobdir, jobid)
 
 
 def submit_master(name, script_vars, cmdline, jobdir):
@@ -104,6 +105,7 @@ def submit_master(name, script_vars, cmdline, jobdir):
         cd "%(current_dir)s"
 
         JOBDIR="%(jobdir)s"
+        PYTHON="%(python)s"
         MRS_PROGRAM="%(program)s"
         ARGS=%(arg_array)s
         INTERFACE="%(interface)s"
@@ -140,7 +142,7 @@ def submit_master(name, script_vars, cmdline, jobdir):
     return jobid
 
 
-def submit_slave(name, script_vars, cmdline, jobdir):
+def submit_slave(name, script_vars, cmdline, jobdir, master_jobid):
     """Submit a single slave to PBS using qsub."""
 
     script = r'''#!/bin/bash
@@ -149,6 +151,7 @@ def submit_slave(name, script_vars, cmdline, jobdir):
         cd "%(current_dir)s"
 
         JOBDIR="%(jobdir)s"
+        PYTHON="%(python)s"
         MRS_PROGRAM="%(program)s"
         MASTER_JOBID="%(master_jobid)s"
 
