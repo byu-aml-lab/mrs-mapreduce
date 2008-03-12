@@ -68,7 +68,7 @@ def main():
     script_vars['master_jobid'] = jobid
 
     for i in xrange(options.n):
-        submit_slave(name, script_vars, cmdline, jobdir)
+        submit_slave(name, script_vars, cmdline, jobdir, jobid)
 
 
 def submit_master(name, script_vars, cmdline, jobdir):
@@ -118,7 +118,7 @@ def submit_master(name, script_vars, cmdline, jobdir):
     return jobid
 
 
-def submit_slave(name, script_vars, cmdline, jobdir):
+def submit_slave(name, script_vars, cmdline, jobdir, master_jobid):
     """Submit a single slave to PBS using qsub."""
 
     script = r'''#!/bin/bash
