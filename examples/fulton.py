@@ -41,7 +41,8 @@ def main():
         parser.error('MRS_PROGRAM not specified.')
 
     # Set up the job directory for output, etc.
-    jobdir = os.path.join(RUN_DIRECTORY, name)
+    jobdir_raw = os.path.join(RUN_DIRECTORY, name)
+    jobdir = os.path.expandvars(jobdir_raw)
     try:
         os.makedirs(jobdir)
     except OSError:
