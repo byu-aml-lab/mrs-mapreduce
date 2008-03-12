@@ -57,8 +57,8 @@ def main():
     current_dir = os.getcwd()
     quoted_args = ['"%s"' % arg.replace('"', r'\"') for arg in mrs_args]
     arg_array = "(%s)" % ",".join(quoted_args)
-    script_vars = dict(program=mrs_program, arg_array=arg_array,
-            interface=INTERFACE, jobdir=jobdir,
+    script_vars = dict(python=PYTHON, program=mrs_program,
+            arg_array=arg_array, interface=INTERFACE, jobdir=jobdir,
             current_dir=current_dir, output=options.output)
 
     print "Submitting master job...",
@@ -83,6 +83,7 @@ def submit_master(name, script_vars, cmdline, jobdir):
         cd "%(current_dir)s"
 
         JOBDIR="%(jobdir)s"
+        PYTHON="%(python)s"
         MRS_PROGRAM="%(program)s"
         ARGS=%(arg_array)s
         INTERFACE="%(interface)s"
@@ -128,6 +129,7 @@ def submit_slave(name, script_vars, cmdline, jobdir, master_jobid):
         cd "%(current_dir)s"
 
         JOBDIR="%(jobdir)s"
+        PYTHON="%(python)s"
         MRS_PROGRAM="%(program)s"
         MASTER_JOBID="%(master_jobid)s"
 
