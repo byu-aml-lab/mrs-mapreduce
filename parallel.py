@@ -76,7 +76,11 @@ class Parallel(Implementation):
 
         # Drive Slaves:
         while not job.done():
-            slaves.activity.wait()
+            #slaves.activity.wait()
+            # work around Python bug where waiting on a Lock can't be
+            # interrupted:
+            while not slaves.activity.isSet():
+                slaves.activity.wait(100000)
 
             tasks.check_gone()
             tasks.check_done()
