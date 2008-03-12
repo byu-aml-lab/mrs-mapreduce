@@ -61,14 +61,14 @@ def main():
             current_dir=current_dir, output=options.output)
 
     print "Submitting master job...",
-    jobid = submit_master(name, mrs_program, mrs_args)
+    jobid = submit_master(name, mrs_program, mrs_args, jobdir)
     print " done."
     print "Master jobid:", jobid
 
     script_vars['master_jobid'] = jobid
 
     for i in xrange(options.n):
-        submit_slave(name, script_vars, cmdline)
+        submit_slave(name, script_vars, cmdline, jobdir)
 
 
 def submit_master(name, script_vars, cmdline, jobdir):
