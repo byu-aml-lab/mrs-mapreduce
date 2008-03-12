@@ -210,7 +210,7 @@ def create_parser():
     # We don't want options intended for the Mrs Program to go to Mrs Fulton.
     parser.disable_interspersed_args()
 
-    parser.add_option('-n', dest='n', help='Number of slaves')
+    parser.add_option('-n', dest='n', help='Number of slaves', type='int')
     parser.add_option('-N', '--name', dest='name', help='Name of job')
     parser.add_option('-o', '--output', dest='output', help='Output directory')
     parser.add_option('-t', '--time', dest='time', type='float',
