@@ -61,7 +61,7 @@ def main():
             current_dir=current_dir, output=options.output)
 
     print "Submitting master job...",
-    jobid = submit_master(name, mrs_program, mrs_args, jobdir)
+    jobid = submit_master(name, script_vars, cmdline, jobdir)
     print " done."
     print "Master jobid:", jobid
 
