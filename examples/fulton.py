@@ -122,8 +122,8 @@ def submit_master(name, script_vars, cmdline, jobdir):
         echo $IP_ADDRESS >$HOST_FILE
 
         # Master
-        $PYTHON $MRS_PROGRAM master --mrs-runfile $PORT_FILE ${ARGS[@]} \
-                >$OUTPUT
+        $PYTHON $MRS_PROGRAM master -S "$JOBDIR" --mrs-runfile "$PORT_FILE" \
+                ${ARGS[@]} >$OUTPUT
         ''' % script_vars
 
     cmdline += ['-N', name + QSUB_NAME_MASTER]
