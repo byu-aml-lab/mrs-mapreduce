@@ -132,6 +132,8 @@ def add_master_options(parser):
             help='Shared area for temporary storage (parallel only)')
     parser.add_option('-R', '--mrs-reduce-tasks', dest='mrs_reduce_tasks',
             type='int', help='Default number of reduce tasks (parallel only)')
+    parser.add_option('--mrs-runfile', dest='mrs_runfile',
+            help="Server's RPC port will be written here (parallel only)")
     parser.set_defaults(mrs_reduce_tasks=1, mrs_shared=default_shared)
 
 

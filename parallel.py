@@ -37,6 +37,7 @@ class Parallel(Implementation):
     def __init__(self, job, registry, options, **kwds):
         Implementation.__init__(self, job, registry, options, **kwds)
         self.port = options.mrs_port
+        self.runfile = options.mrs_runfile
 
     def run(self):
         import sys
@@ -63,6 +64,10 @@ class Parallel(Implementation):
         address = tcpport.getHost()
 
         print >>sys.stderr, "Listening on port %s" % address.port
+        if self.runfile:
+            portfile = open(self.runfile, 'w')
+            print >>portfile, address.port
+            portfile.close()
 
         # Drive Slaves:
         while not job.done():
