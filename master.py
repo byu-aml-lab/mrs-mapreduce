@@ -77,7 +77,9 @@ class MasterInterface(RequestXMLRPC):
         if slave is None:
             return -1, {}
         else:
-            return (slave.id, self.options.__dict__)
+            raw_iter = self.options.__dict__.iteritems()
+            optdict = dict((k, v) for k, v in raw_iter if v is not None)
+            return (slave.id, optdict)
 
     def xmlrpc_ready(self, slave_id, cookie):
         """Slave is ready for work."""
