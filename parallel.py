@@ -37,6 +37,7 @@ class Parallel(Implementation):
     def __init__(self, job, registry, options, **kwds):
         Implementation.__init__(self, job, registry, options, **kwds)
         self.port = options.mrs_port
+        self.runfile = options.mrs_runfile
 
     def run(self):
         import sys
@@ -63,10 +64,18 @@ class Parallel(Implementation):
         address = tcpport.getHost()
 
         print >>sys.stderr, "Listening on port %s" % address.port
+        if self.runfile:
+            portfile = open(self.runfile, 'w')
+            print >>portfile, address.port
+            portfile.close()
 
         # Drive Slaves:
         while not job.done():
-            slaves.activity.wait()
+            #slaves.activity.wait()
+            # work around Python bug where waiting on a Lock can't be
+            # interrupted:
+            while not slaves.activity.isSet():
+                slaves.activity.wait(100000)
 
             tasks.check_gone()
             tasks.check_done()
