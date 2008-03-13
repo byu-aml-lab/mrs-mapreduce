@@ -148,8 +148,8 @@ def submit_slave(name, script_vars, cmdline, jobdir, master_jobid):
     # Set the job name
     cmdline += ['-N', name + QSUB_NAME_SLAVE]
     # Start after the master starts:
-    dependency = 'after:%s' % master_jobid
-    cmdline += ['-W', 'depend=%s' % dependency]
+    #dependency = 'after:%s' % master_jobid
+    #cmdline += ['-W', 'depend=%s' % dependency]
     # Set stdout and stderr:
     outfile = os.path.join(jobdir, 'slave_stdout')
     errfile = os.path.join(jobdir, 'slave_stderr')
