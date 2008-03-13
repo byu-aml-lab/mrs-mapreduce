@@ -30,7 +30,7 @@ QUIT_DELAY = 0.5
 
 import threading
 from twisted.internet import reactor
-from twist import TwistedThread, RequestXMLRPC
+from twist import TwistedThread, RequestXMLRPC, GrimReaper
 
 class SlaveInterface(RequestXMLRPC):
     """Public XML RPC Interface
@@ -61,7 +61,8 @@ class SlaveInterface(RequestXMLRPC):
         print >>sys.stderr, "Quitting as requested by an RPC call."
         # We delay before actually stopping because we need to make sure that
         # the response gets sent back.
-        reactor.callLater(QUIT_DELAY, lambda: reactor.stop())
+        reaper = self.worker.reaper
+        reactor.callLater(QUIT_DELAY, lambda: reaper.reap())
         return True
 
     def xmlrpc_ping(self):
@@ -82,27 +83,27 @@ def do_stuff(registry, user_setup, opts):
 
     slave = Slave(registry, user_setup, master)
 
+    reaper = GrimReaper()
+
     # Create threads.
-    worker = Worker(slave, master)
-    io_thread = SlaveIOThread(slave, worker)
+    worker = Worker(slave, master, reaper)
+    io_thread = SlaveIOThread(slave, worker, reaper)
 
     # Start the other threads.
     io_thread.start()
     worker.start()
 
     try:
-        # Under normal circumstances, the reactor will quit on its own.
-
-        while not io_thread.death.isSet():
-            io_thread.death.wait(100000)
-        # Theoretically we should be able to do the following instead of
-        # the above loop.  However, there's a Python bug where
-        # KeyboardInterrupt can't interrupt waiting on a Lock.
-        #io_thread.death.wait()
+        # Note: under normal circumstances, the reactor will quit on its own.
+        reaper.wait()
     except KeyboardInterrupt:
         io_thread.shutdown()
 
+    reactor.stop()
     io_thread.join()
+
+    if reaper.traceback:
+        print reaper.traceback
 
 
 # TODO: when we stop supporting Python older than 2.5, use inlineCallbacks:
@@ -114,17 +115,16 @@ class SlaveIOThread(TwistedThread):
     thread.
     """
 
-    def __init__(self, slave, worker):
+    def __init__(self, slave, worker, reaper):
         TwistedThread.__init__(self)
         self.slave = slave
         self.worker = worker
-
-        self.death = threading.Event()
+        self.reaper = reaper
 
     def die(self, message):
         import sys
         print >>sys.stderr, message
-        reactor.stop()
+        self.reaper.reap()
 
     def run(self):
         """Called when the TwistedThread is first initialized.
@@ -135,7 +135,7 @@ class SlaveIOThread(TwistedThread):
         TwistedThread.run(self)
 
         # Let other threads know that we are quitting.
-        self.death.set()
+        self.reaper.reap()
 
     # state 1
     def signin(self):
@@ -234,13 +234,14 @@ class Worker(threading.Thread):
     This needs to run in a daemon thread rather than in the main thread so
     that it can be killed by other threads.
     """
-    def __init__(self, slave, master):
+    def __init__(self, slave, master, reaper):
         threading.Thread.__init__(self)
         # Die when all other non-daemon threads have exited:
         self.setDaemon(True)
 
         self.slave = slave
         self.master = master
+        self.reaper = reaper
 
         self._task = None
         self._cond = threading.Condition()
@@ -315,7 +316,12 @@ class Worker(threading.Thread):
         self._setup_ready.wait()
         user_setup = self.slave.user_setup
         if user_setup:
-            user_setup(self.options)
+            try:
+                user_setup(self.options)
+            except Exception, e:
+                print "Caught an exception in the Worker thread (in setup)!"
+                self.reaper.reap(e)
+                return
 
         # Alert the Twisted thread that user_setup is done.
         reactor.callFromThread(self._setup_callback)
@@ -328,7 +334,12 @@ class Worker(threading.Thread):
             task = self._task
             self._cond.release()
 
-            task.run()
+            try:
+                task.run()
+            except Exception, e:
+                print "Caught an exception in the Worker thread!"
+                self.reaper.reap(e)
+                return
 
             self._cond.acquire()
             self._task = None

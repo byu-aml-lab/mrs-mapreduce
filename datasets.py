@@ -145,6 +145,8 @@ class DataSet(object):
     >>>
     """
     def __init__(self, sources=0, splits=0, directory=None, format=HexWriter):
+        # TODO: Create the temp directory lazily.  Right now we're getting
+        # _tons_ of unnecessary directories in /tmp!
         if directory is None:
             from tempfile import mkdtemp
             self.directory = mkdtemp()

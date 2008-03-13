@@ -173,6 +173,26 @@ class PingTask(object):
         self._cancel()
 
 
+class GrimReaper(object):
+    """Coordinate the death of threads."""
+    def __init__(self):
+        self.event = threading.Event()
+        self.traceback = None
+
+    def reap(self, exception=None):
+        if exception is not None:
+            import traceback
+            self.traceback = traceback.format_exc()
+        self.event.set()
+
+    def wait(self):
+        while not self.event.isSet():
+            self.event.wait(100000)
+        # Theoretically we should be able to do the following instead of the
+        # above loop.  However, there's a Python bug where KeyboardInterrupt
+        # can't interrupt waiting on a Lock.
+        #self.event.wait()
+
 def reactor_call(f, *args):
     """Call the given function inside the reactor.
 
