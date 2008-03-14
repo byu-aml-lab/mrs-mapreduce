@@ -1,20 +1,25 @@
 # Mrs
-# Copyright 2008 Andrew McNabb <amcnabb-mrs@mcnabbs.org>
+# Copyright 2008 Brigham Young University
 #
 # This file is part of Mrs.
 #
 # Mrs is free software: you can redistribute it and/or modify it under the
-# terms of the GNU Lesser General Public License as published by the Free
-# Software Foundation, either version 3 of the License, or (at your option)
-# any later version.
+# terms of the GNU General Public License as published by the Free Software
+# Foundation, either version 3 of the License, or (at your option) any later
+# version.
 #
 # Mrs is distributed in the hope that it will be useful, but WITHOUT ANY
 # WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-# FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
-# more details.
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
 #
-# You should have received a copy of the GNU Lesser General Public License
-# along with Mrs.  If not, see <http://www.gnu.org/licenses/>.
+# You should have received a copy of the GNU General Public License along with
+# Mrs.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Inquiries regarding any further use of the Materials contained on this site,
+# please contact the Copyright Licensing Office, Brigham Young University,
+# 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
+# copyright@byu.edu.
 
 # TODO: Consider making Slave more asynchronous (and merging the main thread
 # in with the Twisted thread).
@@ -26,6 +31,46 @@ QUIT_DELAY = 0.5
 import threading
 from twisted.internet import reactor
 from twist import TwistedThread, RequestXMLRPC, GrimReaper
+
+
+def slave_main(registry, user_run, user_setup, args, opts):
+    """Run Mrs Slave
+
+    Slave Main is called directly from Mrs Main.  On exit, the process
+    will return slave_main's return value.
+    """
+
+    from twist import FromThreadProxy
+    # Create an RPC proxy to the master's RPC Server.  This will be used
+    # mostly from the Worker thread.
+    master = FromThreadProxy(opts.mrs_master)
+
+    slave = Slave(registry, user_setup, master)
+
+    reaper = GrimReaper()
+
+    # Create threads.
+    worker = Worker(slave, master, reaper)
+    io_thread = SlaveIOThread(slave, worker, reaper)
+
+    # Start the other threads.
+    io_thread.start()
+    worker.start()
+
+    try:
+        # Note: under normal circumstances, the reactor will quit on its own.
+        reaper.wait()
+    except KeyboardInterrupt:
+        io_thread.shutdown()
+
+    reactor.stop()
+    io_thread.join()
+
+    if reaper.traceback:
+        print reaper.traceback
+
+    return 0
+
 
 class SlaveInterface(RequestXMLRPC):
     """Public XML RPC Interface
@@ -68,37 +113,6 @@ class SlaveInterface(RequestXMLRPC):
 
 class CookieValidationError(Exception):
     pass
-
-
-def do_stuff(registry, user_setup, opts):
-    from twist import FromThreadProxy
-    # Create an RPC proxy to the master's RPC Server.  This will be used
-    # mostly from the Worker thread.
-    master = FromThreadProxy(opts.mrs_master)
-
-    slave = Slave(registry, user_setup, master)
-
-    reaper = GrimReaper()
-
-    # Create threads.
-    worker = Worker(slave, master, reaper)
-    io_thread = SlaveIOThread(slave, worker, reaper)
-
-    # Start the other threads.
-    io_thread.start()
-    worker.start()
-
-    try:
-        # Note: under normal circumstances, the reactor will quit on its own.
-        reaper.wait()
-    except KeyboardInterrupt:
-        io_thread.shutdown()
-
-    reactor.stop()
-    io_thread.join()
-
-    if reaper.traceback:
-        print reaper.traceback
 
 
 # TODO: when we stop supporting Python older than 2.5, use inlineCallbacks:
