@@ -32,6 +32,46 @@ import threading
 from twisted.internet import reactor
 from twist import TwistedThread, RequestXMLRPC, GrimReaper
 
+
+def slave_main(registry, user_run, user_setup, args, opts):
+    """Run Mrs Slave
+
+    Slave Main is called directly from Mrs Main.  On exit, the process
+    will return slave_main's return value.
+    """
+
+    from twist import FromThreadProxy
+    # Create an RPC proxy to the master's RPC Server.  This will be used
+    # mostly from the Worker thread.
+    master = FromThreadProxy(opts.mrs_master)
+
+    slave = Slave(registry, user_setup, master)
+
+    reaper = GrimReaper()
+
+    # Create threads.
+    worker = Worker(slave, master, reaper)
+    io_thread = SlaveIOThread(slave, worker, reaper)
+
+    # Start the other threads.
+    io_thread.start()
+    worker.start()
+
+    try:
+        # Note: under normal circumstances, the reactor will quit on its own.
+        reaper.wait()
+    except KeyboardInterrupt:
+        io_thread.shutdown()
+
+    reactor.stop()
+    io_thread.join()
+
+    if reaper.traceback:
+        print reaper.traceback
+
+    return 0
+
+
 class SlaveInterface(RequestXMLRPC):
     """Public XML RPC Interface
     
@@ -73,37 +113,6 @@ class SlaveInterface(RequestXMLRPC):
 
 class CookieValidationError(Exception):
     pass
-
-
-def do_stuff(registry, user_setup, opts):
-    from twist import FromThreadProxy
-    # Create an RPC proxy to the master's RPC Server.  This will be used
-    # mostly from the Worker thread.
-    master = FromThreadProxy(opts.mrs_master)
-
-    slave = Slave(registry, user_setup, master)
-
-    reaper = GrimReaper()
-
-    # Create threads.
-    worker = Worker(slave, master, reaper)
-    io_thread = SlaveIOThread(slave, worker, reaper)
-
-    # Start the other threads.
-    io_thread.start()
-    worker.start()
-
-    try:
-        # Note: under normal circumstances, the reactor will quit on its own.
-        reaper.wait()
-    except KeyboardInterrupt:
-        io_thread.shutdown()
-
-    reactor.stop()
-    io_thread.join()
-
-    if reaper.traceback:
-        print reaper.traceback
 
 
 # TODO: when we stop supporting Python older than 2.5, use inlineCallbacks:

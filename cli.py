@@ -63,22 +63,23 @@ def main(registry, run=None, setup=None, update_parser=None):
         parser.print_help()
         return
     elif mrs_impl == 'master':
-        impl_function = run_master
+        main_function = run_master
         add_master_options(parser)
         if update_parser:
             parser = update_parser(parser)
     elif mrs_impl == 'slave':
-        impl_function = run_slave
+        from slave import slave_main
+        main_function = slave_main
         add_slave_options(parser)
     elif mrs_impl == 'mockparallel':
-        impl_function = run_mockparallel
+        main_function = run_mockparallel
         add_master_options(parser)
         if update_parser:
             parser = update_parser(parser)
     elif mrs_impl == 'serial':
         raise NotImplementedError('The serial implementation is '
                 'temporarily broken.  Sorry.')
-        impl_function = run_serial
+        main_function = run_serial
         add_master_options(parser)
         if update_parser:
             parser = update_parser(parser)
@@ -88,7 +89,7 @@ def main(registry, run=None, setup=None, update_parser=None):
     (options, args) = parser.parse_args(sys.argv[2:])
 
     try:
-        retcode = impl_function(registry, run, setup, args, options)
+        retcode = main_function(registry, run, setup, args, options)
     except KeyboardInterrupt:
         import sys
         print >>sys.stderr, "Interrupted."
@@ -157,12 +158,7 @@ def run_serial(registry, user_run, user_setup, args, opts):
     # Create Job
     job = Job(registry, jobdir, user_run, user_setup, args, opts)
 
-    # TODO: later, don't assume that this is a short-running function:
-    job.run()
-
-    # TODO: this should spin off as another thread while job runs in the
-    # current thread:
-    mrs_exec = Serial(job, registry)
+    mrs_exec = Serial(job, registry, opts)
     mrs_exec.run()
     return 0
 
@@ -202,18 +198,6 @@ def run_master(registry, user_run, user_setup, args, opts):
 
     mrs_exec = Parallel(job, registry, opts)
     mrs_exec.run()
-    return 0
-
-def run_slave(registry, user_run, user_setup, args, opts):
-    """Mrs Slave
-
-    The uri is of the form scheme://username:password@host/target with
-    username and password possibly omitted.
-    """
-    from slave import do_stuff
-
-    do_stuff(registry, user_setup, opts)
-
     return 0
 
 
