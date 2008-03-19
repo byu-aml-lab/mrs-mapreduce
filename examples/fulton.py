@@ -62,6 +62,10 @@ def main():
     else:
         parser.error('MRS_PROGRAM not specified.')
 
+    if os.path.exists(options.output):
+        print >>sys.stderr, "Output file already exists:", options.output
+        sys.exit(-1)
+
     # Set up the job directory for output, etc.
     jobdir_raw = os.path.join(RUN_DIRECTORY, name)
     jobdir = os.path.expandvars(jobdir_raw)
@@ -101,6 +105,9 @@ def submit_master(name, script_vars, cmdline, jobdir):
     """
     script = r'''#!/bin/bash
         . $HOME/.bashrc
+
+        # Output redirection will fail if the file already exists:
+        set noclobber
 
         cd "%(current_dir)s"
 
