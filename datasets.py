@@ -145,16 +145,7 @@ class DataSet(object):
     >>>
     """
     def __init__(self, sources=0, splits=0, directory=None, format=HexWriter):
-        # TODO: Create the temp directory lazily.  Right now we're getting
-        # _tons_ of unnecessary directories in /tmp!
-        if directory is None:
-            from tempfile import mkdtemp
-            self.directory = mkdtemp()
-            self.temp = True
-        else:
-            self.directory = directory
-            self.temp = False
-
+        self.directory = directory
         self.sources = sources
         self.splits = splits
         self.format = format
@@ -190,8 +181,6 @@ class DataSet(object):
         mean it.
         """
         self.closed = True
-        #if self.temp:
-        #    os.removedirs(self.directory)
 
     def dump(self):
         """Write out all of the key-value pairs to files."""
@@ -223,7 +212,10 @@ class DataSet(object):
         '/tmp/source_2_split_4.mrsx'
         >>>
         """
-        import os
+        import os, tempfile
+        # TODO: we should really clean these directories up at some point!
+        if self.directory is None:
+            self.directory = tempfile.mkdtemp()
         filename = "source_%s_split_%s.%s" % (source, split, self.format.ext)
         return os.path.join(self.directory, filename)
 
