@@ -237,7 +237,7 @@ class Slaves(object):
         else:
             slave = self._slaves[slave_id]
 
-        if slave.check_cookie(cookie):
+        if slave is not None and slave.check_cookie(cookie):
             return slave
         else:
             return None
