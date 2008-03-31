@@ -519,10 +519,23 @@ class ComputedData(RemoteData):
         self.tasks_todo.append(task)
 
     def task_finished(self, task):
-        for bucket, url in izip(self[task.taskid, :], task.outurls()):
-            bucket.url = url
-        self.tasks_active.remove(task)
-        self.tasks_done.append(task)
+        if task in self.tasks_active:
+            assert task not in self.tasks_done
+
+            for bucket, url in izip(self[task.taskid, :], task.outurls()):
+                bucket.url = url
+            self.tasks_active.remove(task)
+            self.tasks_done.append(task)
+        else:
+            import sys
+            if task in self.tasks_done:
+                # someone else already did it
+                print >>sys.stderr, "Warning: two slaves completed the same task!"
+            else:
+                # someone else already did it
+                print >>sys.stderr, "Warning: an inactive task was finished!"
+            return
+
 
     def close(self):
         """Close DataSet for future use.

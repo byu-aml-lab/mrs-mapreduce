@@ -177,6 +177,10 @@ class RemoteSlave(object):
     def update_timestamp(self):
         """Set the timestamp to the current time."""
         from datetime import datetime
+        if not self.alive():
+            import sys
+            print >>sys.stderr, ("Warning: updating the timestamp of a slave"
+                    " we thought was dead!")
         self.timestamp = datetime.utcnow()
 
     def timestamp_since(self, other):
