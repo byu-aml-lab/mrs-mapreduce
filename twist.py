@@ -167,6 +167,7 @@ class PingTask(object):
 
     def _errback(self, failure):
         """Called when the slave fails to respond to a ping."""
+        print failure
         self._update_timestamp()
         self.slave.rpc_failure()
         self.running = False
