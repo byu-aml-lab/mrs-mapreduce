@@ -136,8 +136,8 @@ class RemoteSlave(object):
         uri = "http://%s:%s" % (host, port)
         self.rpc = FromThreadProxy(uri)
 
-        self.update_timestamp()
         self._alive = True
+        self.update_timestamp()
 
         from twist import PingTask
         self.ping_task = PingTask(self)
