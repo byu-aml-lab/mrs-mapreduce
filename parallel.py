@@ -21,10 +21,7 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
-MAIN_LOOP_WAIT = 2.0
-#SOCKET_TIMEOUT = 5.0
-SOCKET_TIMEOUT = 10.0
-PING_LOOP_WAIT = 1.0
+SOCKET_TIMEOUT = 20.0
 
 import socket, threading
 from mapreduce import Implementation
