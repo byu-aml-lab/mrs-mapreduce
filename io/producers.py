@@ -16,8 +16,7 @@
 # You should have received a copy of the GNU General Public License along with
 # Mrs.  If not, see <http://www.gnu.org/licenses/>.
 
-#BLOCKSIZE = 1000
-BLOCKSIZE = 100
+BLOCKSIZE = 1000
 
 from twisted.internet import defer, reactor, abstract, interfaces, main
 from zope.interface import implements
@@ -30,6 +29,7 @@ class FileProducer(object):
     >>> FILENAME = '/etc/passwd'
     >>> consumer = TestConsumer()
     >>> producer = FileProducer(FILENAME, consumer)
+    >>> producer.blocksize = 100
     >>> reactor.run()
     >>>
 
@@ -46,12 +46,13 @@ class FileProducer(object):
 
     implements(interfaces.IPushProducer, interfaces.IReadDescriptor)
 
+    blocksize = BLOCKSIZE
+
     def __init__(self, filename, consumer):
         super(FileProducer, self).__init__()
 
         self.file = open(filename)
         self.fdnum = self.file.fileno()
-        self.connected = True
 
         consumer.registerProducer(self, streaming=True)
         self.consumer = consumer
@@ -64,8 +65,7 @@ class FileProducer(object):
         To avoid blocking, read() will only be called once on the underlying
         file object.
         """
-        # TODO!!!!!!!
-        newdata = self.file.read(BLOCKSIZE)
+        newdata = self.file.read(self.blocksize)
         if newdata:
             self.consumer.write(newdata)
         else:
