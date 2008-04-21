@@ -287,7 +287,9 @@ class Slaves(object):
         self._lock.acquire()
         if slave.id >= len(self._slaves) or self._slaves[slave.id] is None:
             self._lock.release()
-            raise RuntimeError("Slave does not exist!")
+            import sys
+            print >>sys.stderr, ("Nonexistent slave can't be pushed to "
+                    "the idle queue!")
         if slave not in self._idle_slaves:
             self._idle_slaves.append(slave)
         self._idle_sem.release()
