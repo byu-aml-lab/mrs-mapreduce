@@ -16,6 +16,8 @@
 # You should have received a copy of the GNU General Public License along with
 # Mrs.  If not, see <http://www.gnu.org/licenses/>.
 
+# If BLOCKSIZE is too big, then latency will be high; if it's too low, then
+# throughput will be low.
 BLOCKSIZE = 1000
 
 from twisted.internet import defer, reactor, abstract, interfaces, main
@@ -115,6 +117,46 @@ class FileProducer(object):
     def logPrefix(self):
         return 'FileProducer'
 
+
+class HTTPClientProducer(HTTPClientFactory):
+    """Twisted protocol factory which serves as a Push Producer
+    """
+    implements(interfaces.IPushProducer)
+
+    def __init__(self, url, consumer, method='GET', postdata=None,
+            headers=None):
+        self.requestedPartial = 0
+        HTTPClientFactory.__init__(self, url, method=method,
+                postdata=postdata, headers=headers, agent='Mrs')
+
+        consumer.registerProducer(self, streaming=True)
+        self.consumer = consumer
+
+    def pageStart(self, partialContent):
+        # FIXME
+        assert(not partialContent or self.requestedPartial)
+        if self.waiting:
+            self.waiting = 0
+
+    def pagePart(self, data):
+        self.consumer.write(data)
+
+    def pageEnd(self):
+        self.consumer.unregisterProducer()
+
+    def pauseProducing(self):
+        #self.stop_reading()
+        pass
+
+    def resumeProducing(self):
+        #self.start_reading()
+        pass
+
+    def stopProducing(self):
+        #from twisted.python import failure
+        #connDone = failure.Failure(main.CONNECTION_DONE)
+        #self.connectionLost(connDone)
+        pass
 
 class TestConsumer(object):
     """Simple consumer for doctests."""
