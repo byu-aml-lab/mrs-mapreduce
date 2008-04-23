@@ -31,6 +31,8 @@ receive the client object.
 Most Mrs code uses FromThreadProxy and RequestXMLRPC.
 """
 
+DEFAULT_TIMEOUT = 10.0
+
 import xmlrpclib
 from twisted.web import server, xmlrpc
 from twisted.internet import reactor, defer
@@ -114,10 +116,10 @@ class TimeoutProxy(xmlrpc.Proxy):
 class FromThreadProxy(object):
     """XMLRPC Proxy that operates in a separate thread from the reactor."""
 
-    def __init__(self, url):
+    def __init__(self, url, timeout=DEFAULT_TIMEOUT):
         #from twisted.web import xmlrpc
         from util import rpc_url
-        self.proxy = TimeoutProxy(rpc_url(url))
+        self.proxy = TimeoutProxy(rpc_url(url), timeout=DEFAULT_TIMEOUT)
 
     def blocking_call(self, *args):
         """Make a blocking XML RPC call to a remote server."""

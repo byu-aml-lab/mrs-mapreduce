@@ -21,14 +21,8 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
-SOCKET_TIMEOUT = 10.0
-
-import socket, threading
+import threading
 from mapreduce import Implementation
-
-# NOTE: This is a _global_ setting:
-socket.setdefaulttimeout(SOCKET_TIMEOUT)
-
 
 # TODO: make this asynchronous
 class Parallel(Implementation):
