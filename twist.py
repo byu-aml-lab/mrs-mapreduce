@@ -31,9 +31,7 @@ PING_STDDEV = 0.1
 
 import threading
 from twisted.internet import reactor
-import xmlrpclib
 from twisted.internet import defer
-from twisted.web import server, xmlrpc
 
 # TODO: Once the master uses TwistedThread for everything, remove setDaemon.
 
@@ -70,30 +68,6 @@ class TwistedThread(threading.Thread):
         After shutdown, the thread still needs to be joined.
         """
         reactor.callFromThread(reactor.stop)
-
-class FromThreadProxy(object):
-    """XMLRPC Proxy that operates in a separate thread from the reactor."""
-
-    def __init__(self, url):
-        from twisted.web import xmlrpc
-        from util import rpc_url
-        self.proxy = xmlrpc.Proxy(rpc_url(url))
-
-    def blocking_call(self, *args):
-        """Make a blocking XML RPC call to a remote server."""
-        # pause between 'blocking call' and 'calling'
-        deferred = self.deferred_call(*args)
-        result = block(deferred)
-        return result
-
-    def deferred_call(self, *args):
-        """Make a deferred XML RPC call to a remote server."""
-        deferred = reactor_call(self.proxy.callRemote, *args)
-        return deferred
-
-    def callRemote(self, *args):
-        """Make a deferred XML RPC call *from the reactor thread*."""
-        return self.proxy.callRemote(*args)
 
 
 # TODO: make it so the slave can use this, too
@@ -262,36 +236,5 @@ def block(deferred):
         raise ErrbackException(errs[0])
     else:
         assert(False)
-
-class RequestXMLRPC(xmlrpc.XMLRPC):
-    """Extension of XMLRPC which passes the client to RPC methods."""
-
-    # We redefine the render function to send in the named parameters.
-    def render(self, request):
-        request.content.seek(0, 0)
-        args, functionPath = xmlrpclib.loads(request.content.read())
-        try:
-            function = self._getFunction(functionPath)
-        except Fault, f:
-            self._cbRender(f, request)
-        else:
-            request.setHeader("content-type", "text/xml")
-            if hasattr(function, "uses_request"):
-                args = (request,) + args
-            defer.maybeDeferred(function, *args).addErrback(
-                self._ebRender
-            ).addCallback(
-                self._cbRender, request
-            )
-        return server.NOT_DONE_YET
-
-def uses_request(f):
-    """Decorate f with the attribute `uses_request`.
-
-    When XMLRPC renders the given XML RPC method, it will pass the Request
-    as the first argument.
-    """
-    f.uses_request = True
-    return f
 
 # vim: et sw=4 sts=4

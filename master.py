@@ -24,7 +24,7 @@
 # TODO: Switch to using "with" for locks when we stop supporting pre-2.5.
 # from __future__ import with_statement
 
-from twist import RequestXMLRPC, uses_request
+from twistrpc import RequestXMLRPC, uses_request
 
 class MasterInterface(RequestXMLRPC):
     """Public XML-RPC Interface
@@ -132,7 +132,7 @@ class RemoteSlave(object):
         # An event that is set if activity happens in any of the slaves.
         self.activity = activity
 
-        from twist import FromThreadProxy
+        from twistrpc import FromThreadProxy
         uri = "http://%s:%s" % (host, port)
         self.rpc = FromThreadProxy(uri)
 

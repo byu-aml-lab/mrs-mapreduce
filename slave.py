@@ -30,7 +30,8 @@ QUIT_DELAY = 0.5
 
 import threading
 from twisted.internet import reactor
-from twist import TwistedThread, RequestXMLRPC, GrimReaper
+from twist import TwistedThread, GrimReaper
+from twistrpc import RequestXMLRPC
 
 
 def slave_main(registry, user_run, user_setup, args, opts):
@@ -40,7 +41,7 @@ def slave_main(registry, user_run, user_setup, args, opts):
     will return slave_main's return value.
     """
 
-    from twist import FromThreadProxy
+    from twistrpc import FromThreadProxy
     # Create an RPC proxy to the master's RPC Server.  This will be used
     # mostly from the Worker thread.
     master = FromThreadProxy(opts.mrs_master)
