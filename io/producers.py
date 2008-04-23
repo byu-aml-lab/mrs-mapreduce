@@ -20,6 +20,10 @@
 # throughput will be low.
 BLOCKSIZE = 1000
 
+TEST_HOST = 'cs.byu.edu'
+TEST_PORT = 80
+
+from twisted.web.client import HTTPClientFactory, HTTPPageDownloader
 from twisted.internet import defer, reactor, abstract, interfaces, main
 from zope.interface import implements
 
@@ -118,45 +122,108 @@ class FileProducer(object):
         return 'FileProducer'
 
 
-class HTTPClientProducer(HTTPClientFactory):
+class HTTPClientProducerProtocol(HTTPPageDownloader):
+    """A varient of HTTPPageDownloader that lets you limit the buffer size."""
+
+    def connectionMade(self):
+        self.transport.bufferSize = self.factory.blocksize
+        HTTPPageDownloader.connectionMade(self)
+
+    def lineReceived(self, line):
+        import sys
+        print >>sys.stderr, 'lineReceived:', line
+        HTTPPageDownloader.lineReceived(self, line)
+
+    def handleEndHeaders(self):
+        import sys
+        print >>sys.stderr, 'handleEndHeaders:'
+        HTTPPageDownloader.handleEndHeaders(self)
+
+
+class HTTPClientProducerFactory(HTTPClientFactory):
     """Twisted protocol factory which serves as a Push Producer
+
+    Set up the URL we will use for testing:
+    >>> import sys
+    >>> print >>sys.stderr, 'hi'
+    >>> url = 'http://%s:%s/' % (TEST_HOST, TEST_PORT)
+    >>>
+
+
+    >>> consumer = TestConsumer()
+    >>> factory = HTTPClientProducerFactory(url, consumer)
+    >>> connector = reactor.connectTCP(TEST_HOST, TEST_PORT, factory)
+    >>> factory.blocksize = 100
+    >>> reactor.run()
+    >>> print 'done'
+    >>>
+
+    After downloading completes, the TestConsumer should have killed the
+    reactor.  So, at this point, all of the data from the file should be
+    in consumer.buffer.  Now we just need to make sure that the buffer
+    contains the correct contents.
+
+    >>> import urllib
+    >>> real_data = urllib.open(url).read()
+    >>> real_data == consumer.buffer
+    True
+    >>>
     """
     implements(interfaces.IPushProducer)
 
-    def __init__(self, url, consumer, method='GET', postdata=None,
-            headers=None):
-        self.requestedPartial = 0
-        HTTPClientFactory.__init__(self, url, method=method,
-                postdata=postdata, headers=headers, agent='Mrs')
+    blocksize = BLOCKSIZE
+    protocol = HTTPClientProducerProtocol
 
-        consumer.registerProducer(self, streaming=True)
+    def __init__(self, url, consumer, **kwds):
+        HTTPClientFactory.__init__(self, url, **kwds)
+
         self.consumer = consumer
+        self.consumer.registerProducer(self, streaming=True)
+
+    def buildProtocol(self, addr):
+        import sys
+        print >>sys.stderr, 'buildProtocol'
+        self.protocol_instance = HTTPClientFactory.buildProtocol(self, addr)
+        return self.protocol_instance
 
     def pageStart(self, partialContent):
-        # FIXME
-        assert(not partialContent or self.requestedPartial)
+        """Called by the protocol instance when connection starts."""
         if self.waiting:
             self.waiting = 0
 
     def pagePart(self, data):
+        """Called by the protocol instance when a piece of data arrives."""
+        import sys
+        print >>sys.stderr, 'pagePart'
+        print >>sys.stderr, data
         self.consumer.write(data)
 
     def pageEnd(self):
+        """Called by the protocol instance when downloading is complete."""
+        import sys
+        print >>sys.stderr, 'pageEnd'
         self.consumer.unregisterProducer()
+        self.deferred.callback(None)
+
+    def noPage(self, reason):
+        """Called by the protocol instance when an error occurs."""
+        import sys
+        print >>sys.stderr, 'noPage'
+        self.consumer.unregisterProducer()
+        self.deferred.errback(reason)
 
     def pauseProducing(self):
-        #self.stop_reading()
-        pass
+        """Called to pause streaming to the consumer."""
+        self.protocol_instance.transport.stopReading()
 
     def resumeProducing(self):
-        #self.start_reading()
-        pass
+        """Called to unpause streaming to the consumer."""
+        self.protocol_instance.transport.startReading()
 
     def stopProducing(self):
-        #from twisted.python import failure
-        #connDone = failure.Failure(main.CONNECTION_DONE)
-        #self.connectionLost(connDone)
-        pass
+        """Called to ask the producer to die."""
+        self.protocol_instance.transport.loseConnection()
+
 
 class TestConsumer(object):
     """Simple consumer for doctests."""
@@ -172,6 +239,8 @@ class TestConsumer(object):
 
     def unregisterProducer(self):
         self.producer = None
+        import sys
+        print >>sys.stderr, "unregisterProducer"
         reactor.stop()
 
     def write(self, data):
