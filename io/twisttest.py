@@ -19,6 +19,39 @@
 from twisted.internet import reactor, interfaces
 from zope.interface import implements
 
+class TestProducer(object):
+    """Simple producer for tests.
+
+    It sends the data in chunks of the specified size.
+    """
+
+    implements(interfaces.IPushProducer)
+
+    def __init__(self, data, consumer, size=None):
+        self.data = data
+        self.size = size
+        self.consumer = consumer
+        self.consumer.registerProducer(self, streaming=True)
+
+    def push(self):
+        """Push the data."""
+        if self.size:
+            chunk = self.data[0:size]
+            self.data = self.data[size:]
+        else:
+            chunk = self.data
+            self.data = ''
+        self.consumer.write(chunk)
+
+    def pauseProducing(self):
+        pass
+
+    def resumeProducing(self):
+        pass
+
+    def stopProducing(self):
+        pass
+
 
 class TestConsumer(object):
     """Simple consumer for doctests."""
@@ -39,6 +72,16 @@ class TestConsumer(object):
         self.buffer += data
         if not self.streaming:
             self.producer.resumeProducing()
+
+
+class TestBucket(object):
+    """Simple test class that looks like a Bucket."""
+    def __init__(self):
+        self.data = []
+
+    def collect(self, itr):
+        for k, v in itr:
+            self.data.append((k, v))
 
 
 def pause_reactor(value):
