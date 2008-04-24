@@ -28,7 +28,7 @@
 from heapq import heappush
 from itertools import chain, izip
 
-from io import HexWriter
+from io import HexWriter, fillbucket
 
 
 # TODO: cache data to disk when memory usage is high
@@ -341,7 +341,6 @@ class RemoteData(DataSet):
         # TODO: set a maximum number of files to read at the same time (do we
         # really want to have 500 sockets open at once?)
 
-        from io import openreader
         import threading
         from twisted.internet import reactor
 
@@ -367,10 +366,9 @@ class RemoteData(DataSet):
         for bucket in self:
             url = bucket.url
             if url:
-                reader = openreader(url)
-                #reader.buf.deferred.addCallback(self.callback, bucket, reader)
-                reactor.callFromThread(reader.buf.deferred.addCallback,
-                        self.callback, bucket, reader)
+                deferred = fillbucket(url, bucket)
+                reactor.callFromThread(deferred.addCallback,
+                        self.callback, bucket)
                 self._needed_buckets.add(bucket)
 
         if self._needed_buckets:
@@ -379,18 +377,16 @@ class RemoteData(DataSet):
 
         self._download_done.release()
 
-    def callback(self, eof, bucket, reader):
+    def callback(self, eof, bucket):
         """Called by Twisted when data are available for reading."""
-        bucket.collect(reader)
-        if eof:
-            self._download_done.acquire()
-            self._ready_buckets.add(bucket)
-            if len(self._ready_buckets) == len(self._needed_buckets):
-                self._download_done.notify()
-                #from twisted.internet import reactor
-                # Note that we can't do reactor.run() twice, so we cheat.
-                #reactor.running = False
-            self._download_done.release()
+        self._download_done.acquire()
+        self._ready_buckets.add(bucket)
+        if len(self._ready_buckets) == len(self._needed_buckets):
+            self._download_done.notify()
+            #from twisted.internet import reactor
+            # Note that we can't do reactor.run() twice, so we cheat.
+            #reactor.running = False
+        self._download_done.release()
 
     def errback(self, value):
         # TODO: write me

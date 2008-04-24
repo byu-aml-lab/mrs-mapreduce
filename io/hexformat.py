@@ -21,12 +21,14 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
-from textformat import TextReader, TextWriter
+from consumer import LineConsumer
+from textformat import TextWriter
 from itertools import islice
+import twisttest
 
 # TODO: sort should just sort on the first field
 
-class HexReader(TextReader):
+class HexConsumer(LineConsumer):
     """A key-value store using ASCII hexadecimal encoding
 
     Initialize with a Mrs Buffer.
@@ -34,44 +36,26 @@ class HexReader(TextReader):
     TODO: we might as well base64-encode the value, rather than hex-encoding
     it, since it doesn't need to be sortable.
 
-    Create a file-like object to play around with:
-    >>> from cStringIO import StringIO
-    >>> infile = StringIO("4b6579 56616c7565\\n")
+    Create a consumer and producer.
+    >>> data = "4b6579 56616c7565\\n"
+    >>> bucket = twisttest.TestBucket()
+    >>> consumer = HexConsumer(bucket)
+    >>> producer = twisttest.TestProducer(data, consumer)
     >>>
 
-    Create a buffer from this file-like object and read into the buffer:
-    >>> from buffer import Buffer
-    >>> buf = Buffer(infile)
-    >>> buf.doRead()
-    >>>
-
-    >>> hex = HexReader(buf)
-    >>> hex.readpair()
+    >>> producer.push()
+    >>> len(bucket.data)
+    1
+    >>> bucket.data[0]
     ('Key', 'Value')
-    >>> hex.readpair()
     >>>
     """
 
-    def __init__(self, buf):
-        super(HexReader, self).__init__(buf)
-
-    def readpair(self):
-        """Return the next key-value pair from the HexFormat or None if EOF."""
-        line = self.buf.readline()
-        if line:
+    def __iter__(self):
+        """Iterate over key-value pairs."""
+        for line in self.lines():
             key, value = [dehex(field) for field in line.split()]
-            return (key, value)
-        else:
-            return None
-
-    def next(self):
-        """Return the next key-value pair or raise StopIteration if EOF."""
-        line = self.buf.readline()
-        if line is None:
-            raise StopIteration
-        else:
-            key, value = [dehex(field) for field in line.split()]
-            return (key, value)
+            yield (key, value)
 
 
 class HexWriter(TextWriter):

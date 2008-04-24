@@ -22,18 +22,19 @@
 # copyright@byu.edu.
 
 import twisttest
-from textformat import TextReader, TextWriter
-from hexformat import HexReader, HexWriter, hexformat_sort
+from consumer import LineConsumer
+from textformat import TextWriter
+from hexformat import HexConsumer, HexWriter, hexformat_sort
 
 reader_map = {
-        'txt': TextReader,
-        'mrsx': HexReader,
+        #'mtxt': TextConsumer,
+        'mrsx': HexConsumer,
         }
 writer_map = {
-        'txt': TextWriter,
+        'mtxt': TextWriter,
         'mrsx': HexWriter,
         }
-default_format = TextReader
+default_format = LineConsumer
 
 def writerformat(extension):
     return writer_map[extension]
@@ -47,12 +48,16 @@ def fileformat(filename):
     extension = extension[1:]
     return reader_map.get(extension, default_format)
 
-def openreader(url):
-    """Open a url or file and wrap an input format around it.
+def fillbucket(url, bucket):
+    """Open a url or file and start writing it to a bucket.
+
+    This will return a deferred that will be called back when the writing
+    is completed.
     """
-    buf = openbuf(url)
-    format = fileformat(url)
-    return format(buf)
+    consumer_cls = fileformat(url)
+    consumer = consumer_cls(bucket)
+    deferred = urlconsume(url, consumer)
+    return deferred
 
 def urlconsume(url, consumer):
     """Open a url and start streaming its contents to a consumer.
@@ -83,7 +88,7 @@ def urlconsume(url, consumer):
 
     u = urlparse.urlsplit(url, 'file')
     if u.scheme == 'file':
-        producer = FileProducer(u.path)
+        producer = FileProducer(u.path, consumer)
         deferred = producer.deferred
     elif u.scheme in ('http', 'https'):
         from twisted.internet import reactor
