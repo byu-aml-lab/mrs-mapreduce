@@ -33,29 +33,6 @@ def try_makedirs(path):
         if e.errno != errno.EEXIST:
             raise
 
-def rpc_url(urlstring):
-    """Tidy a URL to be used to connect to an XML RPC server.
-
-    >>> rpc_url('http://localhost')
-    'http://localhost/RPC2'
-    >>> rpc_url('http://localhost/')
-    'http://localhost/RPC2'
-    >>> rpc_url('http://localhost/path/to/xmlrpc')
-    'http://localhost/path/to/xmlrpc'
-    >>> rpc_url('localhost/path/to/xmlrpc')
-    'http://localhost/path/to/xmlrpc'
-    >>>
-    """
-    from urlparse import urlsplit, urlunsplit
-
-    if '://' not in urlstring:
-        urlstring = 'http://' + urlstring
-
-    scheme, netloc, path, query, fragment = urlsplit(urlstring)
-    if not path and not query and not fragment:
-        path = '/RPC2'
-    return urlunsplit((scheme, netloc, path, query, fragment))
-
 
 if __name__ == '__main__':
     import doctest

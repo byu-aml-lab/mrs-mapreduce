@@ -118,7 +118,6 @@ class FromThreadProxy(object):
 
     def __init__(self, url, timeout=DEFAULT_TIMEOUT):
         #from twisted.web import xmlrpc
-        from util import rpc_url
         self.proxy = TimeoutProxy(rpc_url(url), timeout=DEFAULT_TIMEOUT)
 
     def blocking_call(self, *args):
@@ -136,6 +135,30 @@ class FromThreadProxy(object):
     def callRemote(self, *args):
         """Make a deferred XML RPC call *from the reactor thread*."""
         return self.proxy.callRemote(*args)
+
+
+def rpc_url(urlstring):
+    """Tidy a URL to be used to connect to an XML RPC server.
+
+    >>> rpc_url('http://localhost')
+    'http://localhost/RPC2'
+    >>> rpc_url('http://localhost/')
+    'http://localhost/RPC2'
+    >>> rpc_url('http://localhost/path/to/xmlrpc')
+    'http://localhost/path/to/xmlrpc'
+    >>> rpc_url('localhost/path/to/xmlrpc')
+    'http://localhost/path/to/xmlrpc'
+    >>>
+    """
+    from urlparse import urlsplit, urlunsplit
+
+    if '://' not in urlstring:
+        urlstring = 'http://' + urlstring
+
+    scheme, netloc, path, query, fragment = urlsplit(urlstring)
+    if not path and not query and not fragment:
+        path = '/RPC2'
+    return urlunsplit((scheme, netloc, path, query, fragment))
 
 
 class RequestXMLRPC(xmlrpc.XMLRPC):
