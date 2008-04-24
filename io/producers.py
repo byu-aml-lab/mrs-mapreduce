@@ -37,8 +37,8 @@ class FileProducer(object):
     >>> consumer = TestConsumer()
     >>> producer = FileProducer(FILENAME, consumer)
     >>> producer.blocksize = 100
-    >>> reactor.running = True
-    >>> reactor.mainLoop()
+    >>> d = producer.deferred.addBoth(pause_reactor)
+    >>> resume_reactor()
     >>>
 
     After EOF in the FileProducer, the TestConsumer should have killed the
@@ -61,6 +61,8 @@ class FileProducer(object):
 
         self.file = open(filename)
         self.fdnum = self.file.fileno()
+        self.deferred = defer.Deferred()
+        self.eof = False
 
         consumer.registerProducer(self, streaming=True)
         self.consumer = consumer
@@ -78,6 +80,7 @@ class FileProducer(object):
             self.consumer.write(newdata)
         else:
             # end-of-file
+            self.eof = True
             return main.CONNECTION_DONE
 
     def start_reading(self):
@@ -115,6 +118,10 @@ class FileProducer(object):
     def connectionLost(self, reason):
         self.stop_reading()
         self.consumer.unregisterProducer()
+        if self.eof:
+            self.deferred.callback(None)
+        else:
+            self.deferred.errback(reason)
 
         # Cleanup
         self.file.close()
@@ -136,7 +143,6 @@ class HTTPClientProducerFactory(HTTPClientFactory):
     """Twisted protocol factory which serves as a Push Producer
 
     Set up the URL we will use for testing:
-    >>> import sys
     >>> url = 'http://%s:%s/' % (TEST_HOST, TEST_PORT)
     >>>
 
@@ -145,8 +151,8 @@ class HTTPClientProducerFactory(HTTPClientFactory):
     >>> factory = HTTPClientProducerFactory(url, consumer)
     >>> connector = reactor.connectTCP(TEST_HOST, TEST_PORT, factory)
     >>> factory.blocksize = 100
-    >>> reactor.running = True
-    >>> reactor.mainLoop()
+    >>> d = factory.deferred.addBoth(pause_reactor)
+    >>> resume_reactor()
     >>>
 
     After downloading completes, the TestConsumer should have killed the
@@ -176,7 +182,6 @@ class HTTPClientProducerFactory(HTTPClientFactory):
 
     def buildProtocol(self, addr):
         import sys
-        print >>sys.stderr, 'buildProtocol'
         self.protocol_instance = HTTPClientFactory.buildProtocol(self, addr)
         return self.protocol_instance
 
@@ -188,13 +193,11 @@ class HTTPClientProducerFactory(HTTPClientFactory):
     def pagePart(self, data):
         """Called by the protocol instance when a piece of data arrives."""
         import sys
-        #print >>sys.stderr, 'pagePart'
         self.consumer.write(data)
 
     def pageEnd(self):
         """Called by the protocol instance when downloading is complete."""
         import sys
-        #print >>sys.stderr, 'pageEnd'
         self.in_progress = False
         self.consumer.unregisterProducer()
         self.deferred.callback(None)
@@ -202,7 +205,6 @@ class HTTPClientProducerFactory(HTTPClientFactory):
     def noPage(self, reason):
         """Called by the protocol instance when an error occurs."""
         import sys
-        #print >>sys.stderr, 'noPage'
         self.consumer.unregisterProducer()
         if self.in_progress:
             self.deferred.errback(reason)
@@ -234,10 +236,6 @@ class TestConsumer(object):
 
     def unregisterProducer(self):
         self.producer = None
-        import sys
-        #print >>sys.stderr, "unregisterProducer"
-        #reactor.stop()
-        reactor.running = False
 
     def write(self, data):
         self.buffer += data
@@ -245,13 +243,34 @@ class TestConsumer(object):
             self.producer.resumeProducing()
 
 
+def pause_reactor(value):
+    """A callback function that temporarily stops the Twisted reactor.
+    
+    Used for doctests.
+    """
+    #print 'temporarily stopping the reactor'
+    reactor.running = False
+    return value
+
+def resume_reactor():
+    """Unpause the reactor.
+
+    Used for doctests.
+    """
+    reactor.running = True
+    reactor.mainLoop()
+
 def test():
     import doctest
     #reactor.startRunning(installSignalHandlers=False)
     reactor.startRunning()
     reactor.running = False
+    # Run tests:
     doctest.testmod()
-    print 'done with testmod'
+    # Cleanup reactor:
+    reactor.running = True
+    reactor.stop()
+    reactor.mainLoop()
 
 if __name__ == "__main__":
     test()
