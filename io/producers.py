@@ -20,6 +20,7 @@
 # throughput will be low.
 BLOCKSIZE = 1000
 
+#TEST_HOST = 'www.mcnabbs.org'
 TEST_HOST = 'cs.byu.edu'
 TEST_PORT = 80
 
@@ -36,7 +37,8 @@ class FileProducer(object):
     >>> consumer = TestConsumer()
     >>> producer = FileProducer(FILENAME, consumer)
     >>> producer.blocksize = 100
-    >>> reactor.run()
+    >>> reactor.running = True
+    >>> reactor.mainLoop()
     >>>
 
     After EOF in the FileProducer, the TestConsumer should have killed the
@@ -129,23 +131,12 @@ class HTTPClientProducerProtocol(HTTPPageDownloader):
         self.transport.bufferSize = self.factory.blocksize
         HTTPPageDownloader.connectionMade(self)
 
-    def lineReceived(self, line):
-        import sys
-        print >>sys.stderr, 'lineReceived:', line
-        HTTPPageDownloader.lineReceived(self, line)
-
-    def handleEndHeaders(self):
-        import sys
-        print >>sys.stderr, 'handleEndHeaders:'
-        HTTPPageDownloader.handleEndHeaders(self)
-
 
 class HTTPClientProducerFactory(HTTPClientFactory):
     """Twisted protocol factory which serves as a Push Producer
 
     Set up the URL we will use for testing:
     >>> import sys
-    >>> print >>sys.stderr, 'hi'
     >>> url = 'http://%s:%s/' % (TEST_HOST, TEST_PORT)
     >>>
 
@@ -154,8 +145,8 @@ class HTTPClientProducerFactory(HTTPClientFactory):
     >>> factory = HTTPClientProducerFactory(url, consumer)
     >>> connector = reactor.connectTCP(TEST_HOST, TEST_PORT, factory)
     >>> factory.blocksize = 100
-    >>> reactor.run()
-    >>> print 'done'
+    >>> reactor.running = True
+    >>> reactor.mainLoop()
     >>>
 
     After downloading completes, the TestConsumer should have killed the
@@ -164,9 +155,11 @@ class HTTPClientProducerFactory(HTTPClientFactory):
     contains the correct contents.
 
     >>> import urllib
-    >>> real_data = urllib.open(url).read()
+    >>> real_data = urllib.urlopen(url).read()
     >>> real_data == consumer.buffer
     True
+    >>> open('file1', 'w').write(real_data)
+    >>> open('file2', 'w').write(consumer.buffer)
     >>>
     """
     implements(interfaces.IPushProducer)
@@ -177,6 +170,7 @@ class HTTPClientProducerFactory(HTTPClientFactory):
     def __init__(self, url, consumer, **kwds):
         HTTPClientFactory.__init__(self, url, **kwds)
 
+        self.in_progress = True
         self.consumer = consumer
         self.consumer.registerProducer(self, streaming=True)
 
@@ -194,23 +188,24 @@ class HTTPClientProducerFactory(HTTPClientFactory):
     def pagePart(self, data):
         """Called by the protocol instance when a piece of data arrives."""
         import sys
-        print >>sys.stderr, 'pagePart'
-        print >>sys.stderr, data
+        #print >>sys.stderr, 'pagePart'
         self.consumer.write(data)
 
     def pageEnd(self):
         """Called by the protocol instance when downloading is complete."""
         import sys
-        print >>sys.stderr, 'pageEnd'
+        #print >>sys.stderr, 'pageEnd'
+        self.in_progress = False
         self.consumer.unregisterProducer()
         self.deferred.callback(None)
 
     def noPage(self, reason):
         """Called by the protocol instance when an error occurs."""
         import sys
-        print >>sys.stderr, 'noPage'
+        #print >>sys.stderr, 'noPage'
         self.consumer.unregisterProducer()
-        self.deferred.errback(reason)
+        if self.in_progress:
+            self.deferred.errback(reason)
 
     def pauseProducing(self):
         """Called to pause streaming to the consumer."""
@@ -240,8 +235,9 @@ class TestConsumer(object):
     def unregisterProducer(self):
         self.producer = None
         import sys
-        print >>sys.stderr, "unregisterProducer"
-        reactor.stop()
+        #print >>sys.stderr, "unregisterProducer"
+        #reactor.stop()
+        reactor.running = False
 
     def write(self, data):
         self.buffer += data
@@ -251,7 +247,11 @@ class TestConsumer(object):
 
 def test():
     import doctest
+    #reactor.startRunning(installSignalHandlers=False)
+    reactor.startRunning()
+    reactor.running = False
     doctest.testmod()
+    print 'done with testmod'
 
 if __name__ == "__main__":
     test()
