@@ -33,7 +33,7 @@ class FileProducer(object):
     """Producer which reads data from a file.
 
     >>> FILENAME = '/etc/passwd'
-    >>> consumer = TestConsumer()
+    >>> consumer = twisttest.TestConsumer()
     >>> producer = FileProducer(FILENAME, consumer)
     >>> producer.blocksize = 100
     >>> d = producer.deferred.addBoth(twisttest.pause_reactor)
@@ -106,7 +106,7 @@ class FileProducer(object):
 
         This will obviously fail if file is None or has no fileno.
 
-        >>> consumer = TestConsumer()
+        >>> consumer = twisttest.TestConsumer()
         >>> b = FileProducer('/etc/passwd', consumer)
         >>> b.fileno() > 2
         True
@@ -146,7 +146,7 @@ class HTTPClientProducerFactory(HTTPClientFactory):
     >>>
 
 
-    >>> consumer = TestConsumer()
+    >>> consumer = twisttest.TestConsumer()
     >>> factory = HTTPClientProducerFactory(url, consumer)
     >>> connector = reactor.connectTCP(TEST_HOST, 80, factory)
     >>> factory.blocksize = 100
@@ -219,27 +219,6 @@ class HTTPClientProducerFactory(HTTPClientFactory):
     def stopProducing(self):
         """Called to ask the producer to die."""
         self.protocol_instance.transport.loseConnection()
-
-
-class TestConsumer(object):
-    """Simple consumer for doctests."""
-
-    implements(interfaces.IConsumer)
-
-    def __init__(self):
-        self.buffer = ''
-
-    def registerProducer(self, producer, streaming):
-        self.producer = producer
-        self.streaming = streaming
-
-    def unregisterProducer(self):
-        self.producer = None
-
-    def write(self, data):
-        self.buffer += data
-        if not self.streaming:
-            self.producer.resumeProducing()
 
 
 def test():
