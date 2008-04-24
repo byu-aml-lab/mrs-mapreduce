@@ -87,9 +87,18 @@ class PingTask(object):
         reactor.callFromThread(self._schedule_next)
 
     def stop(self):
-        assert(self.running)
+        # FIXME: We have this `if self.running` here because apparently the
+        # task can get stopped more than once.  This seems to be in the case
+        # where there's another failure (like in rpc_failure in master.py).
+        # We should really look into this and make sure that there's not some
+        # other problem.
+        if self.running:
+            reactor.callFromThread(self._stop)
+
+    def _stop(self):
+        """Stop the ping task (must be called within the reactor thread)."""
         self.running = False
-        reactor.callFromThread(self._cancel)
+        self._cancel()
 
     def _schedule_next(self):
         """Set up the next call.  Randomly adjust the delay.
@@ -144,8 +153,7 @@ class PingTask(object):
         print failure
         self._update_timestamp()
         self.slave.rpc_failure()
-        self.running = False
-        self._cancel()
+        self._stop()
 
 
 class GrimReaper(object):
