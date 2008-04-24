@@ -21,8 +21,26 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
-# TODO: Consider making Slave more asynchronous (and merging the main thread
-# in with the Twisted thread).
+"""Mrs Slave
+
+The Mrs Slave runs in three threads: the main thread, the event thread, and
+the worker thread.
+
+The main thread doesn't really do anything.  It starts the other two threads
+and waits for the other two to finish.  If the user hits CTRL-C, the main
+thread will be interrupted, and it will shut down the event thread.  The only
+reason that the main thread exists at all is to deal with signals.
+
+The event thread does all of the work.  It connects to the server, listens for
+RPC requests, and downloads files.  Its control flow is asynchronous.  This
+can make some things easier to understand and other things harder to
+understand.  It's a tradeoff, but in the end, it's easier and more efficient
+to deal with network IO asynchronously than with a heap of threads.  Anyway,
+the event loop is managed by the Twisted reactor.
+
+The worker thread executes the user's map function and reduce function.
+That's it.  It just does what the event thread tells it to.
+"""
 
 COOKIE_LEN = 8
 SLAVE_PING_INTERVAL = 5.0
