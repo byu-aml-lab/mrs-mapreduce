@@ -22,13 +22,12 @@ BLOCKSIZE = 1000
 
 #TEST_HOST = 'www.mcnabbs.org'
 TEST_HOST = 'cs.byu.edu'
-TEST_PORT = 80
 
 from twisted.web.client import HTTPClientFactory, HTTPPageDownloader
 from twisted.internet import defer, reactor, abstract, interfaces, main
 from zope.interface import implements
+import twisttest
 
-# TODO: make Buffer test with a StringIO, so we can make better tests.
 
 class FileProducer(object):
     """Producer which reads data from a file.
@@ -37,8 +36,8 @@ class FileProducer(object):
     >>> consumer = TestConsumer()
     >>> producer = FileProducer(FILENAME, consumer)
     >>> producer.blocksize = 100
-    >>> d = producer.deferred.addBoth(pause_reactor)
-    >>> resume_reactor()
+    >>> d = producer.deferred.addBoth(twisttest.pause_reactor)
+    >>> twisttest.resume_reactor()
     >>>
 
     After EOF in the FileProducer, the TestConsumer should have killed the
@@ -143,16 +142,16 @@ class HTTPClientProducerFactory(HTTPClientFactory):
     """Twisted protocol factory which serves as a Push Producer
 
     Set up the URL we will use for testing:
-    >>> url = 'http://%s:%s/' % (TEST_HOST, TEST_PORT)
+    >>> url = 'http://%s/' % (TEST_HOST)
     >>>
 
 
     >>> consumer = TestConsumer()
     >>> factory = HTTPClientProducerFactory(url, consumer)
-    >>> connector = reactor.connectTCP(TEST_HOST, TEST_PORT, factory)
+    >>> connector = reactor.connectTCP(TEST_HOST, 80, factory)
     >>> factory.blocksize = 100
-    >>> d = factory.deferred.addBoth(pause_reactor)
-    >>> resume_reactor()
+    >>> d = factory.deferred.addBoth(twisttest.pause_reactor)
+    >>> twisttest.resume_reactor()
     >>>
 
     After downloading completes, the TestConsumer should have killed the
@@ -243,34 +242,11 @@ class TestConsumer(object):
             self.producer.resumeProducing()
 
 
-def pause_reactor(value):
-    """A callback function that temporarily stops the Twisted reactor.
-    
-    Used for doctests.
-    """
-    #print 'temporarily stopping the reactor'
-    reactor.running = False
-    return value
-
-def resume_reactor():
-    """Unpause the reactor.
-
-    Used for doctests.
-    """
-    reactor.running = True
-    reactor.mainLoop()
-
 def test():
     import doctest
-    #reactor.startRunning(installSignalHandlers=False)
-    reactor.startRunning()
-    reactor.running = False
-    # Run tests:
+    twisttest.start_reactor()
     doctest.testmod()
-    # Cleanup reactor:
-    reactor.running = True
-    reactor.stop()
-    reactor.mainLoop()
+    twisttest.cleanup_reactor()
 
 if __name__ == "__main__":
     test()
