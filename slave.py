@@ -52,20 +52,21 @@ def slave_main(registry, user_run, user_setup, args, opts):
 
     # Create threads.
     worker = Worker(slave, master, reaper)
-    io_thread = SlaveIOThread(slave, worker, reaper)
+    event_thread = SlaveEventThread(slave, worker, reaper)
 
     # Start the other threads.
-    io_thread.start()
+    event_thread.start()
     worker.start()
 
     try:
-        # Note: under normal circumstances, the reactor will quit on its own.
+        # Note: under normal circumstances, the reactor (in the event
+        # thread) will quit on its own.
         reaper.wait()
     except KeyboardInterrupt:
-        io_thread.shutdown()
+        event_thread.shutdown()
 
     reactor.stop()
-    io_thread.join()
+    event_thread.join()
 
     if reaper.traceback:
         print reaper.traceback
@@ -73,51 +74,8 @@ def slave_main(registry, user_run, user_setup, args, opts):
     return 0
 
 
-class SlaveInterface(RequestXMLRPC):
-    """Public XML RPC Interface
-    
-    Note that any method not beginning with "xmlrpc_" will be exposed to
-    remote hosts.  Any of these can return either a result or a deferred.
-    """
-    def __init__(self, slave, worker):
-        RequestXMLRPC.__init__(self)
-        self.slave = slave
-        self.worker = worker
-
-    def xmlrpc_start_map(self, taskid, inputs, func_name, part_name, nparts,
-            output, extension, cookie):
-        self.slave.check_cookie(cookie)
-        return self.worker.start_map(taskid, inputs, func_name,
-                part_name, nparts, output, extension)
-
-    def xmlrpc_start_reduce(self, taskid, inputs, func_name, part_name,
-            nparts, output, extension, cookie):
-        return self.worker.start_reduce(taskid, inputs, func_name,
-                part_name, nparts, output, extension)
-
-    def xmlrpc_quit(self, cookie):
-        self.slave.check_cookie(cookie)
-        self.slave.alive = False
-        import sys
-        print >>sys.stderr, "Quitting as requested by an RPC call."
-        # We delay before actually stopping because we need to make sure that
-        # the response gets sent back.
-        reaper = self.worker.reaper
-        reactor.callLater(QUIT_DELAY, lambda: reaper.reap())
-        return True
-
-    def xmlrpc_ping(self):
-        """Master checking if we're still here.
-        """
-        return True
-
-
-class CookieValidationError(Exception):
-    pass
-
-
 # TODO: when we stop supporting Python older than 2.5, use inlineCallbacks:
-class SlaveIOThread(TwistedThread):
+class SlaveEventThread(TwistedThread):
     """The thread that runs the Twisted reactor.
     
     We don't trust the Twisted reactor's signal handlers, so we run it with
@@ -233,6 +191,49 @@ class Slave(object):
     def check_cookie(self, cookie):
         if cookie != self.cookie:
             raise CookieValidationError
+
+
+class SlaveInterface(RequestXMLRPC):
+    """Public XML RPC Interface
+    
+    Note that any method not beginning with "xmlrpc_" will be exposed to
+    remote hosts.  Any of these can return either a result or a deferred.
+    """
+    def __init__(self, slave, worker):
+        RequestXMLRPC.__init__(self)
+        self.slave = slave
+        self.worker = worker
+
+    def xmlrpc_start_map(self, taskid, inputs, func_name, part_name, nparts,
+            output, extension, cookie):
+        self.slave.check_cookie(cookie)
+        return self.worker.start_map(taskid, inputs, func_name,
+                part_name, nparts, output, extension)
+
+    def xmlrpc_start_reduce(self, taskid, inputs, func_name, part_name,
+            nparts, output, extension, cookie):
+        return self.worker.start_reduce(taskid, inputs, func_name,
+                part_name, nparts, output, extension)
+
+    def xmlrpc_quit(self, cookie):
+        self.slave.check_cookie(cookie)
+        self.slave.alive = False
+        import sys
+        print >>sys.stderr, "Quitting as requested by an RPC call."
+        # We delay before actually stopping because we need to make sure that
+        # the response gets sent back.
+        reaper = self.worker.reaper
+        reactor.callLater(QUIT_DELAY, lambda: reaper.reap())
+        return True
+
+    def xmlrpc_ping(self):
+        """Master checking if we're still here.
+        """
+        return True
+
+
+class CookieValidationError(Exception):
+    pass
 
 
 class Worker(threading.Thread):
