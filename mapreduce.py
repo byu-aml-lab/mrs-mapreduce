@@ -44,13 +44,6 @@ class Implementation(threading.Thread):
         self.job = job
         self.registry = registry
         self.options = options
-        self.inputs = []
-        self.operations = []
-
-    def add_input(self, input):
-        """Add a filename to be used for input to the map task.
-        """
-        self.inputs.append(input)
 
     def run(self):
         raise NotImplementedError("I think you should have"
