@@ -36,15 +36,98 @@ from twistrpc import RequestXMLRPC, uses_request
 # from __future__ import with_statement
 
 
-class Parallel(Implementation):
-    """MapReduce execution in parallel, with a master and slaves.
+def master_main(registry, user_run, user_setup, args, opts):
+    """Run Mrs Master
 
-    For right now, we require POSIX shared storage (e.g., NFS).
+    Master Main is called directly from Mrs Main.  On exit, the process
+    will return master_main's return value.
     """
-    def __init__(self, job, registry, options, **kwds):
-        Implementation.__init__(self, job, registry, options, **kwds)
-        self.port = options.mrs_port
-        self.runfile = options.mrs_runfile
+    from job import Job
+    job = Job(registry, user_run, user_setup, args, opts)
+
+    # Set up shared directory
+    from util import try_makedirs
+    try_makedirs(opts.mrs_shared)
+
+    master = Master(job, registry, opts)
+
+    master.run()
+    """
+    # Create the other threads:
+    #worker = Worker(slave)
+    event_thread = MasterEventThread(slave)
+
+    # Start the other threads:
+    event_thread.start()
+    worker.start()
+
+    try:
+        # Note: under normal circumstances, the reactor (in the event
+        # thread) will quit on its own.
+        slave.reaper.wait()
+    except KeyboardInterrupt:
+        event_thread.shutdown()
+
+    reactor.stop()
+    event_thread.join()
+
+    if slave.reaper.traceback:
+        print slave.reaper.traceback
+
+    return 0
+    """
+
+
+
+# TODO: when we stop supporting Python older than 2.5, use inlineCallbacks:
+class MasterEventThread(TwistedThread):
+    """Thread on master that runs the Twisted reactor
+    
+    We don't trust the Twisted reactor's signal handlers, so we run it with
+    the handlers disabled.  As a result, it shouldn't be in the primary
+    thread.
+    """
+
+    def __init__(self, master):
+        TwistedThread.__init__(self)
+        self.master = master
+
+    def run(self):
+        """Called when the thread is started.
+        
+        It starts the reactor and schedules signin() to be called.
+        """
+        #reactor.callLater(0, self.master.first_state_function__fixme)
+        TwistedThread.run(self)
+
+        # Let other threads know that we are quitting.
+        self.master.quit()
+
+
+class Master(object):
+    """Mrs Master"""
+
+    def __init__(self, job, registry, opts, **kwds):
+        self.registry = registry
+        self.opts = opts
+
+        # TODO: get rid of these:
+        self.port = opts.mrs_port
+        self.runfile = opts.mrs_runfile
+
+        self.reaper = GrimReaper()
+        self.job = job
+
+    def die(self, exception):
+        """Die with an exception."""
+        self.reaper.reap(exception)
+
+    def quit(self, message=None):
+        """Called to quit the slave."""
+        if message:
+            import sys
+            print >>sys.stderr, message
+        self.reaper.reap()
 
     def run(self):
         import sys
@@ -55,18 +138,16 @@ class Parallel(Implementation):
         job = self.job
         job.start()
 
-        master = Master()
-
         slaves = Slaves()
         tasks = Supervisor(slaves)
         tasks.job = job
 
         # Start Twisted thread
-        event_thread = MasterEventThread(master)
+        event_thread = MasterEventThread(self)
         event_thread.start()
 
         # Start RPC master server thread
-        resource = MasterInterface(slaves, self.registry, self.options)
+        resource = MasterInterface(slaves, self.registry, self.opts)
         site = server.Site(resource)
         tcpport = reactor_call(reactor.listenTCP, self.port, site)
         address = tcpport.getHost()
@@ -98,67 +179,24 @@ class Parallel(Implementation):
         job.join()
 
 
-# TODO: when we stop supporting Python older than 2.5, use inlineCallbacks:
-class MasterEventThread(TwistedThread):
-    """Thread on master that runs the Twisted reactor
-    
-    We don't trust the Twisted reactor's signal handlers, so we run it with
-    the handlers disabled.  As a result, it shouldn't be in the primary
-    thread.
-    """
-
-    def __init__(self, master):
-        TwistedThread.__init__(self)
-        self.master = master
-
-    def run(self):
-        """Called when the thread is started.
-        
-        It starts the reactor and schedules signin() to be called.
-        """
-        #reactor.callLater(0, self.master.first_state_function__fixme)
-        TwistedThread.run(self)
-
-        # Let other threads know that we are quitting.
-        self.master.quit()
-
-
-class Master(object):
-    """Mrs Master"""
-
-    def __init__(self):
-        self.reaper = GrimReaper()
-
-    def die(self, exception):
-        """Die with an exception."""
-        self.reaper.reap(exception)
-
-    def quit(self, message=None):
-        """Called to quit the slave."""
-        if message:
-            import sys
-            print >>sys.stderr, message
-        self.reaper.reap()
-
-
 class MasterInterface(RequestXMLRPC):
     """Public XML-RPC Interface
 
     Note that any method not beginning with an underscore will be exposed to
     remote hosts.
     """
-    def __init__(self, slaves, registry, options):
+    def __init__(self, slaves, registry, opts):
         """Initialize the master's RPC interface.
 
         Requires `slaves` (an instance of Slaves), `registry` (a Registry
         instance which keeps track of which names map to which MapReduce
-        functions), and `options` (which is a optparse.Values instance
+        functions), and `opts` (which is a optparse.Values instance
         containing command-line arguments on the master.
         """
         RequestXMLRPC.__init__(self)
         self.slaves = slaves
         self.registry = registry
-        self.options = options
+        self.opts = opts
 
     @uses_request
     def xmlrpc_whoami(self, request):
@@ -192,7 +230,7 @@ class MasterInterface(RequestXMLRPC):
         if slave is None:
             return -1, {}
         else:
-            raw_iter = self.options.__dict__.iteritems()
+            raw_iter = self.opts.__dict__.iteritems()
             optdict = dict((k, v) for k, v in raw_iter if v is not None)
             return (slave.id, optdict)
 

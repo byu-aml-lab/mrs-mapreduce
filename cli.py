@@ -63,7 +63,8 @@ def main(registry, run=None, setup=None, update_parser=None):
         parser.print_help()
         return
     elif mrs_impl == 'master':
-        main_function = run_master
+        from master import master_main
+        main_function = master_main
         add_master_options(parser)
         if update_parser:
             parser = update_parser(parser)
@@ -175,24 +176,6 @@ def run_mockparallel(registry, user_run, user_setup, args, opts):
     job = Job(registry, user_run, user_setup, args, opts)
 
     mrs_exec = MockParallel(job, registry, opts)
-    mrs_exec.run()
-    return 0
-
-def run_master(registry, user_run, user_setup, args, opts):
-    """Mrs Master
-    """
-    from master import Parallel
-    from job import Job
-
-    # Set up job directory
-    shared_dir = opts.mrs_shared
-    from util import try_makedirs
-    try_makedirs(shared_dir)
-
-    # Create Job
-    job = Job(registry, user_run, user_setup, args, opts)
-
-    mrs_exec = Parallel(job, registry, opts)
     mrs_exec.run()
     return 0
 
