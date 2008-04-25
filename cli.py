@@ -183,7 +183,7 @@ def run_mockparallel(registry, user_run, user_setup, args, opts):
 def run_master(registry, user_run, user_setup, args, opts):
     """Mrs Master
     """
-    from parallel import Parallel
+    from master import Parallel
     from job import Job
 
     # Set up job directory

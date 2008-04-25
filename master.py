@@ -21,10 +21,125 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
+"""Mrs Master
+
+More information coming soon.
+"""
+
+import threading
+from mapreduce import Implementation
+from twisted.internet import reactor
+from twist import TwistedThread, GrimReaper
+from twistrpc import RequestXMLRPC, uses_request
+
 # TODO: Switch to using "with" for locks when we stop supporting pre-2.5.
 # from __future__ import with_statement
 
-from twistrpc import RequestXMLRPC, uses_request
+
+class Parallel(Implementation):
+    """MapReduce execution in parallel, with a master and slaves.
+
+    For right now, we require POSIX shared storage (e.g., NFS).
+    """
+    def __init__(self, job, registry, options, **kwds):
+        Implementation.__init__(self, job, registry, options, **kwds)
+        self.port = options.mrs_port
+        self.runfile = options.mrs_runfile
+
+    def run(self):
+        import sys
+        from twisted.web import server
+        from twisted.internet import reactor
+        from twist import TwistedThread, reactor_call
+
+        job = self.job
+        job.start()
+
+        master = Master()
+
+        slaves = Slaves()
+        tasks = Supervisor(slaves)
+        tasks.job = job
+
+        # Start Twisted thread
+        event_thread = MasterEventThread(master)
+        event_thread.start()
+
+        # Start RPC master server thread
+        resource = MasterInterface(slaves, self.registry, self.options)
+        site = server.Site(resource)
+        tcpport = reactor_call(reactor.listenTCP, self.port, site)
+        address = tcpport.getHost()
+
+        print >>sys.stderr, "Listening on port %s" % address.port
+        if self.runfile:
+            portfile = open(self.runfile, 'w')
+            print >>portfile, address.port
+            portfile.close()
+
+        # Drive Slaves:
+        while not job.done():
+            #slaves.activity.wait()
+            # work around Python bug where waiting on a Lock can't be
+            # interrupted:
+            while not slaves.activity.isSet():
+                slaves.activity.wait(100000)
+
+            tasks.check_gone()
+            tasks.check_done()
+            tasks.make_assignments()
+
+        for slave in slaves.slave_list():
+            slave.quit()
+
+        # Wait for the other threads to finish.
+        event_thread.shutdown()
+        event_thread.join()
+        job.join()
+
+
+# TODO: when we stop supporting Python older than 2.5, use inlineCallbacks:
+class MasterEventThread(TwistedThread):
+    """Thread on master that runs the Twisted reactor
+    
+    We don't trust the Twisted reactor's signal handlers, so we run it with
+    the handlers disabled.  As a result, it shouldn't be in the primary
+    thread.
+    """
+
+    def __init__(self, master):
+        TwistedThread.__init__(self)
+        self.master = master
+
+    def run(self):
+        """Called when the thread is started.
+        
+        It starts the reactor and schedules signin() to be called.
+        """
+        #reactor.callLater(0, self.master.first_state_function__fixme)
+        TwistedThread.run(self)
+
+        # Let other threads know that we are quitting.
+        self.master.quit()
+
+
+class Master(object):
+    """Mrs Master"""
+
+    def __init__(self):
+        self.reaper = GrimReaper()
+
+    def die(self, exception):
+        """Die with an exception."""
+        self.reaper.reap(exception)
+
+    def quit(self, message=None):
+        """Called to quit the slave."""
+        if message:
+            import sys
+            print >>sys.stderr, message
+        self.reaper.reap()
+
 
 class MasterInterface(RequestXMLRPC):
     """Public XML-RPC Interface
@@ -332,5 +447,101 @@ class Slaves(object):
         self._lock.release()
         return done
 
+
+class Assignment(object):
+    def __init__(self, task):
+        from task import MapTask, ReduceTask
+        self.map = isinstance(task, MapTask)
+        self.reduce = isinstance(task, ReduceTask)
+        self.task = task
+
+        self.done = False
+        self.workers = []
+    
+    def finished(self, urls):
+        self.task.finished(urls)
+
+    def add_worker(self, slave):
+        self.workers.append(slave)
+        self.task.active()
+
+    def remove_worker(self, slave):
+        try:
+            self.workers.remove(slave)
+        except ValueError:
+            print "Slave wasn't in the worker list.  Is this a problem?"
+        if not self.workers:
+            self.task.canceled()
+
+
+class Supervisor(object):
+    """Keep track of tasks and workers.
+
+    Initialize with a Slaves object.
+    """
+    def __init__(self, slaves):
+        self.job = None
+        self.assignments = {}
+        self.slaves = slaves
+
+    def assign(self, slave):
+        """Assign a task to the given slave.
+
+        Return the assignment, if made, or None if there are no available
+        tasks.
+        """
+        if slave.assignment is not None:
+            raise RuntimeError
+        next = self.job.schedule()
+        if next is not None:
+            assignment = Assignment(next)
+            slave.assign(assignment)
+            assignment.add_worker(slave)
+            return assignment
+
+    def remove_slave(self, slave):
+        """Remove a slave that may be currently working on a task.
+
+        Add the assignment to the todo queue if it is no longer active.
+        """
+        self.slaves.remove_slave(slave)
+        assignment = slave.assignment
+        if not assignment:
+            return
+        assignment.remove_worker(slave)
+
+    # TODO: what if two slaves finish the same task?
+    def check_done(self):
+        """Check for slaves that have completed their assignments."""
+        while True:
+            next_done = self.slaves.pop_done()
+            if next_done is None:
+                return
+            slave, urls = next_done
+
+            assignment = slave.assignment
+            assignment.finished(urls)
+            self.job.check_done()
+
+            slave.assignment = None
+            self.slaves.push_idle(slave)
+
+    def check_gone(self):
+        """Check for slaves that have disappeared."""
+        for slave in self.slaves.slave_list():
+            if not slave.alive():
+                self.remove_slave(slave)
+
+    def make_assignments(self):
+        """Go through the slaves list and make any possible task assignments.
+        """
+        while True:
+            idler = self.slaves.pop_idle()
+            if idler is None:
+                return
+            assignment = self.assign(idler)
+            if assignment is None:
+                self.slaves.push_idle(idler)
+                return
 
 # vim: et sw=4 sts=4

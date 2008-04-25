@@ -101,7 +101,7 @@ class SlaveEventThread(TwistedThread):
         self.slave = slave
 
     def run(self):
-        """Called when the TwistedThread is first initialized.
+        """Called when the thread is started.
         
         It starts the reactor and schedules signin() to be called.
         """
