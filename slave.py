@@ -76,9 +76,9 @@ def slave_main(registry, user_run, user_setup, args, opts):
         # thread) will quit on its own.
         slave.reaper.wait()
     except KeyboardInterrupt:
-        event_thread.shutdown()
+        pass
 
-    reactor.stop()
+    event_thread.shutdown()
     event_thread.join()
 
     if slave.reaper.traceback:
