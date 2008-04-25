@@ -43,24 +43,25 @@ def master_main(registry, user_run, user_setup, args, opts):
     will return master_main's return value.
     """
     from job import Job
-    job = Job(registry, user_run, user_setup, args, opts)
+    from util import try_makedirs
 
     # Set up shared directory
-    from util import try_makedirs
     try_makedirs(opts.mrs_shared)
 
+    # create job thread:
+    job = Job(registry, user_run, user_setup, args, opts)
+    # create master state:
     master = Master(job, registry, opts)
-
-    master.run()
-    """
-    # Create the other threads:
-    #worker = Worker(slave)
-    event_thread = MasterEventThread(slave)
+    # create event thread:
+    event_thread = MasterEventThread(master)
 
     # Start the other threads:
     event_thread.start()
-    worker.start()
+    job.start()
 
+    master.run()
+
+    """
     try:
         # Note: under normal circumstances, the reactor (in the event
         # thread) will quit on its own.
@@ -74,8 +75,14 @@ def master_main(registry, user_run, user_setup, args, opts):
     if slave.reaper.traceback:
         print slave.reaper.traceback
 
-    return 0
     """
+
+    # Wait for the other threads to finish.
+    event_thread.shutdown()
+    event_thread.join()
+    job.join()
+
+    return 0
 
 
 
@@ -136,15 +143,10 @@ class Master(object):
         from twist import TwistedThread, reactor_call
 
         job = self.job
-        job.start()
 
         slaves = Slaves()
         tasks = Supervisor(slaves)
         tasks.job = job
-
-        # Start Twisted thread
-        event_thread = MasterEventThread(self)
-        event_thread.start()
 
         # Start RPC master server thread
         resource = MasterInterface(slaves, self.registry, self.opts)
@@ -173,10 +175,6 @@ class Master(object):
         for slave in slaves.slave_list():
             slave.quit()
 
-        # Wait for the other threads to finish.
-        event_thread.shutdown()
-        event_thread.join()
-        job.join()
 
 
 class MasterInterface(RequestXMLRPC):
