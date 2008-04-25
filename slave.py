@@ -39,7 +39,9 @@ to deal with network IO asynchronously than with a heap of threads.  Anyway,
 the event loop is managed by the Twisted reactor.
 
 The worker thread executes the user's map function and reduce function.
-That's it.  It just does what the event thread tells it to.
+That's it.  It just does what the event thread tells it to.  Note that since
+the worker thread is a daemon thread, it quits implicitly once the other two
+threads complete.
 """
 
 COOKIE_LEN = 8
@@ -61,11 +63,11 @@ def slave_main(registry, user_run, user_setup, args, opts):
 
     slave = Slave(registry, user_setup, opts.mrs_master)
 
+    # Create the other threads:
     worker = Worker(slave)
-    slave.worker = worker
     event_thread = SlaveEventThread(slave)
 
-    # Start the other threads.
+    # Start the other threads:
     event_thread.start()
     worker.start()
 
@@ -110,7 +112,6 @@ class SlaveEventThread(TwistedThread):
         self.slave.quit()
 
 
-
 # TODO: ADD A PING TASK BACK IN HERE!!!
     #master_alive = self.master.blocking_call('ping', self.id, self.cookie)
 
@@ -124,21 +125,13 @@ class Slave(object):
         self.user_setup = user_setup
 
         self.reaper = GrimReaper()
+        self.worker = None
 
         self.master_rpc = MrsRPCProxy(self.mrs_master)
 
         self.id = None
         self.alive = True
         self.cookie = self.rand_cookie()
-
-    def die(self, message):
-        import sys
-        print >>sys.stderr, message
-        self.quit()
-
-    def quit(self, exception=None):
-        """Called to quit the slave."""
-        self.reaper.reap(exception)
 
     # State 1
     def signin(self):
@@ -164,7 +157,7 @@ class Slave(object):
 
     def signin_errback(self, failure):
         print failure
-        self.die('Unable to contact master.')
+        self.quit('Unable to contact master.')
 
     # State 2
     def signin_callback(self, value):
@@ -176,7 +169,7 @@ class Slave(object):
         slave_id, optdict = value
 
         if slave_id < 0:
-            self.die('Master rejected signin.')
+            self.quit('Master rejected signin.')
 
         # Save the slave id given by the master.
         self.id = slave_id
@@ -209,6 +202,21 @@ class Slave(object):
         if cookie != self.cookie:
             raise CookieValidationError
 
+    def register_worker(self, worker):
+        """Called by the worker so the Slave can have a reference to it."""
+        self.worker = worker
+
+    def die(self, exception):
+        """Die with an exception."""
+        self.reaper.reap(exception)
+
+    def quit(self, message=None):
+        """Called to quit the slave."""
+        if message:
+            import sys
+            print >>sys.stderr, message
+        self.reaper.reap()
+
 
 class SlaveInterface(RequestXMLRPC):
     """Public XML RPC Interface
@@ -234,11 +242,10 @@ class SlaveInterface(RequestXMLRPC):
     def xmlrpc_quit(self, cookie):
         self.slave.check_cookie(cookie)
         self.slave.alive = False
-        import sys
-        print >>sys.stderr, "Quitting as requested by an RPC call."
         # We delay before actually stopping because we need to make sure that
         # the response gets sent back.
-        reactor.callLater(QUIT_DELAY, lambda: self.slave.quit())
+        reactor.callLater(QUIT_DELAY, self.slave.quit,
+                "Quitting as requested by an RPC call.")
         return True
 
     def xmlrpc_ping(self):
@@ -266,6 +273,7 @@ class Worker(threading.Thread):
         self.setDaemon(True)
 
         self.slave = slave
+        self.slave.register_worker(self)
 
         self._task = None
         self._cond = threading.Condition()
@@ -344,7 +352,7 @@ class Worker(threading.Thread):
                 user_setup(self.options)
             except Exception, e:
                 print "Caught an exception in the Worker thread (in setup)!"
-                self.slave.quit(e)
+                self.slave.die(e)
                 return
 
         # Alert the Twisted thread that user_setup is done.
@@ -362,7 +370,7 @@ class Worker(threading.Thread):
                 task.run()
             except Exception, e:
                 print "Caught an exception in the Worker thread!"
-                self.slave.quit(e)
+                self.slave.die(e)
                 return
 
             self._cond.acquire()

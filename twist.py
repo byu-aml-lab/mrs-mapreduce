@@ -157,7 +157,10 @@ class PingTask(object):
 
 
 class GrimReaper(object):
-    """Coordinate the death of threads."""
+    """Coordinate the death of threads.
+    
+    The reaper's `event` gets triggered when all of the threads need to quit.
+    """
     def __init__(self):
         self.event = threading.Event()
         self.traceback = None
