@@ -145,7 +145,7 @@ class Master(object):
 
     def new_slave(self, host, slave_port, cookie):
         """Create and return a new slave."""
-        slave = self.slaves.new_slave(host, slave_port, cookie)
+        slave = self.slaves.new_slave(host, slave_port, cookie, self)
         return slave
 
     def get_slave(self, slave_id, cookie):
@@ -163,7 +163,7 @@ class Master(object):
 
         self.schedule()
 
-    def slave_result(self, slave, files):
+    def slave_result(self, slave, urls):
         """Called when the given slave is reporting results."""
         # TODO: what if two slaves finish the same task?  Also, what if
         # one slave finishes and another is still trying?
@@ -171,6 +171,9 @@ class Master(object):
         assignment.finished(urls)
         self.job.check_done()
         slave.assignment = None
+
+        # It's possible that this was the last thing that needed to be done.
+        self.check_quit()
 
     def slave_gone(self, slave):
         """Called when a slave appears to have died.
@@ -215,8 +218,6 @@ class Master(object):
 
     def quit(self):
         """Start shutting down slaves and self."""
-        import sys
-        print >>sys.stderr, "CALLING QUIT"
         d = defer.maybeDeferred(self.server_port.stopListening)
         d.addCallback(self.quit2)
 
@@ -226,7 +227,7 @@ class Master(object):
         deferreds = [slave.disconnect() for slave in self.slaves.slave_list()
                 if slave.alive()]
         if deferreds:
-            dl = DeferredList(deferreds)
+            dl = defer.DeferredList(deferreds)
             dl.addCallback(self.quit3)
         else:
             self.quit3(None)
@@ -470,14 +471,14 @@ class Slaves(object):
         lst = [slave for slave in self._slaves if slave is not None]
         return lst
 
-    def new_slave(self, host, slave_port, cookie):
+    def new_slave(self, host, slave_port, cookie, master):
         """Add and return a new slave.
 
         Also set slave.id for the new slave.  Note that the slave will not be
         added to the idle queue until push_idle is called.
         """
         slave_id = len(self._slaves)
-        slave = RemoteSlave(slave_id, host, slave_port, cookie, self)
+        slave = RemoteSlave(slave_id, host, slave_port, cookie, master)
         self._slaves.append(slave)
         return slave
 
