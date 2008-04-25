@@ -49,7 +49,7 @@ QUIT_DELAY = 0.5
 import threading
 from twisted.internet import reactor
 from twist import TwistedThread, GrimReaper
-from twistrpc import RequestXMLRPC
+from twistrpc import RequestXMLRPC, MrsRPCProxy
 
 
 def slave_main(registry, user_run, user_setup, args, opts):
@@ -59,18 +59,11 @@ def slave_main(registry, user_run, user_setup, args, opts):
     will return slave_main's return value.
     """
 
-    from twistrpc import FromThreadProxy
-    # Create an RPC proxy to the master's RPC Server.  This will be used
-    # mostly from the Worker thread.
-    master = FromThreadProxy(opts.mrs_master)
+    slave = Slave(registry, user_setup, opts.mrs_master)
 
-    slave = Slave(registry, user_setup, master)
-
-    reaper = GrimReaper()
-
-    # Create threads.
-    worker = Worker(slave, master, reaper)
-    event_thread = SlaveEventThread(slave, worker, reaper)
+    worker = Worker(slave)
+    slave.worker = worker
+    event_thread = SlaveEventThread(slave)
 
     # Start the other threads.
     event_thread.start()
@@ -79,69 +72,92 @@ def slave_main(registry, user_run, user_setup, args, opts):
     try:
         # Note: under normal circumstances, the reactor (in the event
         # thread) will quit on its own.
-        reaper.wait()
+        slave.reaper.wait()
     except KeyboardInterrupt:
         event_thread.shutdown()
 
     reactor.stop()
     event_thread.join()
 
-    if reaper.traceback:
-        print reaper.traceback
+    if slave.reaper.traceback:
+        print slave.reaper.traceback
 
     return 0
 
 
 # TODO: when we stop supporting Python older than 2.5, use inlineCallbacks:
 class SlaveEventThread(TwistedThread):
-    """The thread that runs the Twisted reactor.
+    """Thread on slave that runs the Twisted reactor
     
     We don't trust the Twisted reactor's signal handlers, so we run it with
     the handlers disabled.  As a result, it shouldn't be in the primary
     thread.
     """
 
-    def __init__(self, slave, worker, reaper):
+    def __init__(self, slave):
         TwistedThread.__init__(self)
         self.slave = slave
-        self.worker = worker
-        self.reaper = reaper
-
-    def die(self, message):
-        import sys
-        print >>sys.stderr, message
-        self.reaper.reap()
 
     def run(self):
         """Called when the TwistedThread is first initialized.
         
         It starts the reactor and schedules signin() to be called.
         """
-        reactor.callLater(0, self.signin)
+        reactor.callLater(0, self.slave.signin)
         TwistedThread.run(self)
 
         # Let other threads know that we are quitting.
-        self.reaper.reap()
+        self.slave.quit()
 
-    # state 1
+
+
+# TODO: ADD A PING TASK BACK IN HERE!!!
+    #master_alive = self.master.blocking_call('ping', self.id, self.cookie)
+
+
+class Slave(object):
+    """Mrs Slave"""
+
+    def __init__(self, registry, user_setup, mrs_master):
+        self.mrs_master = mrs_master
+        self.registry = registry
+        self.user_setup = user_setup
+
+        self.reaper = GrimReaper()
+
+        self.master_rpc = MrsRPCProxy(self.mrs_master)
+
+        self.id = None
+        self.alive = True
+        self.cookie = self.rand_cookie()
+
+    def die(self, message):
+        import sys
+        print >>sys.stderr, message
+        self.quit()
+
+    def quit(self, exception=None):
+        """Called to quit the slave."""
+        self.reaper.reap(exception)
+
+    # State 1
     def signin(self):
         """Start Slave RPC Server and sign in to master."""
         from twisted.web import server
 
-        resource = SlaveInterface(self.slave, self.worker)
+        resource = SlaveInterface(self)
         site = server.Site(resource)
         tcpport = reactor.listenTCP(0, site)
         address = tcpport.getHost()
 
         # Initiate signin to master
         from version import VERSION
-        cookie = self.slave.cookie
+        cookie = self.cookie
         port = address.port
-        source_hash = self.slave.registry.source_hash()
-        reg_hash = self.slave.registry.reg_hash()
+        source_hash = self.registry.source_hash()
+        reg_hash = self.registry.reg_hash()
 
-        master = self.slave.master
-        deferred = master.callRemote('signin', VERSION, cookie, port,
+        deferred = self.master_rpc.callRemote('signin', VERSION, cookie, port,
                 source_hash, reg_hash)
 
         deferred.addCallbacks(self.signin_callback, self.signin_errback)
@@ -150,7 +166,7 @@ class SlaveEventThread(TwistedThread):
         print failure
         self.die('Unable to contact master.')
 
-    # state 2
+    # State 2
     def signin_callback(self, value):
         """Process the results from the signin.
 
@@ -163,7 +179,7 @@ class SlaveEventThread(TwistedThread):
             self.die('Master rejected signin.')
 
         # Save the slave id given by the master.
-        self.slave.id = slave_id
+        self.id = slave_id
 
         # Tell the Worker to run the user_setup function.
         import optparse
@@ -178,26 +194,9 @@ class SlaveEventThread(TwistedThread):
         """
 
         # Report for duty.
-        master = self.slave.master
-        master.callRemote('ready', self.slave.id, self.slave.cookie)
+        self.master_rpc.callRemote('ready', self.id, self.cookie)
 
-
-# TODO: ADD A PING TASK BACK IN HERE!!!
-    #master_alive = self.master.blocking_call('ping', self.id, self.cookie)
-
-
-class Slave(object):
-    """Mrs Slave"""
-
-    def __init__(self, registry, user_setup, master):
-        self.master = master
-        self.registry = registry
-        self.user_setup = user_setup
-
-        self.id = None
-        self.alive = True
-        self.cookie = self.rand_cookie()
-
+    # Miscellaneous
     @classmethod
     def rand_cookie(cls):
         # Generate a cookie so that mostly only authorized people can connect.
@@ -217,20 +216,19 @@ class SlaveInterface(RequestXMLRPC):
     Note that any method not beginning with "xmlrpc_" will be exposed to
     remote hosts.  Any of these can return either a result or a deferred.
     """
-    def __init__(self, slave, worker):
+    def __init__(self, slave):
         RequestXMLRPC.__init__(self)
         self.slave = slave
-        self.worker = worker
 
     def xmlrpc_start_map(self, taskid, inputs, func_name, part_name, nparts,
             output, extension, cookie):
         self.slave.check_cookie(cookie)
-        return self.worker.start_map(taskid, inputs, func_name,
+        return self.slave.worker.start_map(taskid, inputs, func_name,
                 part_name, nparts, output, extension)
 
     def xmlrpc_start_reduce(self, taskid, inputs, func_name, part_name,
             nparts, output, extension, cookie):
-        return self.worker.start_reduce(taskid, inputs, func_name,
+        return self.slave.worker.start_reduce(taskid, inputs, func_name,
                 part_name, nparts, output, extension)
 
     def xmlrpc_quit(self, cookie):
@@ -240,8 +238,7 @@ class SlaveInterface(RequestXMLRPC):
         print >>sys.stderr, "Quitting as requested by an RPC call."
         # We delay before actually stopping because we need to make sure that
         # the response gets sent back.
-        reaper = self.worker.reaper
-        reactor.callLater(QUIT_DELAY, lambda: reaper.reap())
+        reactor.callLater(QUIT_DELAY, lambda: self.slave.quit())
         return True
 
     def xmlrpc_ping(self):
@@ -263,14 +260,12 @@ class Worker(threading.Thread):
     This needs to run in a daemon thread rather than in the main thread so
     that it can be killed by other threads.
     """
-    def __init__(self, slave, master, reaper):
+    def __init__(self, slave):
         threading.Thread.__init__(self)
         # Die when all other non-daemon threads have exited:
         self.setDaemon(True)
 
         self.slave = slave
-        self.master = master
-        self.reaper = reaper
 
         self._task = None
         self._cond = threading.Condition()
@@ -349,7 +344,7 @@ class Worker(threading.Thread):
                 user_setup(self.options)
             except Exception, e:
                 print "Caught an exception in the Worker thread (in setup)!"
-                self.reaper.reap(e)
+                self.slave.quit(e)
                 return
 
         # Alert the Twisted thread that user_setup is done.
@@ -367,7 +362,7 @@ class Worker(threading.Thread):
                 task.run()
             except Exception, e:
                 print "Caught an exception in the Worker thread!"
-                self.reaper.reap(e)
+                self.slave.quit(e)
                 return
 
             self._cond.acquire()
@@ -377,8 +372,8 @@ class Worker(threading.Thread):
             # TODO: right now, dataset.dump() happens in task.run().  Instead,
             # we should tell the dataset to become available() here, and the
             # data should automatically be dumped.
-            self.master.blocking_call('done', self.slave.id, task.outurls(),
-                    self.slave.cookie)
+            self.slave.master_rpc.blocking_call('done', self.slave.id,
+                    task.outurls(), self.slave.cookie)
 
             # TODO: Catch ErrbackException here
 
