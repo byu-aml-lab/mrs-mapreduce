@@ -156,6 +156,9 @@ class Master(object):
     def slave_ready(self, slave):
         """Called when the given slave is ready and idle."""
         # TODO: we might need to resurrect the slave
+        if not slave.alive():
+            print "Slave resurrected."
+            slave.resurrect()
         if slave.assignment:
             print "Slave says it's ready, but it still has an assignment!"
             slave.assignment.remove_worker(slave)
@@ -433,6 +436,9 @@ class RemoteSlave(object):
     def alive(self):
         """Checks whether the Slave is responding."""
         return self._alive
+
+    def resurrect(self):
+        self._alive = True
 
     def disconnect(self):
         """Disconnect the slave.
