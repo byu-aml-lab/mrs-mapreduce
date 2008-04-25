@@ -59,7 +59,7 @@ def master_main(registry, user_run, user_setup, args, opts):
     event_thread.start()
     job.start()
 
-    master.run()
+    #master.run()
 
     """
     try:
@@ -104,7 +104,7 @@ class MasterEventThread(TwistedThread):
         
         It starts the reactor and schedules signin() to be called.
         """
-        #reactor.callLater(0, self.master.first_state_function__fixme)
+        reactor.callLater(0, self.master.begin)
         TwistedThread.run(self)
 
         # Let other threads know that we are quitting.
@@ -124,57 +124,141 @@ class Master(object):
 
         self.reaper = GrimReaper()
         self.job = job
+        self.job.update_callback = self.job_updated
+        self.job.end_callback = self.job_ended
 
-    def die(self, exception):
-        """Die with an exception."""
-        self.reaper.reap(exception)
+        # stuff that used to be in Supervisor:
+        self.assignments = {}
+        self.slaves = Slaves()
 
-    def quit(self, message=None):
-        """Called to quit the slave."""
-        if message:
-            import sys
-            print >>sys.stderr, message
-        self.reaper.reap()
+        self.server_port = None
 
-    def run(self):
+    # State 1 (run in the event thread):
+    def begin(self):
         import sys
         from twisted.web import server
         from twisted.internet import reactor
-        from twist import TwistedThread, reactor_call
-
-        job = self.job
-
-        slaves = Slaves()
-        tasks = Supervisor(slaves)
-        tasks.job = job
 
         # Start RPC master server thread
-        resource = MasterInterface(slaves, self.registry, self.opts)
+        resource = MasterInterface(self, self.registry, self.opts)
         site = server.Site(resource)
-        tcpport = reactor_call(reactor.listenTCP, self.port, site)
+        self.server_port = reactor.listenTCP(self.port, site)
         address = tcpport.getHost()
 
+        # Report which port we're listening on (and write to a file)
         print >>sys.stderr, "Listening on port %s" % address.port
         if self.runfile:
             portfile = open(self.runfile, 'w')
             print >>portfile, address.port
             portfile.close()
 
-        # Drive Slaves:
-        while not job.done():
-            #slaves.activity.wait()
-            # work around Python bug where waiting on a Lock can't be
-            # interrupted:
-            while not slaves.activity.isSet():
-                slaves.activity.wait(100000)
+    def new_slave(self, host, slave_port, cookie):
+        """Create and return a new slave."""
+        slave = self.slaves.new_slave(host, slave_port, cookie)
+        return slave
 
-            tasks.check_gone()
-            tasks.check_done()
-            tasks.make_assignments()
+    def get_slave(self, slave_id, cookie):
+        """Get the slave with the given slave_id and cookie."""
+        slave = self.slaves.get_slave(slave_id, cookie)
+        return slave
 
-        for slave in slaves.slave_list():
-            slave.quit()
+    def slave_ready(self, slave):
+        """Called when the given slave is ready and idle."""
+        # TODO: we might need to resurrect the slave
+        if slave.assignment:
+            print "Slave says it's ready, but it still has an assignment!"
+            slave.assignment.remove_worker(slave)
+        self.slaves.push_idle(slave)
 
+        self.schedule()
+
+    def slave_result(self, slave, files):
+        """Called when the given slave is reporting results."""
+        # TODO: what if two slaves finish the same task?  Also, what if
+        # one slave finishes and another is still trying?
+        assignment = slave.assignment
+        assignment.finished(urls)
+        self.job.check_done()
+        slave.assignment = None
+
+    def slave_gone(self, slave):
+        """Called when a slave appears to have died.
+
+        Add the assignment to the todo queue if it is no longer active.
+        """
+        self.slaves.remove_idle(slave)
+        assignment = slave.assignment
+        if assignment:
+            assignment.remove_worker(slave)
+
+    def schedule(self):
+        """Go through the slaves list and make any possible task assignments.
+        """
+        while True:
+            # find the next slave
+            slave = self.slaves.pop_idle()
+            if slave is None:
+                return
+
+            # find the next job to run
+            next = self.job.schedule()
+            if next is None:
+                self.slaves.push_idle(slave)
+                return
+
+            assignment = Assignment(next)
+            assignment.add_worker(slave)
+            deferred = slave.assign(assignment)
+            #deferred.addCallback(self.assign_succeed)
+
+    #def assign_succeed(self, value):
+    #    """Called when the RPC request completes successfully."""
+
+    def check_quit(self):
+        """Triggered when it might be time to quit.
+
+        It's possible that it's time to quit, but it might not be.
+        """
+        if self.job.done():
+            self.quit()
+
+    def quit(self):
+        """Start shutting down slaves and self."""
+        d = defer.maybeDeferred(self.server_port.stopListening)
+        d.addCallback(self.quit2)
+
+    def quit2(self, value):
+        """Second stage of quit: disconnect slaves"""
+
+        deferreds = [slave.disconnect() for slave in self.slaves.slave_list()
+                if slave.alive()]
+        if deferreds:
+            dl = DeferredList(deferreds)
+            dl.addCallback(self.quit3)
+        else:
+            self.quit3(None)
+
+    def quit3(self, value):
+        """Final stage of quit: kill the reactor"""
+        reactor.stop()
+
+    ##########################################################################
+    # Methods that are called from other threads.
+
+    def job_updated(self):
+        """Called when the job is updated--there might be more work to do."""
+        reactor.callFromThread(self.schedule)
+
+    def job_ended(self):
+        """Called by the job when all datasets have been submitted.
+
+        When the job recognizes that all datasets have been submitted,
+        it calls this method from within the job thread.  This does not
+        necessarily mean that all computation is complete.
+
+        Called from other threads.
+        """
+        reactor.callFromThread(self.check_quit)
 
 
 class MasterInterface(RequestXMLRPC):
@@ -183,16 +267,16 @@ class MasterInterface(RequestXMLRPC):
     Note that any method not beginning with an underscore will be exposed to
     remote hosts.
     """
-    def __init__(self, slaves, registry, opts):
+    def __init__(self, master, registry, opts):
         """Initialize the master's RPC interface.
 
-        Requires `slaves` (an instance of Slaves), `registry` (a Registry
-        instance which keeps track of which names map to which MapReduce
-        functions), and `opts` (which is a optparse.Values instance
-        containing command-line arguments on the master.
+        Requires `master`, `registry` (a Registry instance which keeps track
+        of which names map to which MapReduce functions), and `opts` (which is
+        a optparse.Values instance containing command-line arguments on the
+        master.
         """
         RequestXMLRPC.__init__(self)
-        self.slaves = slaves
+        self.master = master
         self.registry = registry
         self.opts = opts
 
@@ -224,7 +308,7 @@ class MasterInterface(RequestXMLRPC):
             print "Client tried to sign in with nonmatching code."
             return -1, {}
         host = request.client.host
-        slave = self.slaves.new_slave(host, slave_port, cookie)
+        slave = self.master.new_slave(host, slave_port, cookie)
         if slave is None:
             return -1, {}
         else:
@@ -234,10 +318,10 @@ class MasterInterface(RequestXMLRPC):
 
     def xmlrpc_ready(self, slave_id, cookie):
         """Slave is ready for work."""
-        slave = self.slaves.get_slave(slave_id, cookie)
+        slave = self.master.get_slave(slave_id, cookie)
         if slave is not None:
-            self.slaves.push_idle(slave)
-            self.slaves.activity.set()
+            self.master.slave_ready(slave)
+            slave.update_timestamp()
             return True
         else:
             print "In ready(), slave with id %s not found." % slave_id
@@ -249,9 +333,10 @@ class MasterInterface(RequestXMLRPC):
 
         The output is available in the list of files.
         """
-        slave = self.slaves.get_slave(slave_id, cookie)
+        slave = self.master.get_slave(slave_id, cookie)
         if slave is not None:
-            self.slaves.add_done(slave, files)
+            self.master.slave_result(slave, files)
+            self.master.slave_ready(slave)
             slave.update_timestamp()
             return True
         else:
@@ -260,7 +345,7 @@ class MasterInterface(RequestXMLRPC):
 
     def xmlrpc_ping(self, slave_id, cookie):
         """Slave checking if we're still here."""
-        slave = self.slaves.get_slave(slave_id, cookie)
+        slave = self.master.get_slave(slave_id, cookie)
         if slave:
             slave.update_timestamp()
             return True
@@ -273,15 +358,13 @@ class RemoteSlave(object):
 
     The master can use this object to make assignments, check status, etc.
     """
-    def __init__(self, slave_id, host, port, cookie, activity):
+    def __init__(self, slave_id, host, port, cookie, master):
         self.host = host
         self.port = port
         self.assignment = None
         self.id = slave_id
         self.cookie = cookie
-
-        # An event that is set if activity happens in any of the slaves.
-        self.activity = activity
+        self.master = master
 
         from twistrpc import MrsRPCProxy
         uri = "http://%s:%s" % (host, port)
@@ -303,27 +386,27 @@ class RemoteSlave(object):
     def assign(self, assignment):
         """Request that the slave start working on the given assignment.
 
-        The request will be made over RPC.
+        The request will be made over RPC.  This method returns a deferred.
         """
         from twist import ErrbackException
 
         task = assignment.task
         extension = task.format.ext
         # TODO: convert these RPC calls to be asynchronous!
-        try:
-            if assignment.map:
-                self.rpc.blocking_call('start_map', task.taskid,
-                        task.inurls(), task.map_name, task.part_name,
-                        task.nparts, task.outdir, extension, self.cookie)
-            elif assignment.reduce:
-                self.rpc.blocking_call('start_reduce', task.taskid,
-                        task.inurls(), task.reduce_name, task.part_name,
-                        task.nparts, task.outdir, extension, self.cookie)
-            else:
-                raise RuntimeError
-        except ErrbackException:
-            self.rpc_failure()
+        if assignment.map:
+            deferred = self.rpc.callRemote('start_map', task.taskid,
+                    task.inurls(), task.map_name, task.part_name,
+                    task.nparts, task.outdir, extension, self.cookie)
+        elif assignment.reduce:
+            deferred = self.rpc.callRemote('start_reduce', task.taskid,
+                    task.inurls(), task.reduce_name, task.part_name,
+                    task.nparts, task.outdir, extension, self.cookie)
+        else:
+            raise RuntimeError
+
         self.assignment = assignment
+        deferred.addErrback(self.rpc_failure)
+        return deferred
 
     def update_timestamp(self):
         """Set the timestamp to the current time."""
@@ -338,7 +421,7 @@ class RemoteSlave(object):
         """Report whether the timestamp is newer than the given time."""
         return self.timestamp > other
 
-    def rpc_failure(self):
+    def rpc_failure(self, reason=None):
         """Report that a slave failed to respond to an RPC request.
 
         This may be either a ping or some other request.  At the moment,
@@ -350,39 +433,31 @@ class RemoteSlave(object):
 
         print 'Lost slave due to network error.'
 
-        # Alert the main thread that activity has occurred.
-        self.activity.set()
+        # Alert the master:
+        self.master.slave_gone(self)
 
     def alive(self):
         """Checks whether the Slave is responding."""
         return self._alive
 
-    def quit(self):
+    def disconnect(self):
+        """Disconnect the slave.
+
+        This should be called from the event thread.  It returns a deferred.
+        """
         self._alive = False
         self.ping_task.stop()
-        try:
-            self.rpc.blocking_call('quit', self.cookie)
-        except ErrbackException:
-            pass
+        deferred = self.rpc.callRemote('quit', self.cookie)
+        return deferred
 
 
-# TODO: Reimplement _idle_sem as a Condition variable.  Also, reimplement
-# _done_slaves as a shared queue.
 class Slaves(object):
-    """List of remote slaves.
-
-    A Slaves list is shared by the master thread and the rpc server thread.
-    """
+    """List of remote slaves."""
     def __init__(self):
         import threading
-        self.activity = threading.Event()
 
         self._slaves = []
         self._idle_slaves = []
-        self._done_slaves = []
-
-        self._lock = threading.Lock()
-        self._idle_sem = threading.Semaphore()
 
     def get_slave(self, slave_id, cookie):
         """Find the slave associated with the given slave_id.
@@ -399,9 +474,7 @@ class Slaves(object):
 
     def slave_list(self):
         """Get a list of current slaves (_not_ a table keyed by slave_id)."""
-        self._lock.acquire()
         lst = [slave for slave in self._slaves if slave is not None]
-        self._lock.release()
         return lst
 
     def new_slave(self, host, slave_port, cookie):
@@ -410,78 +483,34 @@ class Slaves(object):
         Also set slave.id for the new slave.  Note that the slave will not be
         added to the idle queue until push_idle is called.
         """
-        self._lock.acquire()
         slave_id = len(self._slaves)
-        slave = RemoteSlave(slave_id, host, slave_port, cookie, self.activity)
+        slave = RemoteSlave(slave_id, host, slave_port, cookie, self)
         self._slaves.append(slave)
-        self._lock.release()
         return slave
 
-    def remove_slave(self, slave):
-        """Remove a slave, whether it is busy or idle.
-
-        Presumably, the slave has stopped responding.
-        """
-        # TODO: Should we allow the slave to report in again later if it
-        # really is still alive?
-        self._lock.acquire()
+    def remove_idle(self, slave):
+        """Remove a slave from the idle list."""
         if slave in self._idle_slaves:
-            # Note that we don't decrement the semaphore.  Tough luck for the
-            # sap that thinks the list has more entries than it does.
             self._idle_slaves.remove(slave)
-        self._slaves[slave.id] = None
-        self._lock.release()
 
     def push_idle(self, slave):
         """Set a slave as idle.
         """
-        self._lock.acquire()
         if slave.id >= len(self._slaves) or self._slaves[slave.id] is None:
-            self._lock.release()
             import sys
             print >>sys.stderr, ("Nonexistent slave can't be pushed to "
                     "the idle queue!")
         if slave not in self._idle_slaves:
             self._idle_slaves.append(slave)
-        self._idle_sem.release()
-        self._lock.release()
 
-    def pop_idle(self, blocking=False):
+    def pop_idle(self):
         """Request an idle slave, setting it as busy.
 
         Return None if all slaves are busy.  Block if requested with the
         blocking parameter.  If you set blocking, we will never return None.
         """
-        idler = None
-        while idler is None:
-            if self._idle_sem.acquire(blocking):
-                self._lock.acquire()
-                try:
-                    idler = self._idle_slaves.pop()
-                except IndexError:
-                    # This can happen if remove_slave was called.  So sad.
-                    pass
-                self._lock.release()
-            if not blocking:
-                break
+        idler = self._idle_slaves.pop()
         return idler
-
-    def add_done(self, slave, files):
-        self._lock.acquire()
-        self._done_slaves.append((slave, files))
-        self._lock.release()
-
-        # Alert the main thread that activity has occurred.
-        self.activity.set()
-
-    def pop_done(self):
-        self._lock.acquire()
-        if self._done_slaves:
-            done = self._done_slaves.pop()
-        else:
-            done = None
-        self._lock.release()
-        return done
 
 
 class Assignment(object):
@@ -509,75 +538,5 @@ class Assignment(object):
         if not self.workers:
             self.task.canceled()
 
-
-class Supervisor(object):
-    """Keep track of tasks and workers.
-
-    Initialize with a Slaves object.
-    """
-    def __init__(self, slaves):
-        self.job = None
-        self.assignments = {}
-        self.slaves = slaves
-
-    def assign(self, slave):
-        """Assign a task to the given slave.
-
-        Return the assignment, if made, or None if there are no available
-        tasks.
-        """
-        if slave.assignment is not None:
-            raise RuntimeError
-        next = self.job.schedule()
-        if next is not None:
-            assignment = Assignment(next)
-            slave.assign(assignment)
-            assignment.add_worker(slave)
-            return assignment
-
-    def remove_slave(self, slave):
-        """Remove a slave that may be currently working on a task.
-
-        Add the assignment to the todo queue if it is no longer active.
-        """
-        self.slaves.remove_slave(slave)
-        assignment = slave.assignment
-        if not assignment:
-            return
-        assignment.remove_worker(slave)
-
-    # TODO: what if two slaves finish the same task?
-    def check_done(self):
-        """Check for slaves that have completed their assignments."""
-        while True:
-            next_done = self.slaves.pop_done()
-            if next_done is None:
-                return
-            slave, urls = next_done
-
-            assignment = slave.assignment
-            assignment.finished(urls)
-            self.job.check_done()
-
-            slave.assignment = None
-            self.slaves.push_idle(slave)
-
-    def check_gone(self):
-        """Check for slaves that have disappeared."""
-        for slave in self.slaves.slave_list():
-            if not slave.alive():
-                self.remove_slave(slave)
-
-    def make_assignments(self):
-        """Go through the slaves list and make any possible task assignments.
-        """
-        while True:
-            idler = self.slaves.pop_idle()
-            if idler is None:
-                return
-            assignment = self.assign(idler)
-            if assignment is None:
-                self.slaves.push_idle(idler)
-                return
 
 # vim: et sw=4 sts=4

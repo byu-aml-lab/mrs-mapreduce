@@ -532,7 +532,6 @@ class ComputedData(RemoteData):
                 print >>sys.stderr, "Warning: an inactive task was finished!"
             return
 
-
     def close(self):
         """Close DataSet for future use.
 

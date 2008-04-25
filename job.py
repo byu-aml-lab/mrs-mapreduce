@@ -61,6 +61,8 @@ class Job(threading.Thread):
 
         # Still waiting for work to do:
         self._end = False
+        self.update_callback = None
+        self.end_callback = None
 
     def run(self):
         """Run the job creation thread
@@ -72,7 +74,7 @@ class Job(threading.Thread):
         if self.user_setup:
             self.user_setup(self.opts)
         self.user_run(job, self.args, self.opts)
-        self._end = True
+        self.end()
 
     def submit(self, dataset):
         """Submit a DataSet to be computed.
@@ -92,6 +94,8 @@ class Job(threading.Thread):
         else:
             self.waiting_data.append(dataset)
         self._lock.release()
+
+        self.update_callback()
 
     def remove_dataset(self, dataset):
         """Remove a completed or waiting DataSet.
@@ -236,7 +240,10 @@ class Job(threading.Thread):
 
         After this point, any submit() will fail.
         """
-        self._end = True
+        if not self._end:
+            self._end = True
+            if self.end_callback:
+                self.end_callback()
 
     def file_data(self, filenames):
         from datasets import FileData
