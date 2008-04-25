@@ -156,7 +156,7 @@ def run_serial(registry, user_run, user_setup, args, opts):
     from job import Job
 
     # Create Job
-    job = Job(registry, jobdir, user_run, user_setup, args, opts)
+    job = Job(registry, user_run, user_setup, args, opts)
 
     mrs_exec = Serial(job, registry, opts)
     mrs_exec.run()
@@ -170,11 +170,9 @@ def run_mockparallel(registry, user_run, user_setup, args, opts):
     shared_dir = opts.mrs_shared
     from util import try_makedirs
     try_makedirs(shared_dir)
-    import tempfile
-    jobdir = tempfile.mkdtemp(prefix='mrs.job_', dir=shared_dir)
 
     # Create Job
-    job = Job(registry, jobdir, user_run, user_setup, args, opts)
+    job = Job(registry, user_run, user_setup, args, opts)
 
     mrs_exec = MockParallel(job, registry, opts)
     mrs_exec.run()
@@ -190,11 +188,9 @@ def run_master(registry, user_run, user_setup, args, opts):
     shared_dir = opts.mrs_shared
     from util import try_makedirs
     try_makedirs(shared_dir)
-    import tempfile
-    jobdir = tempfile.mkdtemp(prefix='mrs.job_', dir=shared_dir)
 
     # Create Job
-    job = Job(registry, jobdir, user_run, user_setup, args, opts)
+    job = Job(registry, user_run, user_setup, args, opts)
 
     mrs_exec = Parallel(job, registry, opts)
     mrs_exec.run()

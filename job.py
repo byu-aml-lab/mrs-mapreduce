@@ -25,9 +25,6 @@ import threading
 from io import HexWriter
 
 
-# TODO: Don't pass jobdir in to Job.  It should look at opts to find the
-# shared directory and it should create the jobdir on its own.
-
 # TODO: add a DataSet for resplitting input.
 class Job(threading.Thread):
     """Keep track of all operations that need to be performed.
@@ -35,13 +32,12 @@ class Job(threading.Thread):
     When run as a thread, call the user-specified run function, which will
     submit datasets to be computed.
     """
-    def __init__(self, registry, jobdir, user_run, user_setup, args, opts):
+    def __init__(self, registry, user_run, user_setup, args, opts):
         threading.Thread.__init__(self)
         # Quit the whole program, even if this thread is still running:
         self.setDaemon(True)
 
         self.registry = registry
-        self.jobdir = jobdir
         self.user_run = user_run
         self.user_setup = user_setup
         self.args = args
@@ -57,6 +53,11 @@ class Job(threading.Thread):
         self._lock = threading.Lock()
         self.active_data = []
         self.waiting_data = []
+
+        # Set up the job directory
+        import tempfile
+        shared_dir = self.opts.mrs_shared
+        self.jobdir = tempfile.mkdtemp(prefix='mrs.job_', dir=shared_dir)
 
         # Still waiting for work to do:
         self._end = False
