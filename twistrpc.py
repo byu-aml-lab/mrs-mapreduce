@@ -113,12 +113,14 @@ class TimeoutProxy(xmlrpc.Proxy):
         return factory.deferred
 
 
-class FromThreadProxy(object):
-    """XMLRPC Proxy that operates in a separate thread from the reactor."""
+class MrsRPCProxy(TimeoutProxy):
+    """XMLRPC Proxy that can operate in a separate thread from the reactor.
+    
+    It also supports Timeouts, and it cleans up the url that's passed in.
+    """
 
-    def __init__(self, url, timeout=DEFAULT_TIMEOUT):
-        #from twisted.web import xmlrpc
-        self.proxy = TimeoutProxy(rpc_url(url), timeout=DEFAULT_TIMEOUT)
+    def __init__(self, url, timeout=DEFAULT_TIMEOUT, **kwds):
+        TimeoutProxy.__init__(self, rpc_url(url), timeout=DEFAULT_TIMEOUT, **kwds)
 
     def blocking_call(self, *args):
         """Make a blocking XML RPC call to a remote server."""
@@ -129,12 +131,8 @@ class FromThreadProxy(object):
 
     def deferred_call(self, *args):
         """Make a deferred XML RPC call to a remote server."""
-        deferred = reactor_call(self.proxy.callRemote, *args)
+        deferred = reactor_call(self.callRemote, *args)
         return deferred
-
-    def callRemote(self, *args):
-        """Make a deferred XML RPC call *from the reactor thread*."""
-        return self.proxy.callRemote(*args)
 
 
 def rpc_url(urlstring):

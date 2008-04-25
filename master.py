@@ -132,9 +132,9 @@ class RemoteSlave(object):
         # An event that is set if activity happens in any of the slaves.
         self.activity = activity
 
-        from twistrpc import FromThreadProxy
+        from twistrpc import MrsRPCProxy
         uri = "http://%s:%s" % (host, port)
-        self.rpc = FromThreadProxy(uri)
+        self.rpc = MrsRPCProxy(uri)
 
         self._alive = True
         self.update_timestamp()
