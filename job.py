@@ -25,6 +25,9 @@ import threading
 from io import HexWriter
 
 
+# TODO: Don't pass jobdir in to Job.  It should look at opts to find the
+# shared directory and it should create the jobdir on its own.
+
 # TODO: add a DataSet for resplitting input.
 class Job(threading.Thread):
     """Keep track of all operations that need to be performed.
