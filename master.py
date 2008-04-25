@@ -28,7 +28,7 @@ More information coming soon.
 
 import threading
 from mapreduce import Implementation
-from twisted.internet import reactor
+from twisted.internet import reactor, defer
 from twist import TwistedThread, GrimReaper
 from twistrpc import RequestXMLRPC, uses_request
 
@@ -59,28 +59,19 @@ def master_main(registry, user_run, user_setup, args, opts):
     event_thread.start()
     job.start()
 
-    #master.run()
-
-    """
     try:
         # Note: under normal circumstances, the reactor (in the event
         # thread) will quit on its own.
-        slave.reaper.wait()
+        master.reaper.wait()
     except KeyboardInterrupt:
-        event_thread.shutdown()
-
-    reactor.stop()
-    event_thread.join()
-
-    if slave.reaper.traceback:
-        print slave.reaper.traceback
-
-    """
+        pass
 
     # Wait for the other threads to finish.
     event_thread.shutdown()
     event_thread.join()
-    job.join()
+
+    if master.reaper.traceback:
+        print master.reaper.traceback
 
     return 0
 
@@ -108,7 +99,7 @@ class MasterEventThread(TwistedThread):
         TwistedThread.run(self)
 
         # Let other threads know that we are quitting.
-        self.master.quit()
+        self.master.reaper.reap()
 
 
 class Master(object):
@@ -143,7 +134,7 @@ class Master(object):
         resource = MasterInterface(self, self.registry, self.opts)
         site = server.Site(resource)
         self.server_port = reactor.listenTCP(self.port, site)
-        address = tcpport.getHost()
+        address = self.server_port.getHost()
 
         # Report which port we're listening on (and write to a file)
         print >>sys.stderr, "Listening on port %s" % address.port
@@ -224,6 +215,8 @@ class Master(object):
 
     def quit(self):
         """Start shutting down slaves and self."""
+        import sys
+        print >>sys.stderr, "CALLING QUIT"
         d = defer.maybeDeferred(self.server_port.stopListening)
         d.addCallback(self.quit2)
 
@@ -240,7 +233,7 @@ class Master(object):
 
     def quit3(self, value):
         """Final stage of quit: kill the reactor"""
-        reactor.stop()
+        self.reaper.reap()
 
     ##########################################################################
     # Methods that are called from other threads.
@@ -509,8 +502,8 @@ class Slaves(object):
         Return None if all slaves are busy.  Block if requested with the
         blocking parameter.  If you set blocking, we will never return None.
         """
-        idler = self._idle_slaves.pop()
-        return idler
+        if self._idle_slaves:
+            return self._idle_slaves.pop()
 
 
 class Assignment(object):
