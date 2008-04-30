@@ -85,7 +85,8 @@ class PingTask(object):
     succeeds or fails.  In other words, `success` and `failure` are
     responsible for stopping the PingTask if necessary.
     """
-    def __init__(self, rpc, success, failure, last_activity=None):
+    def __init__(self, ping_args, rpc, success, failure, last_activity=None):
+        self.ping_args = ping_args
         self.rpc = rpc
         self.success = success
         self.failure = failure
@@ -166,7 +167,7 @@ class PingTask(object):
         if recent_activity:
             self._schedule_next()
         else:
-            deferred = self.rpc.callRemote('ping')
+            deferred = self.rpc.callRemote(*self.ping_args)
             deferred.addCallback(self._callback)
             deferred.addErrback(self._errback)
 

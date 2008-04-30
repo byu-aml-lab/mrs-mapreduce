@@ -50,7 +50,7 @@ QUIT_DELAY = 0.5
 
 import threading
 from twisted.internet import reactor
-from twist import TwistedThread, GrimReaper
+from twist import TwistedThread, GrimReaper, PingTask, ErrbackException
 from twistrpc import RequestXMLRPC, MrsRPCProxy
 
 
@@ -112,10 +112,6 @@ class SlaveEventThread(TwistedThread):
         self.slave.quit()
 
 
-# TODO: ADD A PING TASK BACK IN HERE!!!
-    #master_alive = self.master.blocking_call('ping', self.id, self.cookie)
-
-
 class Slave(object):
     """Mrs Slave"""
 
@@ -126,6 +122,7 @@ class Slave(object):
 
         self.reaper = GrimReaper()
         self.worker = None
+        self.ping_task = None
 
         self.master_rpc = MrsRPCProxy(self.mrs_master)
 
@@ -174,6 +171,11 @@ class Slave(object):
         # Save the slave id given by the master.
         self.id = slave_id
 
+        # Create the Ping Task
+        ping_args = ('ping', self.id, self.cookie)
+        self.ping_task = PingTask(ping_args, self.master_rpc,
+                self.ping_success, self.rpc_failure, self.get_timestamp)
+
         # Tell the Worker to run the user_setup function.
         import optparse
         options = optparse.Values(optdict)
@@ -186,8 +188,40 @@ class Slave(object):
         This is the callback after user_setup is called.
         """
 
+        # Start the ping task
+        self.update_timestamp()
+        self.ping_task.start()
+
         # Report for duty.
-        self.master_rpc.callRemote('ready', self.id, self.cookie)
+        deferred = self.master_rpc.callRemote('ready', self.id, self.cookie)
+        deferred.addErrback(self.rpc_failure)
+
+    def rpc_failure(self, reason=None):
+        """Report that the master failed to respond to an RPC request.
+
+        This may be either a ping or some other request.  At the moment,
+        we aren't very lenient, but in the future we could allow a few
+        failures before disconnecting.
+        """
+        import sys
+        self.ping_task.stop()
+        if reason:
+            print >>sys.stderr, reason
+        print >>sys.stderr, 'Lost master due to network error.'
+        self.reaper.reap()
+
+    def ping_success(self):
+        """Called when a ping successfully completes."""
+        self.update_timestamp()
+
+    def update_timestamp(self):
+        """Set the timestamp to the current time."""
+        from datetime import datetime
+        self.timestamp = datetime.utcnow()
+
+    def get_timestamp(self):
+        """Report the most recent timestamp."""
+        return self.timestamp
 
     # Miscellaneous
     @classmethod
@@ -231,16 +265,20 @@ class SlaveInterface(RequestXMLRPC):
     def xmlrpc_start_map(self, taskid, inputs, func_name, part_name, nparts,
             output, extension, cookie):
         self.slave.check_cookie(cookie)
+        self.slave.update_timestamp()
         return self.slave.worker.start_map(taskid, inputs, func_name,
                 part_name, nparts, output, extension)
 
     def xmlrpc_start_reduce(self, taskid, inputs, func_name, part_name,
             nparts, output, extension, cookie):
+        self.slave.check_cookie(cookie)
+        self.slave.update_timestamp()
         return self.slave.worker.start_reduce(taskid, inputs, func_name,
                 part_name, nparts, output, extension)
 
     def xmlrpc_quit(self, cookie):
         self.slave.check_cookie(cookie)
+        self.slave.update_timestamp()
         self.slave.alive = False
         # We delay before actually stopping because we need to make sure that
         # the response gets sent back.
@@ -248,9 +286,11 @@ class SlaveInterface(RequestXMLRPC):
                 "Quitting as requested by an RPC call.")
         return True
 
-    def xmlrpc_ping(self):
+    def xmlrpc_ping(self, cookie):
         """Master checking if we're still here.
         """
+        self.slave.check_cookie(cookie)
+        self.slave.update_timestamp()
         return True
 
 
@@ -343,6 +383,7 @@ class Worker(threading.Thread):
 
     def run(self):
         """Run the worker."""
+        import sys
 
         # Run user_setup if requested:
         self._setup_ready.wait()
@@ -369,7 +410,7 @@ class Worker(threading.Thread):
             try:
                 task.run()
             except Exception, e:
-                print "Caught an exception in the Worker thread!"
+                print >>sys.stderr, "Caught an exception in the Worker thread!"
                 self.slave.die(e)
                 return
 
@@ -380,10 +421,14 @@ class Worker(threading.Thread):
             # TODO: right now, dataset.dump() happens in task.run().  Instead,
             # we should tell the dataset to become available() here, and the
             # data should automatically be dumped.
-            self.slave.master_rpc.blocking_call('done', self.slave.id,
-                    task.outurls(), self.slave.cookie)
-
-            # TODO: Catch ErrbackException here
+            while True:
+                try:
+                    self.slave.master_rpc.blocking_call('done', self.slave.id,
+                            task.outurls(), self.slave.cookie)
+                    break
+                except ErrbackException, e:
+                    print >>sys.stderr, ("RPC error when reporting back."
+                            "  Trying again.")
 
 
 # vim: et sw=4 sts=4

@@ -29,7 +29,7 @@ More information coming soon.
 import threading
 from mapreduce import Implementation
 from twisted.internet import reactor, defer
-from twist import TwistedThread, GrimReaper
+from twist import TwistedThread, GrimReaper, PingTask
 from twistrpc import RequestXMLRPC, uses_request
 
 # TODO: Switch to using "with" for locks when we stop supporting pre-2.5.
@@ -375,8 +375,8 @@ class RemoteSlave(object):
         self._alive = True
         self.update_timestamp()
 
-        from twist import PingTask
-        self.ping_task = PingTask(self.rpc, self.ping_success,
+        ping_args = ('ping', self.cookie,)
+        self.ping_task = PingTask(ping_args, self.rpc, self.ping_success,
                 self.rpc_failure, self.get_timestamp)
         self.ping_task.start()
 
