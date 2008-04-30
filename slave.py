@@ -44,12 +44,16 @@ the worker thread is a daemon thread, it quits implicitly once the other two
 threads complete.
 """
 
+# Timeout for RPC requests (including pings):
+RPC_TIMEOUT = 15
+# Number of ping timeouts before giving up:
+PING_ATTEMPTS = 50
+
 COOKIE_LEN = 8
-SLAVE_PING_INTERVAL = 5.0
 QUIT_DELAY = 0.5
 
 import threading
-from twisted.internet import reactor
+from twisted.internet import reactor, defer
 from twist import TwistedThread, GrimReaper, PingTask, ErrbackException
 from twistrpc import RequestXMLRPC, MrsRPCProxy
 
@@ -123,8 +127,9 @@ class Slave(object):
         self.reaper = GrimReaper()
         self.worker = None
         self.ping_task = None
+        self.timeouts = 0
 
-        self.master_rpc = MrsRPCProxy(self.mrs_master)
+        self.master_rpc = MrsRPCProxy(self.mrs_master, RPC_TIMEOUT)
 
         self.id = None
         self.alive = True
@@ -174,7 +179,7 @@ class Slave(object):
         # Create the Ping Task
         ping_args = ('ping', self.id, self.cookie)
         self.ping_task = PingTask(ping_args, self.master_rpc,
-                self.ping_success, self.rpc_failure, self.get_timestamp)
+                self.ping_success, self.ping_failure, self.get_timestamp)
 
         # Tell the Worker to run the user_setup function.
         import optparse
@@ -187,16 +192,41 @@ class Slave(object):
         
         This is the callback after user_setup is called.
         """
-
-        # Start the ping task
-        self.update_timestamp()
-        self.ping_task.start()
-
         # Report for duty.
         deferred = self.master_rpc.callRemote('ready', self.id, self.cookie)
-        deferred.addErrback(self.rpc_failure)
+        deferred.addCallback(self.ready_success)
+        deferred.addErrback(self.ready_failure)
 
-    def rpc_failure(self, reason=None):
+    def ready_success(self, value):
+        """Called when reporting in as ready succeeded."""
+        import sys
+        print >>sys.stderr, "Connected to master."
+        self.update_timestamp()
+        if not self.ping_task.running:
+            self.ping_task.start()
+
+    def ready_failure(self, error):
+        """Called when reporting in as ready failed."""
+        import sys
+        give_up = False
+        if error.check(defer.TimeoutError):
+            self.timeouts += 1
+            if self.timeouts > PING_ATTEMPTS:
+                print >>sys.stderr, "Too many ping timeouts.  Giving up."
+                give_up = True
+            else:
+                # Try to connect again
+                print >>sys.stderr, "Reconnect timed out.  Trying again."
+                self.report_ready()
+        else:
+            print >>sys.stderr, "Couldn't report in due to network error."
+            print >>sys.stderr, error
+            give_up = True
+
+        if give_up:
+            self.reaper.reap()
+
+    def ping_failure(self, error):
         """Report that the master failed to respond to an RPC request.
 
         This may be either a ping or some other request.  At the moment,
@@ -204,15 +234,27 @@ class Slave(object):
         failures before disconnecting.
         """
         import sys
-        self.ping_task.stop()
-        if reason:
-            print >>sys.stderr, reason
-        print >>sys.stderr, 'Lost master due to network error.'
-        self.reaper.reap()
+
+        give_up = False
+        if error.check(defer.TimeoutError):
+            self.timeouts += 1
+            if self.timeouts > PING_ATTEMPTS:
+                print >>sys.stderr, "Too many ping timeouts.  Giving up."
+                give_up = True
+            else:
+                print >>sys.stderr, 'Ping timeout.  Trying again.'
+        else:
+            print >>sys.stderr, 'Lost master due to network error.'
+            print >>sys.stderr, error
+
+        if give_up:
+            self.ping_task.stop()
+            self.reaper.reap()
 
     def ping_success(self):
         """Called when a ping successfully completes."""
         self.update_timestamp()
+        self.timeouts = 0
 
     def update_timestamp(self):
         """Set the timestamp to the current time."""
@@ -250,6 +292,11 @@ class Slave(object):
             import sys
             print >>sys.stderr, message
         self.reaper.reap()
+
+    def reconnect(self):
+        """Called by the worker thread when it can't contact the master."""
+        reactor.callFromThread(self.ping_task.stop)
+        reactor.callFromThread(self.report_ready)
 
 
 class SlaveInterface(RequestXMLRPC):
@@ -421,14 +468,18 @@ class Worker(threading.Thread):
             # TODO: right now, dataset.dump() happens in task.run().  Instead,
             # we should tell the dataset to become available() here, and the
             # data should automatically be dumped.
-            while True:
-                try:
-                    self.slave.master_rpc.blocking_call('done', self.slave.id,
-                            task.outurls(), self.slave.cookie)
-                    break
-                except ErrbackException, e:
-                    print >>sys.stderr, ("RPC error when reporting back."
-                            "  Trying again.")
+            try:
+                self.slave.master_rpc.blocking_call('done', self.slave.id,
+                        task.outurls(), self.slave.cookie)
+            except ErrbackException, e:
+                # TODO: We should be able to retry calling done, but this will
+                # only be possible if done uses some unique id.  For now,
+                # retrying done can be very destructive.
+                #print >>sys.stderr, ("RPC error when reporting back."
+                #        "  Trying again.")
+                print >>sys.stderr, ("RPC error when reporting back."
+                        "  Giving up.")
+                self.slave.reconnect()
 
 
 # vim: et sw=4 sts=4

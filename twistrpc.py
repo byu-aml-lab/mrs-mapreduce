@@ -31,7 +31,7 @@ receive the client object.
 Most Mrs code uses FromThreadProxy and RequestXMLRPC.
 """
 
-DEFAULT_TIMEOUT = 10.0
+DEFAULT_TIMEOUT = 30.0
 
 import xmlrpclib
 from twisted.web import server, xmlrpc
@@ -85,8 +85,8 @@ class TimeoutQueryFactory(xmlrpc._QueryFactory):
 class TimeoutProxy(xmlrpc.Proxy):
     """XMLRPC Proxy that supports timeouts.
 
-    We extend Twisted's Proxy to allow connections to timeout.
-    When a timeout occurs, we'll errback to the normal deferred.
+    We extend Twisted's Proxy to allow connections to timeout.  When a timeout
+    occurs, we'll errback to the normal deferred.
     """
     queryFactory = TimeoutQueryFactory
 

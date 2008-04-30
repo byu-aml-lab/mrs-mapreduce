@@ -26,6 +26,9 @@
 More information coming soon.
 """
 
+# Timeout for RPC requests (including pings):
+RPC_TIMEOUT = 10
+
 import threading
 from mapreduce import Implementation
 from twisted.internet import reactor, defer

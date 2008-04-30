@@ -178,12 +178,11 @@ class PingTask(object):
         # Call the user's callback:
         self.success()
 
-    def _errback(self, reason):
+    def _errback(self, error):
         """Called when the slave fails to respond to a ping."""
-        self._update_timestamp()
         self._schedule_next()
         # Call the user's callback:
-        self.failure(reason)
+        self.failure(error)
 
 
 class GrimReaper(object):
@@ -217,11 +216,6 @@ def reactor_call(f, *args):
     target = []
     event = threading.Event()
     reactor.callFromThread(_reactor_call2, event, target, f, *args)
-    # FIXME: this operation occasionally hangs for a second or two when
-    # there's a lot of IO.  The reason seems to be that there are two many
-    # IO-related callbacks, so the reactor can get to our request quickly.
-    # The solution is probably to redo the IO using Twisted's producer
-    # and consumer interfaces.
     event.wait()
     deferred = target[0]
     return deferred
