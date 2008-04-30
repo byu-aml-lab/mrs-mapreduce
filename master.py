@@ -128,12 +128,17 @@ class Master(object):
     def begin(self):
         import sys
         from twisted.web import server
-        from twisted.internet import reactor
+        from twisted.internet import reactor, error
 
         # Start RPC master server thread
         resource = MasterInterface(self, self.registry, self.opts)
         site = server.Site(resource)
-        self.server_port = reactor.listenTCP(self.port, site)
+        try:
+            self.server_port = reactor.listenTCP(self.port, site)
+        except error.CannotListenError:
+            print >>sys.stderr, "Error: port already in use."
+            self.reaper.reap()
+            return
         address = self.server_port.getHost()
 
         # Report which port we're listening on (and write to a file)
