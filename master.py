@@ -371,9 +371,9 @@ class RemoteSlave(object):
         self.cookie = cookie
         self.master = master
 
-        from twistrpc import MrsRPCProxy
+        from twistrpc import TimeoutProxy
         uri = "http://%s:%s" % (host, port)
-        self.rpc = MrsRPCProxy(uri)
+        self.rpc = TimeoutProxy(uri)
 
         self._alive = True
         self.update_timestamp()

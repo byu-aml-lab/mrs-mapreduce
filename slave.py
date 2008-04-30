@@ -55,7 +55,7 @@ QUIT_DELAY = 0.5
 import threading
 from twisted.internet import reactor, defer
 from twist import TwistedThread, GrimReaper, PingTask, ErrbackException
-from twistrpc import RequestXMLRPC, MrsRPCProxy
+from twistrpc import RequestXMLRPC, TimeoutProxy
 
 
 def slave_main(registry, user_run, user_setup, args, opts):
@@ -129,7 +129,7 @@ class Slave(object):
         self.ping_task = None
         self.timeouts = 0
 
-        self.master_rpc = MrsRPCProxy(self.mrs_master, RPC_TIMEOUT)
+        self.master_rpc = TimeoutProxy(self.mrs_master, RPC_TIMEOUT)
 
         self.id = None
         self.alive = True
@@ -202,14 +202,15 @@ class Slave(object):
         import sys
         print >>sys.stderr, "Connected to master."
         self.update_timestamp()
+        self.timeouts = 0
         if not self.ping_task.running:
             self.ping_task.start()
 
-    def ready_failure(self, error):
+    def ready_failure(self, err):
         """Called when reporting in as ready failed."""
         import sys
         give_up = False
-        if error.check(defer.TimeoutError):
+        if err.check(defer.TimeoutError):
             self.timeouts += 1
             if self.timeouts > PING_ATTEMPTS:
                 print >>sys.stderr, "Too many ping timeouts.  Giving up."
@@ -220,13 +221,13 @@ class Slave(object):
                 self.report_ready()
         else:
             print >>sys.stderr, "Couldn't report in due to network error."
-            print >>sys.stderr, error
+            print >>sys.stderr, err
             give_up = True
 
         if give_up:
             self.reaper.reap()
 
-    def ping_failure(self, error):
+    def ping_failure(self, err):
         """Report that the master failed to respond to an RPC request.
 
         This may be either a ping or some other request.  At the moment,
@@ -236,7 +237,7 @@ class Slave(object):
         import sys
 
         give_up = False
-        if error.check(defer.TimeoutError):
+        if err.check(defer.TimeoutError):
             self.timeouts += 1
             if self.timeouts > PING_ATTEMPTS:
                 print >>sys.stderr, "Too many ping timeouts.  Giving up."
@@ -245,7 +246,7 @@ class Slave(object):
                 print >>sys.stderr, 'Ping timeout.  Trying again.'
         else:
             print >>sys.stderr, 'Lost master due to network error.'
-            print >>sys.stderr, error
+            print >>sys.stderr, err
 
         if give_up:
             self.ping_task.stop()

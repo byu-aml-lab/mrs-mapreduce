@@ -90,47 +90,50 @@ class TimeoutProxy(xmlrpc.Proxy):
     """
     queryFactory = TimeoutQueryFactory
 
-    def __init__(self, *args, **kwds):
-        if 'timeout' in kwds:
-            self.timeout = kwds['timeout']
-            del kwds['timeout']
-        else:
-            self.timeout = None
+    def __init__(self, url, timeout=DEFAULT_TIMEOUT, **kwds):
+        self.timeout = timeout
 
-        xmlrpc.Proxy.__init__(self, *args, **kwds)
+        cleaned_url = rpc_url(url)
+        xmlrpc.Proxy.__init__(self, cleaned_url, **kwds)
+
+    def callRemote(self, *args):
+        deferred, connector = self.powerful_call(*args)
+        return deferred
 
     # ripped almost exactly from twisted.web.xmlrpc:
-    def callRemote(self, method, *args):
+    def powerful_call(self, method, *args):
+        """Call a remote RPC method and return a deferred and a connector.
+
+        This is almost the same as callRemote in twisted.web.xmlrpc, but
+        it's much more powerful because you have more control over the
+        connection.
+        """
         factory = self.queryFactory(
             self.path, self.host, method, self.user,
             self.password, self.allowNone, args, timeout=self.timeout)
         if self.secure:
             from twisted.internet import ssl
-            reactor.connectSSL(self.host, self.port or 443,
+            connector = reactor.connectSSL(self.host, self.port or 443,
                                factory, ssl.ClientContextFactory())
         else:
-            reactor.connectTCP(self.host, self.port or 80, factory)
-        return factory.deferred
-
-
-class MrsRPCProxy(TimeoutProxy):
-    """XMLRPC Proxy that can operate in a separate thread from the reactor.
-    
-    It also supports Timeouts, and it cleans up the url that's passed in.
-    """
-
-    def __init__(self, url, timeout=DEFAULT_TIMEOUT, **kwds):
-        TimeoutProxy.__init__(self, rpc_url(url), timeout=DEFAULT_TIMEOUT, **kwds)
+            connector = reactor.connectTCP(self.host, self.port or 80, factory)
+        return factory.deferred, connector
 
     def blocking_call(self, *args):
-        """Make a blocking XML RPC call to a remote server."""
+        """Make a blocking XML RPC call to a remote server.
+        
+        This can be called from another thread.
+        """
         # pause between 'blocking call' and 'calling'
         deferred = self.deferred_call(*args)
         result = block(deferred)
         return result
 
     def deferred_call(self, *args):
-        """Make a deferred XML RPC call to a remote server."""
+        """Make a deferred XML RPC call to a remote server.
+        
+        This can be called from another thread.
+        """
         deferred = reactor_call(self.callRemote, *args)
         return deferred
 

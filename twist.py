@@ -30,8 +30,7 @@ PING_INTERVAL = 5.0
 PING_STDDEV = 0.1
 
 import threading
-from twisted.internet import reactor
-from twisted.internet import defer
+from twisted.internet import reactor, defer, error
 
 # TODO: Once the master uses TwistedThread for everything, remove setDaemon.
 
@@ -94,6 +93,7 @@ class PingTask(object):
 
         self.running = False
         self._callid = None
+        self._connector = None
 
     def start(self):
         """Start or restart the ping task."""
@@ -148,6 +148,8 @@ class PingTask(object):
         if self._callid:
             self._callid.cancel()
             self._callid = None
+        if self._connector:
+            self._connector.disconnect()
 
     def _task(self):
         """The PingTask's repeatedly called function.
@@ -167,7 +169,7 @@ class PingTask(object):
         if recent_activity:
             self._schedule_next()
         else:
-            deferred = self.rpc.callRemote(*self.ping_args)
+            deferred, self._connector = self.rpc.powerful_call(*self.ping_args)
             deferred.addCallback(self._callback)
             deferred.addErrback(self._errback)
 
@@ -178,11 +180,16 @@ class PingTask(object):
         # Call the user's callback:
         self.success()
 
-    def _errback(self, error):
+    def _errback(self, err):
         """Called when the slave fails to respond to a ping."""
-        self._schedule_next()
-        # Call the user's callback:
-        self.failure(error)
+        if err.check(error.ConnectionDone):
+            # We'll assume that this means that the user requested a cancel
+            # and that it's gone through.
+            pass
+        else:
+            self._schedule_next()
+            # Call the user's callback:
+            self.failure(err)
 
 
 class GrimReaper(object):
