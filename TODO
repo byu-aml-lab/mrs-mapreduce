@@ -1,13 +1,7 @@
-- switch to producer-consumer model for downloading both File and HTTP input
-- fix "ping" timeouts; "connection refused" errors work, but for some
-  reason hangs don't get registered as a failure
-  Also, fix timeouts in general.  Don't use socket.setdefaulttimeout; use
-  Twisted instead.
-- make the slave use two processes and one thread.  The first process would be
-  completely asynchronous in Twisted.  The second process would be the worker
-  thread.  It needs to be a process so that the subprocess module can work
-  properly within optimization functions.  Use the processing module for
-  communication.
+- speculative execution
+- the done call should have some identifier of which job is being finished
+  in order to reduce possible confusion; once this is done, the slave can
+  retry calling done
 - logging
 - add an input splitter; use the "Range:" header in HTTP requests as part of
   the split implementation.  See also the "urlgrabber" module.  To implement
