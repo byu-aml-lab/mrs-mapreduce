@@ -371,7 +371,8 @@ class RemoteSlave(object):
         self.update_timestamp()
 
         from twist import PingTask
-        self.ping_task = PingTask(self)
+        self.ping_task = PingTask(self.rpc, self.ping_success,
+                self.rpc_failure, self.get_timestamp)
         self.ping_task.start()
 
     def check_cookie(self, cookie):
@@ -414,9 +415,9 @@ class RemoteSlave(object):
                     " we thought was dead!")
         self.timestamp = datetime.utcnow()
 
-    def timestamp_since(self, other):
-        """Report whether the timestamp is newer than the given time."""
-        return self.timestamp > other
+    def get_timestamp(self):
+        """Report the most recent timestamp."""
+        return self.timestamp
 
     def rpc_failure(self, reason=None):
         """Report that a slave failed to respond to an RPC request.
@@ -425,6 +426,8 @@ class RemoteSlave(object):
         we aren't very lenient, but in the future we could allow a few
         failures before disconnecting the slave.
         """
+        if reason:
+            print reason
         self.ping_task.stop()
         self._alive = False
 
@@ -433,12 +436,18 @@ class RemoteSlave(object):
         # Alert the master:
         self.master.slave_gone(self)
 
+    def ping_success(self):
+        """Called when a ping successfully completes."""
+        self.update_timestamp()
+
     def alive(self):
         """Checks whether the Slave is responding."""
         return self._alive
 
     def resurrect(self):
         self._alive = True
+        # Restart the ping_task
+        self.ping_task.start()
 
     def disconnect(self):
         """Disconnect the slave.

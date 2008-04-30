@@ -72,19 +72,34 @@ class TwistedThread(threading.Thread):
 
 # TODO: make it so the slave can use this, too
 class PingTask(object):
-    """Periodically make an XML RPC call to the ping procedure."""
-    def __init__(self, slave):
-        self.slave = slave
+    """Periodically make an XML RPC call to the ping procedure.
+    
+    The `rpc` proxy is used to make ping requests.  The `success` function is
+    called when a ping successfully completes, and the `failure` function is
+    called when a ping fails.  The optional `last_activity` function is called
+    to get the timestamp for the last time activity occurred.  This lets the
+    PingTask be lazy and avoid a ping if some other form of communication
+    already occurred.
+
+    Note that the PingTask will continue running regardless of whether a ping
+    succeeds or fails.  In other words, `success` and `failure` are
+    responsible for stopping the PingTask if necessary.
+    """
+    def __init__(self, rpc, success, failure, last_activity=None):
+        self.rpc = rpc
+        self.success = success
+        self.failure = failure
+        self.last_activity = last_activity
+
         self.running = False
         self._callid = None
 
-        # Last time that we checked to see if the slave is alive:
-        self.timestamp = self.slave.timestamp
-
     def start(self):
+        """Start or restart the ping task."""
         assert(not self.running)
         self.running = True
-        reactor.callFromThread(self._schedule_next)
+        self._update_timestamp()
+        self._schedule_next()
 
     def stop(self):
         # FIXME: We have this `if self.running` here because apparently the
@@ -93,22 +108,39 @@ class PingTask(object):
         # We should really look into this and make sure that there's not some
         # other problem.
         if self.running:
-            reactor.callFromThread(self._stop)
+            self.running = False
+            self._cancel()
+        else:
+            print 'Warning: Tried to stop a PingTask twice!'
 
-    def _stop(self):
-        """Stop the ping task (must be called within the reactor thread)."""
-        self.running = False
-        self._cancel()
+    def _update_timestamp(self):
+        """Set the timestamp to the current time."""
+        from datetime import datetime
+        self.timestamp = datetime.utcnow()
 
     def _schedule_next(self):
         """Set up the next call.  Randomly adjust the delay.
         
         This _must_ be called from the reactor thread.
         """
+        from datetime import datetime, timedelta
+        from util import delta_seconds
+
         # we can't schedule a new one if the old one hasn't executed yet.
         assert(self._callid is None)
-        import random
-        delay = random.normalvariate(PING_INTERVAL, PING_STDDEV)
+
+        now = datetime.utcnow()
+        ping_interval = timedelta(seconds=PING_INTERVAL)
+        since_last = now - self.timestamp
+
+        base_delay = delta_seconds(ping_interval - since_last)
+        if base_delay < 0:
+            delay = 0
+        else:
+            import random
+            delay = random.normalvariate(base_delay, PING_STDDEV)
+            if delay < 0:
+                delay = 0
         self._callid = reactor.callLater(delay, self._task)
 
     def _cancel(self):
@@ -116,30 +148,25 @@ class PingTask(object):
             self._callid.cancel()
             self._callid = None
 
-    def _update_timestamp(self, activity=False):
-        """Update our timestamp of the last time we checked on the slave.
-
-        If we have received communication from the slave (activity is True),
-        update self.slave's timestamp, too.
-        """
-        if activity:
-            self.slave.update_timestamp()
-            self.timestamp = self.slave.timestamp
-        else:
-            from datetime import datetime
-            self.timestamp = datetime.utcnow()
-
     def _task(self):
         """The PingTask's repeatedly called function.
         
         Ping the slave if it's necessary to do so.
         """
         self._callid = None
-        if self.slave.timestamp_since(self.timestamp):
-            self._update_timestamp()
+
+        # Check whether there has been more recent communication.
+        recent_activity = False
+        if self.last_activity:
+            last = self.last_activity()
+            if last > self.timestamp:
+                self.timestamp = last
+                recent_activity = True
+
+        if recent_activity:
             self._schedule_next()
         else:
-            deferred = self.slave.rpc.callRemote('ping')
+            deferred = self.rpc.callRemote('ping')
             deferred.addCallback(self._callback)
             deferred.addErrback(self._errback)
 
@@ -147,13 +174,15 @@ class PingTask(object):
         """Called when the slave responds to a ping."""
         self._update_timestamp(True)
         self._schedule_next()
+        # Call the user's callback:
+        self.success()
 
-    def _errback(self, failure):
+    def _errback(self, reason):
         """Called when the slave fails to respond to a ping."""
-        print failure
         self._update_timestamp()
-        self.slave.rpc_failure()
-        self._stop()
+        self._schedule_next()
+        # Call the user's callback:
+        self.failure(reason)
 
 
 class GrimReaper(object):

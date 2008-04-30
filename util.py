@@ -23,6 +23,8 @@
 
 """Miscellaneous Helper Functions"""
 
+from __future__ import division
+
 def try_makedirs(path):
     """Do the equivalent of mkdir -p."""
     import os
@@ -33,6 +35,15 @@ def try_makedirs(path):
         if e.errno != errno.EEXIST:
             raise
 
+def delta_seconds(delta):
+    """Find the total number of seconds in a timedelta object.
+
+    Flatten out the days and microseconds to get a simple number of seconds.
+    """
+    day_seconds = 24 * 3600 * delta.days
+    ms_seconds = delta.microseconds / 1000000.0
+    total = day_seconds + delta.seconds + ms_seconds
+    return total
 
 if __name__ == '__main__':
     import doctest
