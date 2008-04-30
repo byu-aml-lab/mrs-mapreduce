@@ -433,16 +433,20 @@ class RemoteSlave(object):
         This may be either a ping or some other request.  At the moment,
         we aren't very lenient, but in the future we could allow a few
         failures before disconnecting the slave.
+
+        Note that we can get multiple failures for one slave.
         """
-        if reason:
-            print reason
-        self.ping_task.stop()
-        self._alive = False
+        if self.alive():
+            self.ping_task.stop()
+            self._alive = False
 
-        print 'Lost slave due to network error.'
+            import sys
+            if reason:
+                print >>sys.stderr, reason
+            print >>sys.stderr, 'Lost slave due to network error.'
 
-        # Alert the master:
-        self.master.slave_gone(self)
+            # Alert the master:
+            self.master.slave_gone(self)
 
     def ping_success(self):
         """Called when a ping successfully completes."""
