@@ -30,7 +30,6 @@ More information coming soon.
 RPC_TIMEOUT = 10
 
 import threading
-from mapreduce import Implementation
 from twisted.internet import reactor, defer
 from twist import TwistedThread, GrimReaper, PingTask
 from twistrpc import RequestXMLRPC, uses_request
