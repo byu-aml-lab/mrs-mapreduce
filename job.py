@@ -71,9 +71,25 @@ class Job(threading.Thread):
         computed.
         """
         job = self
+        die = False
+
         if self.user_setup:
-            self.user_setup(self.opts)
-        self.user_run(job, self.args, self.opts)
+            try:
+                self.user_setup(self.opts)
+            except Exception, e:
+                # The user code threw some exception.  Print out the error.
+                die = True
+
+        if not die:
+            try:
+                self.user_run(job, self.args, self.opts)
+            except Exception, e:
+                die = True
+
+        if die:
+            # The user code threw some exception.  Print out the error.
+            import traceback
+            traceback.print_exc()
         self.end()
 
     def submit(self, dataset):
