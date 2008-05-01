@@ -50,4 +50,7 @@ primary_impl = cli.primary_impl
 hash_partition = partition.hash_partition
 mod_partition = partition.mod_partition
 
+# We need to set __all__ to make sure that pydoc has everything:
+__all__ = dir()
+
 # vim: et sw=4 sts=4
