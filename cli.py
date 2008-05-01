@@ -73,7 +73,8 @@ def main(registry, run=None, setup=None, update_parser=None):
         main_function = slave_main
         add_slave_options(parser)
     elif mrs_impl == 'mockparallel':
-        main_function = run_mockparallel
+        from serial import mockparallel_main
+        main_function = mockparallel_main
         add_master_options(parser)
         if update_parser:
             parser = update_parser(parser)
@@ -160,22 +161,6 @@ def run_serial(registry, user_run, user_setup, args, opts):
     job = Job(registry, user_run, user_setup, args, opts)
 
     mrs_exec = Serial(job, registry, opts)
-    mrs_exec.run()
-    return 0
-
-def run_mockparallel(registry, user_run, user_setup, args, opts):
-    from serial import MockParallel
-    from job import Job
-
-    # Set up job directory
-    shared_dir = opts.mrs_shared
-    from util import try_makedirs
-    try_makedirs(shared_dir)
-
-    # Create Job
-    job = Job(registry, user_run, user_setup, args, opts)
-
-    mrs_exec = MockParallel(job, registry, opts)
     mrs_exec.run()
     return 0
 

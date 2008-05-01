@@ -95,7 +95,8 @@ class Job(threading.Thread):
             self.waiting_data.append(dataset)
         self._lock.release()
 
-        self.update_callback()
+        if self.update_callback:
+            self.update_callback()
 
     def remove_dataset(self, dataset):
         """Remove a completed or waiting DataSet.

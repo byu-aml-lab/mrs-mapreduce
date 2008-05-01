@@ -23,32 +23,6 @@
 
 import threading
 
-class Implementation(threading.Thread):
-    """Abstract class for carrying out the work.
-
-    There are various ways to implement MapReduce:
-    - serial execution on one processor
-    - parallel execution on a shared-memory system
-    - parallel execution with shared storage on a POSIX filesystem (like NFS)
-    - parallel execution with a non-POSIX distributed filesystem
-
-    To execute, make sure to do:
-    job.inputs.append(input_filename)
-    job.operations.append(mrs_operation)
-
-    By the way, since Implementation inherits from threading.Thread, you can
-    execute a MapReduce operation as a thread.  Slick, eh?
-    """
-    def __init__(self, job, registry, options, **kwds):
-        threading.Thread.__init__(self, **kwds)
-        self.job = job
-        self.registry = registry
-        self.options = options
-
-    def run(self):
-        raise NotImplementedError("I think you should have"
-                " instantiated a subclass of Implementation.")
-
 
 def mrs_map(mapper, input):
     """Perform a map from the entries in input."""
