@@ -117,7 +117,18 @@ class SlaveEventThread(TwistedThread):
 
 
 class Slave(object):
-    """Mrs Slave"""
+    """State of a Mrs slave
+    
+    Since execution flow is event-driven, a little overview might be helpful.
+    When the slave starts up, the `signin` method is called.  If it fails, the
+    `signin_errback` method shuts everything down, but if it succeeds, the
+    `signin_callback` method starts some initialization in the Worker thread.
+    When this initialization finishes, the Worker thread will trigger the
+    `report_ready` method, which causes the slave to report in to the master.
+    Later on, the Worker may trigger this method again if it can't contact the
+    master; this gives us a chance to reconnect if the network hiccups for a
+    few minutes.
+    """
 
     def __init__(self, registry, user_setup, mrs_master):
         self.mrs_master = mrs_master
