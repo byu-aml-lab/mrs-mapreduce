@@ -22,14 +22,22 @@
 # copyright@byu.edu.
 
 
-# TODO: taskid is really just used for naming output files; it should be
+# TODO: source is really just used for naming output files; it should be
 # replaced by a more descriptive parameter that makes it clear that it's
-# not necessarily the taskid number.
+# not necessarily the source number.
 
 class Task(object):
-    def __init__(self, taskid, input, split, outdir, format):
-        self.taskid = taskid
+    """Manage input and output for a piece of a map or reduce operation.
+
+    The `split` is the split of input that will be used by this Task.  Note
+    that on the slave, this will always be 0 because the slave is unaware of
+    other input that the master may know about.  The `source` is the source
+    number that will be created by this Task.  It is just used for
+    informational purposes, like naming output files.
+    """
+    def __init__(self, input, split, source, outdir, format):
         self.input = input
+        self.source = source
         self.split = split
         self.outdir = outdir
         self.dataset = None
@@ -82,14 +90,14 @@ class Task(object):
     def tempdir(self, prefix):
         import tempfile
         directory = tempfile.mkdtemp(dir=self.outdir,
-                prefix=('%s_%s_' % (prefix, self.taskid)))
+                prefix=('%s_%s_' % (prefix, self.source)))
         return directory
 
 
 class MapTask(Task):
-    def __init__(self, taskid, input, split, map_name, part_name, nparts,
+    def __init__(self, input, split, source, map_name, part_name, nparts,
             outdir, format, registry):
-        Task.__init__(self, taskid, input, split, outdir, format)
+        Task.__init__(self, input, split, source, outdir, format)
         self.map_name = map_name
         self.mapper = registry[map_name]
         self.part_name = part_name
@@ -108,7 +116,7 @@ class MapTask(Task):
         # PREP
         directory = self.tempdir('map')
         self.output = datasets.Output(self.partition, self.nparts,
-                taskid=self.taskid, directory=directory)
+                source=self.source, directory=directory)
 
         # SETUP INPUT
         self.input.fetchall()
@@ -121,9 +129,9 @@ class MapTask(Task):
 
 
 class ReduceTask(Task):
-    def __init__(self, taskid, input, split, reduce_name, part_name, nparts,
+    def __init__(self, input, split, source, reduce_name, part_name, nparts,
             outdir, format, registry):
-        Task.__init__(self, taskid, input, split, outdir, format)
+        Task.__init__(self, input, split, source, outdir, format)
         self.reduce_name = reduce_name
         self.reducer = registry[reduce_name]
         self.part_name = part_name

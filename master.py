@@ -400,19 +400,31 @@ class RemoteSlave(object):
         extension = task.format.ext
         # TODO: convert these RPC calls to be asynchronous!
         if assignment.map:
-            deferred = self.rpc.callRemote('start_map', task.taskid,
+            deferred = self.rpc.callRemote('start_map', task.source,
                     task.inurls(), task.map_name, task.part_name,
                     task.nparts, task.outdir, extension, self.cookie)
         elif assignment.reduce:
-            deferred = self.rpc.callRemote('start_reduce', task.taskid,
+            deferred = self.rpc.callRemote('start_reduce', task.source,
                     task.inurls(), task.reduce_name, task.part_name,
                     task.nparts, task.outdir, extension, self.cookie)
         else:
             raise RuntimeError
 
         self.assignment = assignment
+        deferred.addCallback(self.assign_callback)
         deferred.addErrback(self.rpc_failure)
         return deferred
+
+    def assign_callback(self, value):
+        """Called when the start_map or start_reduce call comes back.
+
+        If the value is True, the client accepted the job.  If it's False, the
+        client is busy with some other task and rejected the job.
+        """
+        # FIXME!!!!!!!!!  value could be True or False, depending on
+        # whether the slave is already busy
+        #print "assign callback", value
+        pass
 
     def update_timestamp(self):
         """Set the timestamp to the current time."""

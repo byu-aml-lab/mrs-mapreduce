@@ -275,7 +275,8 @@ class Output(DataSet):
     """Collect output from a map or reduce task.
     
     This is only used on the slave side.  It takes a partition function and a
-    number of splits to use.
+    number of splits to use.  Note that the `source`, which is just used for
+    naming files, represents which output source is being created.
 
     >>> o = Output((lambda x, n: x%n), 4)
     >>> lst = [(4, 'to_0'), (5, 'to_1'), (7, 'to_3'), (9, 'to_1')]
@@ -286,13 +287,13 @@ class Output(DataSet):
     [(7, 'to_3')]
     >>>
     """
-    def __init__(self, partition, splits, taskid=0, **kwds):
+    def __init__(self, partition, splits, source=0, **kwds):
         super(Output, self).__init__(splits=splits, **kwds)
 
         self.partition = partition
         # One source and splits splits
         self._data = [[Bucket(format=self.format,
-                filename=self.path(taskid, i)) for i in xrange(splits)]]
+                filename=self.path(source, i)) for i in xrange(splits)]]
 
         # For now, the externally visible url is just the filename on the
         # local or networked filesystem.
@@ -518,7 +519,7 @@ class ComputedData(RemoteData):
         if task in self.tasks_active:
             assert task not in self.tasks_done
 
-            for bucket, url in izip(self[task.taskid, :], task.outurls()):
+            for bucket, url in izip(self[task.source, :], task.outurls()):
                 bucket.url = url
             self.tasks_active.remove(task)
             self.tasks_done.append(task)
@@ -546,8 +547,8 @@ class ComputedData(RemoteData):
 class MapData(ComputedData):
     def make_tasks(self):
         from task import MapTask
-        for taskid in xrange(self.sources):
-            task = MapTask(taskid, self.input, taskid, self.func_name,
+        for i in xrange(self.sources):
+            task = MapTask(self.input, i, i, self.func_name,
                     self.part_name, self.splits, self.outdir, self.format,
                     self.registry)
             task.dataset = self
@@ -565,8 +566,8 @@ class MapData(ComputedData):
 class ReduceData(ComputedData):
     def make_tasks(self):
         from task import ReduceTask
-        for taskid in xrange(self.sources):
-            task = ReduceTask(taskid, self.input, taskid, self.func_name,
+        for i in xrange(self.sources):
+            task = ReduceTask(self.input, i, i, self.func_name,
                     self.part_name, self.splits, self.outdir, self.format,
                     self.registry)
             task.dataset = self
