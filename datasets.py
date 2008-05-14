@@ -151,10 +151,18 @@ class DataSet(object):
         self.format = format
         self.closed = False
 
+        # Whether self.directory will get cleaned up
+        self.temporary = not self.directory
+
         # For now assume that all sources have the same # of splits.
         self._data = [[Bucket(filename=self.path(i, j))
                 for j in xrange(splits)]
                 for i in xrange(sources)]
+
+    def __del__(self):
+        if self.temporary:
+            import os
+            os.removedirs(self.directory)
 
     def __len__(self):
         """Number of buckets in this DataSet."""
