@@ -68,15 +68,21 @@ def master_main(registry, user_run, user_setup, args, opts):
     except KeyboardInterrupt:
         pass
 
-    # Wait for the other threads to finish.
+    # Tell event thread to finish.
     event_thread.shutdown()
+
+    # Clean up jobdir
+    if not opts.mrs_keep_jobdir:
+        from util import remove_recursive
+        remove_recursive(job.jobdir)
+
+    # Wait for event thread to finish.
     event_thread.join()
 
     if master.reaper.traceback:
         print master.reaper.traceback
 
     return 0
-
 
 
 # TODO: when we stop supporting Python older than 2.5, use inlineCallbacks:

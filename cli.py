@@ -138,6 +138,8 @@ def add_master_options(parser):
     default_shared = os.getcwd()
     parser.add_option('-S', '--mrs-shared', dest='mrs_shared',
             help='Shared area for temporary storage (parallel only)')
+    parser.add_option('--mrs-keep-jobdir', dest='mrs_keep_jobdir',
+            action='store_true', help="Do not delete jobdir at completion")
     parser.add_option('-R', '--mrs-reduce-tasks', dest='mrs_reduce_tasks',
             type='int', help='Default number of reduce tasks (parallel only)')
     parser.add_option('--mrs-runfile', dest='mrs_runfile',

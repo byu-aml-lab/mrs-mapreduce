@@ -161,8 +161,8 @@ class DataSet(object):
 
     def __del__(self):
         if self.temporary:
-            import os
-            os.removedirs(self.directory)
+            from util import remove_recursive
+            remove_recursive(self.directory)
 
     def __len__(self):
         """Number of buckets in this DataSet."""

@@ -35,6 +35,16 @@ def try_makedirs(path):
         if e.errno != errno.EEXIST:
             raise
 
+def remove_recursive(path):
+    """Do the equivalent of rm -r."""
+    import subprocess
+    p = subprocess.Popen(['/bin/rm', '-r', path])
+    retcode = p.wait()
+    if retcode == 0:
+        return
+    else:
+        raise OSError("Couldn't rm -rf \"%s\"" % path)
+
 def delta_seconds(delta):
     """Find the total number of seconds in a timedelta object.
 
