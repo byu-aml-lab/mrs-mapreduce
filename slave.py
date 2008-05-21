@@ -44,8 +44,6 @@ the worker thread is a daemon thread, it quits implicitly once the other two
 threads complete.
 """
 
-# Timeout for RPC requests (including pings):
-RPC_TIMEOUT = 15
 # Number of ping timeouts before giving up:
 PING_ATTEMPTS = 50
 
@@ -65,7 +63,7 @@ def slave_main(registry, user_run, user_setup, args, opts):
     will return slave_main's return value.
     """
 
-    slave = Slave(registry, user_setup, opts.mrs_master)
+    slave = Slave(registry, user_setup, opts)
 
     # Create the other threads:
     worker = Worker(slave)
@@ -130,17 +128,18 @@ class Slave(object):
     few minutes.
     """
 
-    def __init__(self, registry, user_setup, mrs_master):
-        self.mrs_master = mrs_master
+    def __init__(self, registry, user_setup, opts):
+        self.mrs_master = opts.mrs_master
         self.registry = registry
         self.user_setup = user_setup
+        self.pingdelay = opts.mrs_pingdelay
 
         self.reaper = GrimReaper()
         self.worker = None
         self.ping_task = None
         self.timeouts = 0
 
-        self.master_rpc = TimeoutProxy(self.mrs_master, RPC_TIMEOUT)
+        self.master_rpc = TimeoutProxy(self.mrs_master, opts.mrs_timeout)
 
         self.id = None
         self.alive = True
@@ -189,7 +188,7 @@ class Slave(object):
 
         # Create the Ping Task
         ping_args = ('ping', self.id, self.cookie)
-        self.ping_task = PingTask(ping_args, self.master_rpc,
+        self.ping_task = PingTask(self.pingdelay, ping_args, self.master_rpc,
                 self.ping_success, self.ping_failure, self.get_timestamp)
 
         # Tell the Worker to run the user_setup function.

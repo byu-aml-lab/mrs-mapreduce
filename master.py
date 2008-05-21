@@ -26,9 +26,6 @@
 More information coming soon.
 """
 
-# Timeout for RPC requests (including pings):
-RPC_TIMEOUT = 10
-
 import threading
 from twisted.internet import reactor, defer
 from twist import TwistedThread, GrimReaper, PingTask
@@ -114,6 +111,7 @@ class Master(object):
         # TODO: get rid of these:
         self.port = opts.mrs_port
         self.runfile = opts.mrs_runfile
+        self.rpc_timeout = opts.mrs_timeout
 
         self.reaper = GrimReaper()
         self.job = job
@@ -372,14 +370,15 @@ class RemoteSlave(object):
 
         from twistrpc import TimeoutProxy
         uri = "http://%s:%s" % (host, port)
-        self.rpc = TimeoutProxy(uri)
+        self.rpc = TimeoutProxy(uri, self.master.rpc_timeout)
 
         self._alive = True
         self.update_timestamp()
 
+        pingdelay = self.master.opts.mrs_pingdelay
         ping_args = ('ping', self.cookie,)
-        self.ping_task = PingTask(ping_args, self.rpc, self.ping_success,
-                self.rpc_failure, self.get_timestamp)
+        self.ping_task = PingTask(pingdelay, ping_args, self.rpc,
+                self.ping_success, self.rpc_failure, self.get_timestamp)
         self.ping_task.start()
 
     def check_cookie(self, cookie):
