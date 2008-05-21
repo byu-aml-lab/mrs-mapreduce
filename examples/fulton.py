@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 # Mrs Fulton -- run Mrs programs on Marylou4 (BYU's supercomputer)
-
 # Copyright 2008 Brigham Young University
 #
 # This file is part of Mrs.
@@ -85,7 +84,8 @@ def main():
     arg_array = "(%s)" % " ".join(quoted_args)
     script_vars = dict(python=PYTHON, program=mrs_program,
             arg_array=arg_array, interface=INTERFACE, jobdir=jobdir,
-            current_dir=current_dir, output=options.output)
+            current_dir=current_dir, output=options.output,
+            timeout=options.timeout)
 
     print "Submitting master job...",
     jobid = submit_master(name, script_vars, cmdline, jobdir)
@@ -117,6 +117,7 @@ def submit_master(name, script_vars, cmdline, jobdir):
         ARGS=%(arg_array)s
         INTERFACE="%(interface)s"
         OUTPUT="%(output)s"
+        TIMEOUT="%(timeout)s"
 
         HOST_FILE="$JOBDIR/host.$PBS_JOBID"
         PORT_FILE="$JOBDIR/port.$PBS_JOBID"
@@ -130,7 +131,7 @@ def submit_master(name, script_vars, cmdline, jobdir):
 
         # Master
         $PYTHON $MRS_PROGRAM master -S "$JOBDIR" --mrs-runfile "$PORT_FILE" \
-                ${ARGS[@]} >$OUTPUT
+                -T "$TIMEOUT" --mrs-pingdelay="$TIMEOUT" ${ARGS[@]} >$OUTPUT
         ''' % script_vars
 
     cmdline += ['-N', name + QSUB_NAME_MASTER]
@@ -161,6 +162,7 @@ def submit_slave(name, script_vars, cmdline, jobdir, master_jobid):
         PYTHON="%(python)s"
         MRS_PROGRAM="%(program)s"
         MASTER_JOBID="%(master_jobid)s"
+        TIMEOUT="%(timeout)s"
 
         HOST_FILE="$JOBDIR/host.$MASTER_JOBID"
         PORT_FILE="$JOBDIR/port.$MASTER_JOBID"
@@ -169,7 +171,8 @@ def submit_slave(name, script_vars, cmdline, jobdir, master_jobid):
         while [[ ! -e $PORT_FILE ]]; do sleep 1; done
         PORT=$(cat $PORT_FILE)
         HOST=$(cat $HOST_FILE)
-        $PYTHON $MRS_PROGRAM slave -M "$HOST:$PORT"
+        $PYTHON $MRS_PROGRAM slave -M "$HOST:$PORT" -T "$TIMEOUT" \
+                --mrs-pingdelay="$TIMEOUT"
         ''' % script_vars
 
     # Don't print jobid to stdout
@@ -220,6 +223,8 @@ def create_parser():
     parser.add_option('-n', dest='n', help='Number of slaves', type='int')
     parser.add_option('-N', '--name', dest='name', help='Name of job')
     parser.add_option('-o', '--output', dest='output', help='Output directory')
+    parser.add_option('--timeout', dest='timeout',
+            help='Timeout for RPC calls and pings')
     parser.add_option('-t', '--time', dest='time', type='float',
             help='Wallclock time (in hours)')
 

@@ -128,7 +128,11 @@ def option_parser():
 
     parser.add_option('-P', '--mrs-port', dest='mrs_port', type='int',
             help='RPC Port for incoming requests')
-    parser.set_defaults(mrs_port=0)
+    parser.add_option('-T', '--mrs-timeout', dest='mrs_timeout', type='float',
+            help='Timeout for RPC calls (including pings)')
+    parser.add_option('--mrs-pingdelay', dest='mrs_pingdelay', type='float',
+            help='Interval between pings')
+    parser.set_defaults(mrs_port=0, mrs_timeout=20.0, mrs_pingdelay=5.0)
 
     return parser
 

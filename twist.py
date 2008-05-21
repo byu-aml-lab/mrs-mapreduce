@@ -26,7 +26,6 @@
 Helper functions and classes for Python Twisted.
 """
 
-PING_INTERVAL = 5.0
 PING_STDDEV = 0.1
 
 import threading
@@ -84,7 +83,9 @@ class PingTask(object):
     succeeds or fails.  In other words, `success` and `failure` are
     responsible for stopping the PingTask if necessary.
     """
-    def __init__(self, ping_args, rpc, success, failure, last_activity=None):
+    def __init__(self, pingdelay, ping_args, rpc, success, failure,
+            last_activity=None):
+        self.pingdelay = pingdelay
         self.ping_args = ping_args
         self.rpc = rpc
         self.success = success
@@ -131,7 +132,7 @@ class PingTask(object):
         assert(self._callid is None)
 
         now = datetime.utcnow()
-        ping_interval = timedelta(seconds=PING_INTERVAL)
+        ping_interval = timedelta(seconds=self.pingdelay)
         since_last = now - self.timestamp
 
         base_delay = delta_seconds(ping_interval - since_last)
