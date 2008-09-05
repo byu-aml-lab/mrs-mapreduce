@@ -160,10 +160,20 @@ def load_module(option, opt_str, value, parser):
     It loads the specified module and calls the function config_parser in the
     module.  A config_parser function will usually add new options to the
     parser.
+
+    >>> parser = optparse.OptionParser()
+    >>> opt = parser.add_option('-m', nargs=1, dest='module', action='callback', callback=load_module)
+    >>> opts, args = parser.parse_args(['-m', 'optparse'])
+    >>> print opts.module.__name__
+    optparse
+    >>>
     """
-    parents = opt_str.split('.')[:-1]
+    print repr(opt_str), repr(value)
+    print
+    return
+    parents = value.split('.')[:-1]
     try:
-        module = __import__(opt_str, {}, {}, parents)
+        module = __import__(value, {}, {}, parents)
     except ImportError, e:
         raise optparse.OptionValueError(str(e))
 
