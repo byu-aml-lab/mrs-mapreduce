@@ -162,15 +162,12 @@ def load_module(option, opt_str, value, parser):
     parser.
 
     >>> parser = optparse.OptionParser()
-    >>> opt = parser.add_option('-m', nargs=1, dest='module', action='callback', callback=load_module)
+    >>> opt = parser.add_option('-m', nargs=1, dest='module', type='string', action='callback', callback=load_module)
     >>> opts, args = parser.parse_args(['-m', 'optparse'])
     >>> print opts.module.__name__
     optparse
     >>>
     """
-    print repr(opt_str), repr(value)
-    print
-    return
     parents = value.split('.')[:-1]
     try:
         module = __import__(value, {}, {}, parents)
