@@ -182,6 +182,33 @@ def load_module(option, opt_str, value, parser):
         pass
 
 
+# rename to ExtendableParser or ...?
+class ContextualParser(optparse.OptionParser):
+    """An extension of OptionParser that can load classes with custom options.
+    """
+    pass
+
+
+def check_import(option, opt, value):
+    """Tries to import some object.
+
+    >>> imported = check_import(None, None, 'optparse')
+    >>> imported == optparse
+    True
+    >>> imported = check_import(None, None, 'nonexistent_module')
+    Traceback (most recent call last):
+        ...
+    OptionValueError: No module named nonexistent_module
+    >>>
+    """
+    parents = value.split('.')[:-1]
+    try:
+        imported = __import__(value, {}, {}, parents)
+        return imported
+    except ImportError, e:
+        raise optparse.OptionValueError(str(e))
+
+
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
