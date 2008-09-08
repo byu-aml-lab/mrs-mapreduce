@@ -192,13 +192,13 @@ class ContextualParser(optparse.OptionParser):
 def check_import(option, opt, value):
     """Tries to import some object.
 
-    >>> imported = check_import(None, None, 'optparse')
+    >>> imported = check_import(None, 'should_work', 'optparse')
     >>> imported == optparse
     True
-    >>> imported = check_import(None, None, 'nonexistent_module')
+    >>> imported = check_import(None, 'should_fail', 'nonexistent_module')
     Traceback (most recent call last):
         ...
-    OptionValueError: No module named nonexistent_module
+    OptionValueError: option should_fail: No module named nonexistent_module
     >>>
     """
     parents = value.split('.')[:-1]
@@ -206,7 +206,7 @@ def check_import(option, opt, value):
         imported = __import__(value, {}, {}, parents)
         return imported
     except ImportError, e:
-        raise optparse.OptionValueError(str(e))
+        raise optparse.OptionValueError('option %s: %s' % (opt, str(e)))
 
 
 if __name__ == '__main__':
