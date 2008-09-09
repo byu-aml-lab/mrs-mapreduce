@@ -46,10 +46,17 @@ class Param(object):
     """A Parameter with name, default value, and documentation.
 
     A list of Params is used by a class of type ParamMeta.
+
+    Attributes:
+        default: The default value to be used.
+        type: The optparse-style type to be used when interpreting command-line
+                arguments ('string', 'int', ...).
+        doc: Help text.
     """
-    def __init__(self, default=None, doc=None):
+    def __init__(self, default=None, type='string', doc=None):
         self.default = default
         self.doc = doc
+        self.type = type
 
 
 class _ParamMeta(type):
@@ -128,24 +135,16 @@ class ParamObj:
 
     Example:
 
-    >>> class Rabbit(ParamObj):
-    ...     '''A small rodent, very similar to a hare, which feeds on grass
-    ...     and burrows in the earth.
-    ...     '''
-    ...     _params = dict(weight=Param(default=42, doc='Body Weight'))
-    ...
-    ...     def __init__(self, name, **kwds):
-    ...         ParamObj.__init__(self, **kwds)
-    >>> m = Rabbit('Roger')
+    >>> m = Rabbit()
     >>> print m.__doc__
-    A small rodent, very similar to a hare, which feeds on grass
-        and burrows in the earth.
+    A small rodent, very similar to a hare, which feeds on grass and
+        burrows in the earth.
     <BLANKLINE>
     Rabbit Parameters:
         weight: Body Weight (default=42)
     >>> m.weight
     42
-    >>> m = Rabbit('Bugs', weight=12)
+    >>> m = Rabbit(weight=12)
     >>> m.weight
     12
     >>>
@@ -154,62 +153,146 @@ class ParamObj:
     __metaclass__ = _ParamMeta
 
 
+def import_object(name):
+    """Imports an object, unlike __import__ which only imports modules.
+
+    Importing a module:
+    >>> x = import_object('optparse')
+    >>> x == optparse
+    True
+    >>>
+
+    Importing an attribute in a module:
+    >>> x = import_object('optparse.OptionParser')
+    >>> x == optparse.OptionParser
+    True
+    >>>
+
+    Importing a nonexistent module:
+    >>> x = import_object('zzzzz')
+    Traceback (most recent call last):
+        ...
+    ImportError: No module named zzzzz
+    >>>
+    """
+    # Note that we don't use fromlist.  As pointed out at
+    # http://bugs.python.org/issue2090 and elsewhere, fromlist often does
+    # the wrong thing.
+    parts = name.split('.')
+    try:
+        module = __import__(name)
+    except ImportError:
+        # Check whether name represents an attribute in a module rather than
+        # the module itself.
+        if len(parts) > 1:
+            parent, last = name.rsplit('.', 1)
+            module = __import__(parent)
+        else:
+            raise
+
+    obj = module
+    for part in parts[1:]:
+        obj = getattr(obj, part)
+    return obj
+
+
 class Option(optparse.Option):
-    """Extension of optparse.Option that adds an 'import' option.
+    """Extension of optparse.Option that adds an 'instantiate' action.
     
     >>> parser = optparse.OptionParser(option_class=Option)
     >>> import new
     >>> parser.error = new.instancemethod(test_error, parser)
-    >>> option = parser.add_option('-i', action='import', dest='imported')
+    >>> option = parser.add_option('--obj', action='instantiate', dest='obj')
     >>>
 
-    >>> opts, args = parser.parse_args(['-i', 'optparse'])
-    >>> opts.imported == optparse
+    >>> opts, args = parser.parse_args(['--obj', 'param.Rabbit',
+    ...         '--obj-weight', '17'])
+    >>> import param
+    >>> isinstance(opts.obj, param.Rabbit)
     True
+    >>> opts.obj.weight
+    17
     >>>
 
-    >>> opts, args = parser.parse_args(['-i', 'zzzzz'])
+    >>> opts, args = parser.parse_args(['--obj', 'zzzzz'])
     Traceback (most recent call last):
         ...
-    TestFailed: option -i: No module named zzzzz
+    TestFailed: option --obj: No module named zzzzz
     >>>
     """
-    ACTIONS = optparse.Option.ACTIONS + ('import',)
-    STORE_ACTIONS = optparse.Option.STORE_ACTIONS + ('import',)
-    TYPED_ACTIONS = optparse.Option.TYPED_ACTIONS + ('import',)
-    ALWAYS_TYPED_ACTIONS = optparse.Option.ALWAYS_TYPED_ACTIONS + ('import',)
+    ACTIONS = optparse.Option.ACTIONS + ('instantiate',)
+    STORE_ACTIONS = optparse.Option.STORE_ACTIONS + ('instantiate',)
+    TYPED_ACTIONS = optparse.Option.TYPED_ACTIONS + ('instantiate',)
+    ALWAYS_TYPED_ACTIONS = (optparse.Option.ALWAYS_TYPED_ACTIONS
+            + ('instantiate',))
 
     def take_action(self, action, *args):
-        if action == 'import':
-            self.handle_import(*args)
+        if action == 'instantiate':
+            self.instantiate(*args)
         else:
             optparse.Option.take_action(self, action, *args)
 
-    def handle_import(self, dest, opt, value, values, parser):
-        """Imports an object and attempts to extend the parser."""
-        parents = value.split('.')[:-1]
+    def instantiate(self, dest, opt_str, value, values, parser):
+        """Instantiates an object and attempts to extend the parser."""
         try:
-            imported = __import__(value, {}, {}, parents)
+            cls = import_object(value)
         except ImportError, e:
-            raise optparse.OptionValueError('option %s: %s' % (opt, str(e)))
+            message = 'option %s: %s' % (opt_str, str(e))
+            raise optparse.OptionValueError(message)
 
-        setattr(values, dest, imported)
-        #update_parser(parser, imported, opt)
+        try:
+            obj = cls()
+        except Exception, e:
+            import traceback
+            error = traceback.format_exc()
+            message = ('option %s: Could not instantiate.  Traceback:\n%s'
+                    % (opt_str, error))
+            raise optparse.OptionValueError(message)
+
+        setattr(values, dest, obj)
+
+        for name, param in obj._params.iteritems():
+            if self._long_opts:
+                prefix = self._long_opts[0][2:]
+            else:
+                prefix = self._short_opts[0][1]
+            option = '--%s-%s' % (prefix, name)
+            parser.add_option(option, action='callback',
+                    callback=param_callback, callback_args=(obj, name),
+                    type=param.type, help=param.doc)
+
+
+def param_callback(option, opt_str, value, parser, obj, name):
+    setattr(obj, name, value)
+
+
+##############################################################################
+# Testing
 
 
 class TestFailed(Exception):
-    """Exception to be raised when a doctest fails."""
+    """Exception to be raised by an OptionParser when a doctest fails."""
 
 
 def test_error(self, msg):
     """Instead of printing to stderr and exiting, just raise TestFailed."""
     raise TestFailed(msg)
 
+# A sample ParamObj.
+class Rabbit(ParamObj):
+    """A small rodent, very similar to a hare, which feeds on grass and
+    burrows in the earth.
+    """
+    _params = dict(weight=Param(default=42, doc='Body Weight', type='int'))
+
+    def __init__(self, **kwds):
+        ParamObj.__init__(self, **kwds)
+
 
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
 
-__all__ = [ParamObj, Param, load_module]
+__all__ = [ParamObj, Param, Option]
 
 # vim: et sw=4 sts=4
