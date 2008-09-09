@@ -198,6 +198,13 @@ def import_object(name):
 
 class Option(optparse.Option):
     """Extension of optparse.Option that adds an 'instantiate' action.
+
+    If you choose action='instantiate', then the value of the command-line
+    option will be imported as a class and then instantiated (for example,
+    "mrs.param.Rabbit").  The attribute "search" can be passed to add_option,
+    which specifies a list of modules to be searched when importing.  After
+    instantiation, a new command-line option will be created for each Param in
+    the class.
     
     >>> parser = optparse.OptionParser(option_class=Option)
     >>> import new
@@ -225,6 +232,7 @@ class Option(optparse.Option):
     TYPED_ACTIONS = optparse.Option.TYPED_ACTIONS + ('instantiate',)
     ALWAYS_TYPED_ACTIONS = (optparse.Option.ALWAYS_TYPED_ACTIONS
             + ('instantiate',))
+    ATTRS = optparse.Option.ATTRS + ['search']
 
     def take_action(self, action, *args):
         if action == 'instantiate':
@@ -234,11 +242,21 @@ class Option(optparse.Option):
 
     def instantiate(self, dest, opt_str, value, values, parser):
         """Instantiates an object and attempts to extend the parser."""
-        try:
-            cls = import_object(value)
-        except ImportError, e:
-            message = 'option %s: %s' % (opt_str, str(e))
-            raise optparse.OptionValueError(message)
+        for base in (self.search or []):
+            # Look for modules in the search list.
+            try:
+                module = '.'.join((base, value))
+                cls = import_object(module)
+                break
+            except ImportError, e:
+                pass
+        else:
+            # Since nothing else succeeded, try importing the value directly.
+            try:
+                cls = import_object(value)
+            except ImportError, e:
+                message = 'option %s: %s' % (opt_str, str(e))
+                raise optparse.OptionValueError(message)
 
         try:
             obj = cls()
