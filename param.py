@@ -196,8 +196,8 @@ def import_object(name):
     return obj
 
 
-class Option(optparse.Option):
-    """Extension of optparse.Option that adds an 'instantiate' action.
+class OptionParser(optparse.OptionParser):
+    """Extension of optparse.OptionParser that adds an 'instantiate' action.
 
     If you choose action='instantiate', then the value of the command-line
     option will be imported as a class and then instantiated (for example,
@@ -205,8 +205,8 @@ class Option(optparse.Option):
     which specifies a list of modules to be searched when importing.  After
     instantiation, a new command-line option will be created for each Param in
     the class.
-    
-    >>> parser = optparse.OptionParser(option_class=Option)
+
+    >>> parser = OptionParser()
     >>> import new
     >>> parser.error = new.instancemethod(test_error, parser)
     >>> option = parser.add_option('--obj', action='instantiate', dest='obj')
@@ -227,6 +227,25 @@ class Option(optparse.Option):
     TestFailed: option --obj: No module named zzzzz
     >>>
     """
+
+    def __init__(self, **kwds):
+        optparse.OptionParser.__init__(self, option_class=_Option, **kwds)
+
+    def get_default_values(self):
+        values = optparse.OptionParser.get_default_values(self)
+        for option in self._get_all_options():
+            if option.action == 'instantiate':
+                opt = option.get_opt_string()
+                value = getattr(values, option.dest)
+                option.instantiate(opt, value, values, self)
+        return values
+
+
+class _Option(optparse.Option):
+    """Extension of optparse.Option that adds an 'instantiate' action.
+
+    Note that param._Option is automatically used in param.OptionParser.
+    """
     ACTIONS = optparse.Option.ACTIONS + ('instantiate',)
     STORE_ACTIONS = optparse.Option.STORE_ACTIONS + ('instantiate',)
     TYPED_ACTIONS = optparse.Option.TYPED_ACTIONS + ('instantiate',)
@@ -234,14 +253,28 @@ class Option(optparse.Option):
             + ('instantiate',))
     ATTRS = optparse.Option.ATTRS + ['search']
 
-    def take_action(self, action, *args):
+    subgroup = None
+
+    def take_action(self, action, dest, *args):
         if action == 'instantiate':
             self.instantiate(*args)
         else:
-            optparse.Option.take_action(self, action, *args)
+            optparse.Option.take_action(self, action, dest, *args)
 
-    def instantiate(self, dest, opt_str, value, values, parser):
+    def remove_suboptions(self, parser):
+        """Remove any already existing suboptions."""
+        if self.subgroup:
+            suboptions = copy(self.subgroup.option_list)
+            for suboption in suboptions:
+                parser.remove_option(suboption)
+            parser.option_groups.remove(self.subgroup)
+            self.subgroup = None
+
+    def instantiate(self, opt_str, value, values, parser):
         """Instantiates an object and attempts to extend the parser."""
+        if value is None:
+            return
+
         for base in (self.search or []):
             # Look for modules in the search list.
             try:
@@ -267,17 +300,23 @@ class Option(optparse.Option):
                     % (opt_str, error))
             raise optparse.OptionValueError(message)
 
-        setattr(values, dest, obj)
+        setattr(values, self.dest, obj)
 
-        for name, param in obj._params.iteritems():
+        self.remove_suboptions(parser)
+
+        if obj._params:
             if self._long_opts:
                 prefix = self._long_opts[0][2:]
             else:
                 prefix = self._short_opts[0][1]
-            option = '--%s-%s' % (prefix, name)
-            parser.add_option(option, action='callback',
-                    callback=param_callback, callback_args=(obj, name),
-                    type=param.type, help=param.doc)
+            title = '%s (%s)' % (value, prefix)
+            self.subgroup = optparse.OptionGroup(parser, title)
+            parser.add_option_group(self.subgroup)
+            for name, param in obj._params.iteritems():
+                option = '--%s-%s' % (prefix, name)
+                self.subgroup.add_option(option, action='callback',
+                        callback=param_callback, callback_args=(obj, name),
+                        type=param.type, help=param.doc)
 
 
 def param_callback(option, opt_str, value, parser, obj, name):
@@ -311,6 +350,6 @@ if __name__ == '__main__':
     import doctest
     doctest.testmod()
 
-__all__ = [ParamObj, Param, Option]
+__all__ = [ParamObj, Param, OptionParser]
 
 # vim: et sw=4 sts=4
