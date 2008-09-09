@@ -189,24 +189,42 @@ class ContextualParser(optparse.OptionParser):
     pass
 
 
-def check_import(option, opt, value):
-    """Tries to import some object.
+class Option(optparse.Option):
+    """Extension of optparse.Option that adds an 'import' option."""
+    ACTIONS = optparse.Option.ACTIONS + ('import',)
+    STORE_ACTIONS = optparse.Option.STORE_ACTIONS + ('import',)
+    TYPED_ACTIONS = optparse.Option.TYPED_ACTIONS + ('import',)
+    ALWAYS_TYPED_ACTIONS = optparse.Option.ALWAYS_TYPED_ACTIONS + ('import',)
 
-    >>> imported = check_import(None, 'should_work', 'optparse')
-    >>> imported == optparse
-    True
-    >>> imported = check_import(None, 'should_fail', 'nonexistent_module')
-    Traceback (most recent call last):
-        ...
-    OptionValueError: option should_fail: No module named nonexistent_module
-    >>>
-    """
-    parents = value.split('.')[:-1]
-    try:
-        imported = __import__(value, {}, {}, parents)
-        return imported
-    except ImportError, e:
-        raise optparse.OptionValueError('option %s: %s' % (opt, str(e)))
+    def take_action(self, action, *args):
+        if action == 'import':
+            self.handle_import(*args)
+        else:
+            optparse.Option.take_action(self, action, *args)
+
+    def handle_import(self, dest, opt, value, values, parser):
+        """Imports an object and attempts to extend the parser.
+
+        >>> option = Option('-a')
+        >>> values = optparse.Values(defaults={'dest': None})
+        >>> parser = optparse.OptionParser()
+        >>> option.handle_import('dest', 'test', 'zzzzz', values, parser)
+        Traceback (most recent call last):
+            ...
+        OptionValueError: option test: No module named zzzzz
+        >>> option.handle_import('dest', 'test', 'optparse', values, parser)
+        >>> values.dest == optparse
+        True
+        >>>
+        """
+        parents = value.split('.')[:-1]
+        try:
+            imported = __import__(value, {}, {}, parents)
+        except ImportError, e:
+            raise optparse.OptionValueError('option %s: %s' % (opt, str(e)))
+
+        setattr(values, dest, imported)
+        #update_parser(parser, imported, opt)
 
 
 if __name__ == '__main__':
