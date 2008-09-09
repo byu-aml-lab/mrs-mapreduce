@@ -154,43 +154,26 @@ class ParamObj:
     __metaclass__ = _ParamMeta
 
 
-def load_module(option, opt_str, value, parser):
-    """A callback function for an OptParse option.
+class Option(optparse.Option):
+    """Extension of optparse.Option that adds an 'import' option.
+    
+    >>> parser = optparse.OptionParser(option_class=Option)
+    >>> import new
+    >>> parser.error = new.instancemethod(test_error, parser)
+    >>> option = parser.add_option('-i', action='import', dest='imported')
+    >>>
 
-    It loads the specified module and calls the function config_parser in the
-    module.  A config_parser function will usually add new options to the
-    parser.
+    >>> opts, args = parser.parse_args(['-i', 'optparse'])
+    >>> opts.imported == optparse
+    True
+    >>>
 
-    >>> parser = optparse.OptionParser()
-    >>> opt = parser.add_option('-m', nargs=1, dest='module', type='string', action='callback', callback=load_module)
-    >>> opts, args = parser.parse_args(['-m', 'optparse'])
-    >>> print opts.module.__name__
-    optparse
+    >>> opts, args = parser.parse_args(['-i', 'zzzzz'])
+    Traceback (most recent call last):
+        ...
+    TestFailed: option -i: No module named zzzzz
     >>>
     """
-    parents = value.split('.')[:-1]
-    try:
-        module = __import__(value, {}, {}, parents)
-    except ImportError, e:
-        raise optparse.OptionValueError(str(e))
-
-    setattr(parser.values, option.dest, module)
-
-    try:
-        module.config_parser(parser)
-    except AttributeError:
-        pass
-
-
-# rename to ExtendableParser or ...?
-class ContextualParser(optparse.OptionParser):
-    """An extension of OptionParser that can load classes with custom options.
-    """
-    pass
-
-
-class Option(optparse.Option):
-    """Extension of optparse.Option that adds an 'import' option."""
     ACTIONS = optparse.Option.ACTIONS + ('import',)
     STORE_ACTIONS = optparse.Option.STORE_ACTIONS + ('import',)
     TYPED_ACTIONS = optparse.Option.TYPED_ACTIONS + ('import',)
@@ -203,20 +186,7 @@ class Option(optparse.Option):
             optparse.Option.take_action(self, action, *args)
 
     def handle_import(self, dest, opt, value, values, parser):
-        """Imports an object and attempts to extend the parser.
-
-        >>> option = Option('-a')
-        >>> values = optparse.Values(defaults={'dest': None})
-        >>> parser = optparse.OptionParser()
-        >>> option.handle_import('dest', 'test', 'zzzzz', values, parser)
-        Traceback (most recent call last):
-            ...
-        OptionValueError: option test: No module named zzzzz
-        >>> option.handle_import('dest', 'test', 'optparse', values, parser)
-        >>> values.dest == optparse
-        True
-        >>>
-        """
+        """Imports an object and attempts to extend the parser."""
         parents = value.split('.')[:-1]
         try:
             imported = __import__(value, {}, {}, parents)
@@ -225,6 +195,15 @@ class Option(optparse.Option):
 
         setattr(values, dest, imported)
         #update_parser(parser, imported, opt)
+
+
+class TestFailed(Exception):
+    """Exception to be raised when a doctest fails."""
+
+
+def test_error(self, msg):
+    """Instead of printing to stderr and exiting, just raise TestFailed."""
+    raise TestFailed(msg)
 
 
 if __name__ == '__main__':
