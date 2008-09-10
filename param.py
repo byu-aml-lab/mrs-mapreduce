@@ -207,8 +207,8 @@ class OptionParser(optparse.OptionParser):
     the class.
 
     >>> parser = OptionParser()
-    >>> import new
-    >>> parser.error = new.instancemethod(test_error, parser)
+    >>> import types
+    >>> parser.error = types.MethodType(test_error, parser)
     >>> option = parser.add_option('--obj', action='instantiate', dest='obj')
     >>>
 
