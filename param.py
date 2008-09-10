@@ -264,9 +264,9 @@ class _Option(optparse.Option):
     def remove_suboptions(self, parser):
         """Remove any already existing suboptions."""
         if self.subgroup:
-            suboptions = copy(self.subgroup.option_list)
+            suboptions = list(self.subgroup.option_list)
             for suboption in suboptions:
-                parser.remove_option(suboption)
+                parser.remove_option(suboption.get_opt_string())
             parser.option_groups.remove(self.subgroup)
             self.subgroup = None
 
