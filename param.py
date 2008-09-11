@@ -73,8 +73,8 @@ class _ParamMeta(type):
     ParamObj, which will allow you to override __init__ as long as you
     call super's __init__.
     """
-    def __new__(cls, classname, bases, classdict):
 
+    def __new__(cls, classname, bases, classdict):
         # Make sure we have a params dict in classdict.
         if '_params' not in classdict:
             classdict['_params'] = {}
@@ -240,6 +240,24 @@ class OptionParser(optparse.OptionParser):
                 option.instantiate(opt, value, values, self)
         return values
 
+    def add_param_object(self, param_obj, prefix=''):
+        """Adds a option group for the parameters in a ParamObj.
+        
+        The given prefix will be prepended to each long option.
+        """
+        title = '%s (%s)' % (param_obj.__class__.__name__, prefix)
+        self.subgroup = optparse.OptionGroup(self, title)
+        self.add_option_group(self.subgroup)
+        for name, param in param_obj._params.iteritems():
+            name = name.replace('_', '-')
+            if prefix:
+                option = '--%s-%s' % (prefix, name)
+            else:
+                option = '--%s' % name
+            self.subgroup.add_option(option, action='callback',
+                    callback=param_callback, callback_args=(param_obj, name),
+                    type=param.type, help=param.doc)
+
 
 class _Option(optparse.Option):
     """Extension of optparse.Option that adds an 'instantiate' action.
@@ -309,14 +327,7 @@ class _Option(optparse.Option):
                 prefix = self._long_opts[0][2:]
             else:
                 prefix = self._short_opts[0][1]
-            title = '%s (%s)' % (value, prefix)
-            self.subgroup = optparse.OptionGroup(parser, title)
-            parser.add_option_group(self.subgroup)
-            for name, param in obj._params.iteritems():
-                option = '--%s-%s' % (prefix, name)
-                self.subgroup.add_option(option, action='callback',
-                        callback=param_callback, callback_args=(obj, name),
-                        type=param.type, help=param.doc)
+            parser.add_param_object(obj, prefix)
 
 
 def param_callback(option, opt_str, value, parser, obj, name):
