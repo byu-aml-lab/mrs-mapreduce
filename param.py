@@ -250,14 +250,14 @@ class OptionParser(optparse.OptionParser):
         title = '%s (%s)' % (param_obj.__class__.__name__, prefix)
         subgroup = optparse.OptionGroup(self, title)
         self.add_option_group(subgroup)
-        for name, param in param_obj._params.iteritems():
-            name = name.replace('_', '-')
+        for attr, param in param_obj._params.iteritems():
+            name = attr.replace('_', '-')
             if prefix:
                 option = '--%s-%s' % (prefix, name)
             else:
                 option = '--%s' % name
             subgroup.add_option(option, action='callback',
-                    callback=param_callback, callback_args=(param_obj, name),
+                    callback=param_callback, callback_args=(param_obj, attr),
                     type=param.type, help=param.doc)
         return subgroup
 
@@ -333,8 +333,8 @@ class _Option(optparse.Option):
             self.subgroup = parser.add_param_object(obj, prefix)
 
 
-def param_callback(option, opt_str, value, parser, obj, name):
-    setattr(obj, name, value)
+def param_callback(option, opt_str, value, parser, obj, attr):
+    setattr(obj, attr, value)
 
 
 ##############################################################################
