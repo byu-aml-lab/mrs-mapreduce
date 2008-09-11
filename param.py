@@ -244,19 +244,22 @@ class OptionParser(optparse.OptionParser):
         """Adds a option group for the parameters in a ParamObj.
         
         The given prefix will be prepended to each long option.
+
+        Returns the OptionGroup object associated with this ParamObj.
         """
         title = '%s (%s)' % (param_obj.__class__.__name__, prefix)
-        self.subgroup = optparse.OptionGroup(self, title)
-        self.add_option_group(self.subgroup)
+        subgroup = optparse.OptionGroup(self, title)
+        self.add_option_group(subgroup)
         for name, param in param_obj._params.iteritems():
             name = name.replace('_', '-')
             if prefix:
                 option = '--%s-%s' % (prefix, name)
             else:
                 option = '--%s' % name
-            self.subgroup.add_option(option, action='callback',
+            subgroup.add_option(option, action='callback',
                     callback=param_callback, callback_args=(param_obj, name),
                     type=param.type, help=param.doc)
+        return subgroup
 
 
 class _Option(optparse.Option):
@@ -327,7 +330,7 @@ class _Option(optparse.Option):
                 prefix = self._long_opts[0][2:]
             else:
                 prefix = self._short_opts[0][1]
-            parser.add_param_object(obj, prefix)
+            self.subgroup = parser.add_param_object(obj, prefix)
 
 
 def param_callback(option, opt_str, value, parser, obj, name):
