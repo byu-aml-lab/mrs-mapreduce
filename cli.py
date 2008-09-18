@@ -108,7 +108,7 @@ def primary_impl(impl):
 def option_parser():
     """Create the default Mrs Parser
 
-    The parser is an optparse.OptionParser.  It is configured to use the
+    The parser is a param.OptionParser.  It is configured to use the
     resolve conflict_handler, so any option can be overridden simply by
     defining a new option with the same option string.  The remove_option and
     get_option methods still work, too.  Note that overriding an option only
@@ -121,9 +121,9 @@ def option_parser():
     usage shows up in the help before the option list; the epilog appears
     after.
     """
-    import optparse
+    import param
 
-    parser = optparse.OptionParser(conflict_handler='resolve')
+    parser = param.OptionParser(conflict_handler='resolve')
     parser.usage = USAGE
 
     parser.add_option('-P', '--mrs-port', dest='mrs_port', type='int',
