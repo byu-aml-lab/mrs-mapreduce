@@ -282,8 +282,8 @@ class OptionParser(optparse.OptionParser):
         title = '%s (%s)' % (param_obj.__class__.__name__, prefix)
         subgroup = optparse.OptionGroup(self, title)
         self.add_option_group(subgroup)
-        for name, param in param_obj._params.iteritems():
-            name = name.replace('_', '-')
+        for attr, param in param_obj._params.iteritems():
+            name = attr.replace('_', '-')
             if prefix:
                 option = '--%s-%s' % (prefix, name)
                 dest = '%s__%s' % (prefix, name)
