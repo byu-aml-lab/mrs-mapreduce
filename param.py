@@ -279,7 +279,7 @@ class OptionParser(optparse.OptionParser):
 
         Returns the OptionGroup object associated with this ParamObj.
         """
-        title = '%s (%s)' % (param_obj.__class__.__name__, prefix)
+        title = '%s (%s)' % (param_obj.__name__, prefix)
         subgroup = optparse.OptionGroup(self, title)
         self.add_option_group(subgroup)
         for attr, param in param_obj._params.iteritems():
