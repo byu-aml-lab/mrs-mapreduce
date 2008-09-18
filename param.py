@@ -154,7 +154,7 @@ class ParamObj:
 
 
 def import_object(name):
-    """Imports an object, unlike __import__ which only imports modules.
+    """Imports any object, unlike __import__ which only imports modules.
 
     Importing a module:
     >>> x = import_object('optparse')
@@ -196,28 +196,60 @@ def import_object(name):
     return obj
 
 
-class OptionParser(optparse.OptionParser):
-    """Extension of optparse.OptionParser that adds an 'instantiate' action.
+def instantiate(opts, name):
+    """Instantiates an object based on settings in a optparse.Values object.
 
-    If you choose action='instantiate', then the value of the command-line
-    option will be imported as a class and then instantiated (for example,
-    "mrs.param.Rabbit").  The attribute "search" can be passed to add_option,
-    which specifies a list of modules to be searched when importing.  After
-    instantiation, a new command-line option will be created for each Param in
-    the class.
+    Suppose that name='abc'.  Then the class specified in opts.abc will be
+    instantiated.  The attributes in opts starting with 'abc__' will be used
+    to set attributes in the new object.  For example, newobject.hello would
+    be set from opts.abc__hello.
+
+    >>> opts = optparse.Values()
+    >>> opts.abc = 'param.Rabbit'
+    >>> opts.abc__weight = 88
+    >>> new = instantiate(opts, 'abc')
+    >>> new.weight
+    88
+    >>> new.__class__.__name__
+    'Rabbit'
+    >>>
+    """
+    cls = import_object(getattr(opts, name))
+    new = cls()
+    prefix = name + '__'
+    prefix_len = len(prefix)
+    for opts_attr in dir(opts):
+        if opts_attr.startswith(prefix):
+            new_attr = opts_attr[prefix_len:]
+            value = getattr(opts, opts_attr)
+            setattr(new, new_attr, value)
+    return new
+
+
+class OptionParser(optparse.OptionParser):
+    """Extension of optparse.OptionParser that adds an 'extend' action.
+
+    If you choose action='extend', then the value of the command-line option
+    will be imported as a class or module (for example, "mrs.param.Rabbit").
+    The class's params will be used to extend the parser, and the full name of
+    the class will be saved to the dest.  The attribute "search" can be passed
+    to add_option, which specifies a list of modules to be searched when
+    importing.  After instantiation, a new command-line option will be created
+    for each Param in the class.
 
     >>> parser = OptionParser()
     >>> import types
     >>> parser.error = types.MethodType(test_error, parser)
-    >>> option = parser.add_option('--obj', action='instantiate', dest='obj')
+    >>> option = parser.add_option('--obj', action='extend', dest='obj')
     >>>
 
     >>> opts, args = parser.parse_args(['--obj', 'param.Rabbit',
     ...         '--obj-weight', '17'])
+    >>> obj = instantiate(opts, 'obj')
     >>> import param
-    >>> isinstance(opts.obj, param.Rabbit)
+    >>> isinstance(obj, param.Rabbit)
     True
-    >>> opts.obj.weight
+    >>> obj.weight
     17
     >>>
 
@@ -234,10 +266,10 @@ class OptionParser(optparse.OptionParser):
     def get_default_values(self):
         values = optparse.OptionParser.get_default_values(self)
         for option in self._get_all_options():
-            if option.action == 'instantiate':
+            if option.action == 'extend':
                 opt = option.get_opt_string()
                 value = getattr(values, option.dest)
-                option.instantiate(opt, value, values, self)
+                option.extend(opt, value, values, self)
         return values
 
     def add_param_object(self, param_obj, prefix=''):
@@ -254,31 +286,31 @@ class OptionParser(optparse.OptionParser):
             name = name.replace('_', '-')
             if prefix:
                 option = '--%s-%s' % (prefix, name)
+                dest = '%s__%s' % (prefix, name)
             else:
                 option = '--%s' % name
-            subgroup.add_option(option, action='callback',
-                    callback=param_callback, callback_args=(param_obj, name),
+                dest = name
+            subgroup.add_option(option, action='store', dest=dest,
                     type=param.type, help=param.doc)
         return subgroup
 
 
 class _Option(optparse.Option):
-    """Extension of optparse.Option that adds an 'instantiate' action.
+    """Extension of optparse.Option that adds an 'extend' action.
 
     Note that param._Option is automatically used in param.OptionParser.
     """
-    ACTIONS = optparse.Option.ACTIONS + ('instantiate',)
-    STORE_ACTIONS = optparse.Option.STORE_ACTIONS + ('instantiate',)
-    TYPED_ACTIONS = optparse.Option.TYPED_ACTIONS + ('instantiate',)
-    ALWAYS_TYPED_ACTIONS = (optparse.Option.ALWAYS_TYPED_ACTIONS
-            + ('instantiate',))
+    ACTIONS = optparse.Option.ACTIONS + ('extend',)
+    STORE_ACTIONS = optparse.Option.STORE_ACTIONS + ('extend',)
+    TYPED_ACTIONS = optparse.Option.TYPED_ACTIONS + ('extend',)
+    ALWAYS_TYPED_ACTIONS = (optparse.Option.ALWAYS_TYPED_ACTIONS + ('extend',))
     ATTRS = optparse.Option.ATTRS + ['search']
 
     subgroup = None
 
     def take_action(self, action, dest, *args):
-        if action == 'instantiate':
-            self.instantiate(*args)
+        if action == 'extend':
+            self.extend(*args)
         else:
             optparse.Option.take_action(self, action, dest, *args)
 
@@ -291,8 +323,8 @@ class _Option(optparse.Option):
             parser.option_groups.remove(self.subgroup)
             self.subgroup = None
 
-    def instantiate(self, opt_str, value, values, parser):
-        """Instantiates an object and attempts to extend the parser."""
+    def extend(self, opt_str, value, values, parser):
+        """Imports a class and attempts to extend the parser."""
         if value is None:
             return
 
@@ -300,41 +332,32 @@ class _Option(optparse.Option):
             # Look for modules in the search list.
             try:
                 module = '.'.join((base, value))
-                cls = import_object(module)
+                paramobj = import_object(module)
                 break
             except ImportError, e:
                 pass
         else:
             # Since nothing else succeeded, try importing the value directly.
             try:
-                cls = import_object(value)
+                paramobj = import_object(value)
             except ImportError, e:
                 message = 'option %s: %s' % (opt_str, str(e))
                 raise optparse.OptionValueError(message)
 
         try:
-            obj = cls()
-        except Exception, e:
-            import traceback
-            error = traceback.format_exc()
-            message = ('option %s: Could not instantiate.  Traceback:\n%s'
-                    % (opt_str, error))
-            raise optparse.OptionValueError(message)
-
-        setattr(values, self.dest, obj)
+            full_path = '%s.%s' % (paramobj.__module__, paramobj.__name__)
+        except AttributeError:
+            full_path = paramobj.__name__
+        setattr(values, self.dest, full_path)
 
         self.remove_suboptions(parser)
 
-        if obj._params:
+        if paramobj._params:
             if self._long_opts:
                 prefix = self._long_opts[0][2:]
             else:
                 prefix = self._short_opts[0][1]
-            self.subgroup = parser.add_param_object(obj, prefix)
-
-
-def param_callback(option, opt_str, value, parser, obj, name):
-    setattr(obj, name, value)
+            self.subgroup = parser.add_param_object(paramobj, prefix)
 
 
 ##############################################################################
