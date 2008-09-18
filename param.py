@@ -291,7 +291,7 @@ class OptionParser(optparse.OptionParser):
                 option = '--%s' % name
                 dest = name
             subgroup.add_option(option, action='store', dest=dest,
-                    type=param.type, help=param.doc)
+                    metavar=attr, type=param.type, help=param.doc)
         return subgroup
 
 
