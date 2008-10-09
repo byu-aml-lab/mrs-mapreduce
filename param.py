@@ -98,7 +98,7 @@ class _ParamMeta(type):
         # Update documentation based on our parameters
         if '__doc__' not in classdict:
             classdict['__doc__'] = '%s -- Class using Params' % classname
-        docs = [('%s: %s (default=%s)' % (param_name,
+        docs = [('%s: %s (default=%r)' % (param_name,
                     params[param_name].doc, params[param_name].default))
                     for param_name in params]
         docs.sort()
@@ -141,6 +141,7 @@ class ParamObj:
         burrows in the earth.
     <BLANKLINE>
     Rabbit Parameters:
+        a_b_c: A param with underscores (default='default')
         weight: Body Weight (default=42)
     >>> m.weight
     42
@@ -253,6 +254,15 @@ class OptionParser(optparse.OptionParser):
     17
     >>>
 
+    Note that it automatically converts between hyphens and underscores.
+    >>> opts, args = parser.parse_args(['--obj', 'param.Rabbit',
+    ...         '--obj-a-b-c', 'hi'])
+    >>> obj = instantiate(opts, 'obj')
+    >>> obj.a_b_c
+    'hi'
+    >>>
+
+    Option parsing will fail if an invalid module is specified.
     >>> opts, args = parser.parse_args(['--obj', 'zzzzz'])
     Traceback (most recent call last):
         ...
@@ -286,7 +296,7 @@ class OptionParser(optparse.OptionParser):
             name = attr.replace('_', '-')
             if prefix:
                 option = '--%s-%s' % (prefix, name)
-                dest = '%s__%s' % (prefix, name)
+                dest = '%s__%s' % (prefix, attr)
             else:
                 option = '--%s' % name
                 dest = name
@@ -377,7 +387,8 @@ class Rabbit(ParamObj):
     """A small rodent, very similar to a hare, which feeds on grass and
     burrows in the earth.
     """
-    _params = dict(weight=Param(default=42, doc='Body Weight', type='int'))
+    _params = dict(weight=Param(default=42, doc='Body Weight', type='int'),
+            a_b_c=Param(default='default', doc='A param with underscores'))
 
     def __init__(self, **kwds):
         ParamObj.__init__(self, **kwds)
