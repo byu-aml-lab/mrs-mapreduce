@@ -21,8 +21,19 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
+def serial_main(registry, user_run, user_setup, args, opts):
+    """Mrs Serial.
+    """
+    from job import Job
+
+    job = Job(registry, user_run, user_setup, args, opts)
+    job.start()
+    serial = Serial(job)
+    serial.run()
+
+
 def mockparallel_main(registry, user_run, user_setup, args, opts):
-    """Run Mrs Mockparallel
+    """Run Mrs Mockparallel.
 
     This creates all of the tasks that are used in the normal parallel
     implementation, but it executes them in serial.  This can make debugging a
@@ -38,36 +49,44 @@ def mockparallel_main(registry, user_run, user_setup, args, opts):
     # Set up shared directory
     try_makedirs(opts.mrs_shared)
 
-    # create job thread:
     job = Job(registry, user_run, user_setup, args, opts)
     job.start()
-
     mockparallel(job)
 
-    return 0
 
+class Serial(object):
+    """Runs a MapReduce job in serial."""
+    def __init__(self, job):
+        self.job = job
+        import threading
+        self.cv = threading.Condition()
 
-# TODO: rewrite Serial implementation to use job and to be more general
-def serial(job):
-    """Run a MapReduce job in serial."""
-    job = self.job
-    job.start()
+    def run(self):
+        self.job.update_callback = self.job.end_callback = self.job_updated
 
-    # Run Tasks:
-    while not job.done():
-        # do stuff here
+        while not job.done():
 
-        job.check_done()
+            job.check_done()
 
-    job.join()
+        job.join()
+
+    def check_availability(self):
+        self.cv.acquire()
+        self.cv.release()
+
+    def job_updated(self):
+        """Called when the job is updated or completed.
+        
+        Called from another thread.
+        """
+        self.cv.acquire()
+        self.cv.notify()
+        self.cv.release()
 
 
 def mockparallel(job):
-    """MapReduce execution on POSIX shared storage, such as NFS
+    """MapReduce execution on POSIX shared storage, such as NFS.
     
-    Specify a directory located in shared storage which can be used as scratch
-    space.
-
     Note that progress times often seem wrong in mockparallel.  The reason is
     that most of the execution time is in I/O, and mockparallel tries to load
     the input for all reduce tasks before doing the first reduce task.

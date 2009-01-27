@@ -86,8 +86,6 @@ def slave_main(registry, user_run, user_setup, args, opts):
     if slave.reaper.traceback:
         print slave.reaper.traceback
 
-    return 0
-
 
 # TODO: when we stop supporting Python older than 2.5, use inlineCallbacks:
 class SlaveEventThread(TwistedThread):
@@ -476,9 +474,11 @@ class Worker(threading.Thread):
             self._task = None
             self._cond.release()
 
-            # TODO: right now, dataset.dump() happens in task.run().  Instead,
+            # TODO: right now, we call dataset.dump().  Instead,
             # we should tell the dataset to become available() here, and the
             # data should automatically be dumped.
+            task.output.dump()
+
             try:
                 self.slave.master_rpc.blocking_call('done', self.slave.id,
                         task.outurls(), self.slave.cookie)

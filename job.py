@@ -104,8 +104,6 @@ class Job(threading.Thread):
         assert(not self._end)
         self._lock.acquire()
         if dataset.ready():
-            if not dataset.tasks_made:
-                dataset.make_tasks()
             self.active_data.append(dataset)
         else:
             self.waiting_data.append(dataset)
@@ -130,8 +128,7 @@ class Job(threading.Thread):
             raise ValueError("DataSet not in job.")
 
     def check_done(self):
-        """Check to see if any DataSets are done.
-        """
+        """Check to see if any DataSets are done."""
         dataset_done = False
         self._lock.acquire()
         for dataset in self.active_data:
@@ -156,8 +153,6 @@ class Job(threading.Thread):
         self._lock.acquire()
         for dataset in self.waiting_data:
             if dataset.ready():
-                if not dataset.tasks_made:
-                    dataset.make_tasks()
                 self.waiting_data.remove(dataset)
                 self.active_data.append(dataset)
         self._lock.release()
@@ -174,6 +169,8 @@ class Job(threading.Thread):
 
             self._lock.acquire()
             for dataset in self.active_data:
+                if not dataset.tasks_made:
+                    dataset.make_tasks()
                 next_task = dataset.get_task()
                 if next_task is not None:
                     break

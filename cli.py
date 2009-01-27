@@ -21,6 +21,7 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
+import sys
 from version import VERSION
 
 USAGE = (""
@@ -61,7 +62,7 @@ def main(registry, run=None, setup=None, update_parser=None):
     if mrs_impl in ('-h', '--help'):
         # It's not a Mrs Implementation, but try to help anyway.
         parser.print_help()
-        return
+        sys.exit(2)
     elif mrs_impl == 'master':
         from master import master_main
         main_function = master_main
@@ -79,9 +80,8 @@ def main(registry, run=None, setup=None, update_parser=None):
         if update_parser:
             parser = update_parser(parser)
     elif mrs_impl == 'serial':
-        raise NotImplementedError('The serial implementation is '
-                'temporarily broken.  Sorry.')
-        main_function = run_serial
+        from serial import serial_main
+        main_function = serial_main
         add_master_options(parser)
         if update_parser:
             parser = update_parser(parser)
@@ -91,12 +91,11 @@ def main(registry, run=None, setup=None, update_parser=None):
     (options, args) = parser.parse_args(sys.argv[2:])
 
     try:
-        retcode = main_function(registry, run, setup, args, options)
+        main_function(registry, run, setup, args, options)
+        sys.exit(0)
     except KeyboardInterrupt:
-        import sys
         print >>sys.stderr, "Interrupted."
-        retcode = -1
-    return retcode
+        sys.exit(1)
 
 
 def primary_impl(impl):
@@ -154,21 +153,6 @@ def add_master_options(parser):
 def add_slave_options(parser):
     parser.add_option('-M', '--mrs-master', dest='mrs_master',
             help='URL of the Master RPC server (slave only)')
-
-
-# FIXME:
-def run_serial(registry, user_run, user_setup, args, opts):
-    """Mrs Serial
-    """
-    from serial import Serial
-    from job import Job
-
-    # Create Job
-    job = Job(registry, user_run, user_setup, args, opts)
-
-    mrs_exec = Serial(job, registry, opts)
-    mrs_exec.run()
-    return 0
 
 
 # vim: et sw=4 sts=4

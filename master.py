@@ -26,6 +26,7 @@
 More information coming soon.
 """
 
+import sys
 import threading
 from twisted.internet import reactor, defer
 from twist import TwistedThread, GrimReaper, PingTask
@@ -77,9 +78,7 @@ def master_main(registry, user_run, user_setup, args, opts):
     event_thread.join()
 
     if master.reaper.traceback:
-        print master.reaper.traceback
-
-    return 0
+        print >>sys.stderr, master.reaper.traceback
 
 
 # TODO: when we stop supporting Python older than 2.5, use inlineCallbacks:
@@ -132,7 +131,6 @@ class Master(object):
 
     # State 1 (run in the event thread):
     def begin(self):
-        import sys
         from twisted.web import server
         from twisted.internet import reactor, error
 
@@ -434,7 +432,6 @@ class RemoteSlave(object):
         """Set the timestamp to the current time."""
         from datetime import datetime
         if not self.alive():
-            import sys
             print >>sys.stderr, ("Warning: updating the timestamp of a slave"
                     " we thought was dead!")
         self.timestamp = datetime.utcnow()
@@ -456,7 +453,6 @@ class RemoteSlave(object):
             self.ping_task.stop()
             self._alive = False
 
-            import sys
             if reason:
                 print >>sys.stderr, reason
             print >>sys.stderr, 'Lost slave due to network error.'
@@ -534,7 +530,6 @@ class Slaves(object):
         """Set a slave as idle.
         """
         if slave.id >= len(self._slaves) or self._slaves[slave.id] is None:
-            import sys
             print >>sys.stderr, ("Nonexistent slave can't be pushed to "
                     "the idle queue!")
         if slave not in self._idle_slaves:

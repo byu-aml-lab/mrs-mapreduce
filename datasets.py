@@ -21,12 +21,12 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
-# 3rd TODO: make it all work
 
 # TODO: right now we assume that input files are pre-split.
 
 from heapq import heappush
 from itertools import chain, izip
+import os
 
 from io import HexWriter, fillbucket
 
@@ -101,10 +101,11 @@ class Bucket(object):
         return iter(self._data)
 
     # TODO: write doctest for dump
-    def dump(self):
+    def dump(self, directory):
         assert(self.filename is not None)
+        path = os.path.join(directory, self.filename)
         if len(self):
-            f = open(self.filename, 'w')
+            f = open(path, 'w')
             writer = self.format(f)
             for key, value in self:
                 writer.writepair(key, value)
@@ -155,7 +156,7 @@ class DataSet(object):
         self.temporary = not self.directory
 
         # For now assume that all sources have the same # of splits.
-        self._data = [[Bucket(filename=self.path(i, j))
+        self._data = [[Bucket(filename=self.filename(i, j))
                 for j in xrange(splits)]
                 for i in xrange(sources)]
 
@@ -192,9 +193,13 @@ class DataSet(object):
 
     def dump(self):
         """Write out all of the key-value pairs to files."""
+        import tempfile
+        # TODO: we should really clean these directories up at some point!
+        if self.directory is None:
+            self.directory = tempfile.mkdtemp()
         for source in self._data:
             for bucket in source:
-                bucket.dump()
+                bucket.dump(self.directory)
 
     def ready(self):
         """Report whether DataSet is ready.
@@ -212,20 +217,15 @@ class DataSet(object):
         """
         return True
 
-    def path(self, source, split):
-        """Return the path to the output split for the given index.
+    def filename(self, source, split):
+        """Return the filename for the output split for the given index.
         
         >>> ds = DataSet(sources=4, splits=5, directory='/tmp')
-        >>> ds.path(2, 4)
+        >>> ds.filename(2, 4)
         '/tmp/source_2_split_4.mrsx'
         >>>
         """
-        import os, tempfile
-        # TODO: we should really clean these directories up at some point!
-        if self.directory is None:
-            self.directory = tempfile.mkdtemp()
-        filename = "source_%s_split_%s.%s" % (source, split, self.format.ext)
-        return os.path.join(self.directory, filename)
+        return 'source_%s_split_%s.%s' % (source, split, self.format.ext)
 
     def __setitem__(self, item, value):
         """Set an item.
@@ -301,7 +301,7 @@ class Output(DataSet):
         self.partition = partition
         # One source and splits splits
         self._data = [[Bucket(format=self.format,
-                filename=self.path(source, i)) for i in xrange(splits)]]
+                filename=self.filename(source, i)) for i in xrange(splits)]]
 
         # For now, the externally visible url is just the filename on the
         # local or networked filesystem.
