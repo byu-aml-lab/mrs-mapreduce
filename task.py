@@ -47,8 +47,9 @@ class Task(object):
         self._outurls = []
 
         # TODO: check to see if there's somewhere better for this:
-        from util import try_makedirs
-        try_makedirs(outdir)
+        if outdir:
+            from util import try_makedirs
+            try_makedirs(outdir)
 
     def active(self):
         self.dataset.task_started(self)
@@ -108,19 +109,25 @@ class MapTask(Task):
             self.partition = registry[part_name]
         self.nparts = nparts
 
-    def run(self):
+    def run(self, serial=False):
         import datasets
         from itertools import chain
         from mapreduce import mrs_map
 
         # PREP
-        directory = self.tempdir('map')
+        if serial:
+            directory = None
+        else:
+            directory = self.tempdir('map')
         self.output = datasets.Output(self.partition, self.nparts,
                 source=self.source, directory=directory)
 
         # SETUP INPUT
         self.input.fetchall()
-        all_input = self.input.itersplit(self.split)
+        if serial:
+            all_input = self.input
+        else:
+            all_input = self.input.itersplit(self.split)
 
         # MAP PHASE
         self.output.collect(mrs_map(self.mapper, all_input))
@@ -140,13 +147,16 @@ class ReduceTask(Task):
             self.partition = registry[part_name]
         self.nparts = nparts
 
-    def run(self):
+    def run(self, serial=False):
         import datasets
         from itertools import chain
         from mapreduce import mrs_reduce
 
         # PREP
-        directory = self.tempdir('reduce')
+        if serial:
+            directory = None
+        else:
+            directory = self.tempdir('reduce')
         self.output = datasets.Output(self.partition, self.nparts,
                 directory=directory, format=self.format)
 
@@ -155,7 +165,10 @@ class ReduceTask(Task):
         # mappers are finished, it just slows things down.
         #self.input.fetchall(heap=True)
         self.input.fetchall()
-        all_input = sorted(self.input.itersplit(self.split))
+        if serial:
+            all_input = self.input
+        else:
+            all_input = sorted(self.input.itersplit(self.split))
 
         # Do the following if external sort is necessary (i.e., the input
         # files are too big to fit in memory):

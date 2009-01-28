@@ -44,7 +44,10 @@ class Job(threading.Thread):
         self.opts = opts
 
         self.default_reduce_parts = 1
-        self.default_reduce_tasks = opts.mrs_reduce_tasks
+        try:
+            self.default_reduce_tasks = opts.mrs_reduce_tasks
+        except AttributeError:
+            self.default_reduce_tasks = 1
 
         self._runwaitcv = threading.Condition()
         self._runwaitlist = None
@@ -56,8 +59,11 @@ class Job(threading.Thread):
 
         # Set up the job directory
         import tempfile
-        shared_dir = self.opts.mrs_shared
-        self.jobdir = tempfile.mkdtemp(prefix='mrs.job_', dir=shared_dir)
+        try:
+            shared_dir = self.opts.mrs_shared
+            self.jobdir = tempfile.mkdtemp(prefix='mrs.job_', dir=shared_dir)
+        except AttributeError:
+            self.jobdir = None
 
         # Still waiting for work to do:
         self._end = False
@@ -93,7 +99,7 @@ class Job(threading.Thread):
         self.end()
 
     def submit(self, dataset):
-        """Submit a DataSet to be computed.
+        """Submit a ComputedData dataset to be computed.
 
         If it's ready to go, computation will begin promptly.  However, if
         it depends on other DataSets to complete, it will be added to a
@@ -131,7 +137,8 @@ class Job(threading.Thread):
         """Check to see if any DataSets are done."""
         dataset_done = False
         self._lock.acquire()
-        for dataset in self.active_data:
+        active_data_copy = list(self.active_data)
+        for dataset in active_data_copy:
             if dataset.done():
                 dataset_done = True
                 self.active_data.remove(dataset)
@@ -225,6 +232,7 @@ class Job(threading.Thread):
         self._runwaitcv.release()
         return ready
 
+    # TODO: give a useful message in the serial case.
     def status(self):
         """Report on the status of all active tasks.
 

@@ -66,23 +66,24 @@ def main(registry, run=None, setup=None, update_parser=None):
     elif mrs_impl == 'master':
         from master import master_main
         main_function = master_main
-        add_master_options(parser)
+        add_parallel_options(parser)
+        add_network_options(parser)
         if update_parser:
             parser = update_parser(parser)
     elif mrs_impl == 'slave':
         from slave import slave_main
         main_function = slave_main
         add_slave_options(parser)
+        add_network_options(parser)
     elif mrs_impl == 'mockparallel':
         from serial import mockparallel_main
         main_function = mockparallel_main
-        add_master_options(parser)
+        add_parallel_options(parser)
         if update_parser:
             parser = update_parser(parser)
     elif mrs_impl == 'serial':
         from serial import serial_main
         main_function = serial_main
-        add_master_options(parser)
         if update_parser:
             parser = update_parser(parser)
     else:
@@ -125,6 +126,10 @@ def option_parser():
     parser = param.OptionParser(conflict_handler='resolve')
     parser.usage = USAGE
 
+    return parser
+
+
+def add_network_options(parser):
     parser.add_option('-P', '--mrs-port', dest='mrs_port', type='int',
             help='RPC Port for incoming requests')
     parser.add_option('-T', '--mrs-timeout', dest='mrs_timeout', type='float',
@@ -133,20 +138,18 @@ def option_parser():
             help='Interval between pings')
     parser.set_defaults(mrs_port=0, mrs_timeout=20.0, mrs_pingdelay=5.0)
 
-    return parser
 
-
-def add_master_options(parser):
+def add_parallel_options(parser):
     import os
     default_shared = os.getcwd()
     parser.add_option('-S', '--mrs-shared', dest='mrs_shared',
-            help='Shared area for temporary storage (parallel only)')
+            help='Shared area for temporary storage')
     parser.add_option('--mrs-keep-jobdir', dest='mrs_keep_jobdir',
             action='store_true', help="Do not delete jobdir at completion")
     parser.add_option('-R', '--mrs-reduce-tasks', dest='mrs_reduce_tasks',
-            type='int', help='Default number of reduce tasks (parallel only)')
+            type='int', help='Default number of reduce tasks')
     parser.add_option('--mrs-runfile', dest='mrs_runfile',
-            help="Server's RPC port will be written here (parallel only)")
+            help="Server's RPC port will be written here")
     parser.set_defaults(mrs_reduce_tasks=1, mrs_shared=default_shared)
 
 

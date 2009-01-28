@@ -30,6 +30,7 @@ def serial_main(registry, user_run, user_setup, args, opts):
     job.start()
     serial = Serial(job)
     serial.run()
+    job.join()
 
 
 def mockparallel_main(registry, user_run, user_setup, args, opts):
@@ -64,15 +65,30 @@ class Serial(object):
     def run(self):
         self.job.update_callback = self.job.end_callback = self.job_updated
 
-        while not job.done():
+        while self.ready():
+            print 'hi'
+            dataset = self.job.active_data[0]
+            dataset.run_serial()
+            self.job.check_done()
 
-            job.check_done()
 
-        job.join()
+    def ready(self):
+        """Waits for a dataset to become ready.
 
-    def check_availability(self):
+        Returns True when a dataset is ready and False when the job is
+        finished.
+        """
         self.cv.acquire()
-        self.cv.release()
+        try:
+            while True:
+                if self.job.active_data:
+                    return True
+                elif self.job.done():
+                    return False
+                else:
+                    self.cv.wait()
+        finally:
+            self.cv.release()
 
     def job_updated(self):
         """Called when the job is updated or completed.

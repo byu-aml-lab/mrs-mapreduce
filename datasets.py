@@ -160,11 +160,6 @@ class DataSet(object):
                 for j in xrange(splits)]
                 for i in xrange(sources)]
 
-    def __del__(self):
-        if self.temporary:
-            from util import remove_recursive
-            remove_recursive(self.directory)
-
     def __len__(self):
         """Number of buckets in this DataSet."""
         return sum(len(source) for source in self._data)
@@ -181,6 +176,7 @@ class DataSet(object):
         buckets = self[source, :]
         return chain(*buckets)
 
+    # TODO: remove temporary directories!!
     def close(self):
         """Close DataSet for future use.
 
@@ -189,6 +185,9 @@ class DataSet(object):
         the system to free resources.  Don't close a DataSet unless you really
         mean it.
         """
+        if self.directory and self.temporary:
+            from util import remove_recursive
+            remove_recursive(self.directory)
         self.closed = True
 
     def dump(self):
@@ -216,6 +215,13 @@ class DataSet(object):
         For most types of DataSets, this is automatically true.
         """
         return True
+
+    def fetchall(self, **kwds):
+        """Download all of the files.
+
+        For most types of DataSets, this is a no-op.
+        """
+        return
 
     def filename(self, source, split):
         """Return the filename for the output split for the given index.
@@ -338,9 +344,8 @@ class RemoteData(DataSet):
         self._needed_buckets = set()
         self._ready_buckets = set()
 
-    #def fetchall(self, mainthread=False):
     def fetchall(self, heap=False):
-        """Download all of the files
+        """Download all of the files.
 
         By default, fetchall assumes that it's being run in a thread other
         than the main thread because that's how it usually appears in Mrs.
@@ -551,6 +556,11 @@ class ComputedData(RemoteData):
         self.closed = True
         self.input = None
 
+    def _use_output(self, output):
+        """Uses the contents of the given Output dataset."""
+        self._data = output._data
+        self._fetched = True
+
 
 class MapData(ComputedData):
     def make_tasks(self):
@@ -563,12 +573,13 @@ class MapData(ComputedData):
             self.tasks_todo.append(task)
         self.tasks_made = True
 
-    # TODO:
     def run_serial(self):
-        pass
-        #input_files = [io.openfile(filename) for filename in self.inputs]
-        #all_input = chain(*input_files)
-        #map_output = mrs_map(registry['mapper'], all_input)
+        from task import MapTask
+        self.splits = 1
+        task = MapTask(self.input, 0, 0, self.func_name, self.part_name,
+                self.splits, self.outdir, self.format, self.registry)
+        self.tasks_made = True
+        task.run(serial=True)
 
 
 class ReduceData(ComputedData):
@@ -581,6 +592,14 @@ class ReduceData(ComputedData):
             task.dataset = self
             self.tasks_todo.append(task)
         self.tasks_made = True
+
+    def run_serial(self):
+        from task import ReduceTask
+        self.splits = 1
+        task = ReduceTask(self.input, 0, 0, self.func_name, self.part_name,
+                self.splits, self.outdir, self.format, self.registry)
+        self.tasks_made = True
+        task.run(serial=True)
 
 
 def test():
