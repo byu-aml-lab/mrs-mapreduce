@@ -37,6 +37,9 @@ class Job(threading.Thread):
         # Quit the whole program, even if this thread is still running:
         self.setDaemon(True)
 
+        # The BlockingThread is only used in the parallel implementation.
+        self.blockingthread = None
+
         self.registry = registry
         self.user_run = user_run
         self.user_setup = user_setup
@@ -270,6 +273,7 @@ class Job(threading.Thread):
     def file_data(self, filenames):
         from datasets import FileData
         ds = FileData(filenames)
+        ds.blockingthread = self.blockingthread
         return ds
 
     def map_data(self, input, mapper, nparts=None, outdir=None, parter=None,
@@ -289,6 +293,7 @@ class Job(threading.Thread):
             outdir = self.jobdir
         ds = MapData(input, mapper, nparts, outdir, parter=parter,
                 registry=self.registry, format=format)
+        ds.blockingthread = self.blockingthread
         self.submit(ds)
         return ds
 
@@ -309,6 +314,7 @@ class Job(threading.Thread):
             outdir = self.jobdir
         ds = ReduceData(input, reducer, nparts, outdir, parter=parter,
                 registry=self.registry, format=format)
+        ds.blockingthread = self.blockingthread
         self.submit(ds)
         return ds
 

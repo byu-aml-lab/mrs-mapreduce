@@ -371,6 +371,9 @@ class Worker(threading.Thread):
         self.slave = slave
         self.slave.register_worker(self)
 
+        from io import blocking
+        self.blockingthread = blocking.BlockingThread()
+
         self._task = None
         self._cond = threading.Condition()
         self.active = False
@@ -400,6 +403,7 @@ class Worker(threading.Thread):
         from io import writerformat
 
         input_data = FileData(inputs, splits=1)
+        input_data.blockingthread = self.blockingthread
         format = writerformat(extension)
 
         success = False
@@ -424,6 +428,7 @@ class Worker(threading.Thread):
         from io import writerformat
 
         input_data = FileData(inputs, splits=1)
+        input_data.blockingthread = self.blockingthread
         format = writerformat(extension)
 
         success = False

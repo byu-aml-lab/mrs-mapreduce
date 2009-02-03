@@ -20,7 +20,6 @@
 # throughput will be low.
 BLOCKSIZE = 1000
 
-#TEST_HOST = 'www.mcnabbs.org'
 TEST_HOST = 'cs.byu.edu'
 
 from twisted.web.client import HTTPClientFactory, HTTPPageDownloader
@@ -29,105 +28,71 @@ from zope.interface import implements
 import twisttest
 
 
-class FileProducer(object):
-    """Producer which reads data from a file.
+# TODO: Either make self.consumer.write() happen within the BlockingThread
+# (and make sure that write() doesn't do any "twisted" stuff) or split the
+# writes into chunks.
+class URLProducer(object):
+    """A Blocking Producer which reads data from any URL.
 
-    >>> FILENAME = '/etc/passwd'
-    >>> consumer = twisttest.TestConsumer()
-    >>> producer = FileProducer(FILENAME, consumer)
-    >>> producer.blocksize = 100
-    >>> d = producer.deferred.addBoth(twisttest.pause_reactor)
-    >>> twisttest.resume_reactor()
-    >>>
-
-    After EOF in the FileProducer, the TestConsumer should have killed the
-    reactor.  So, at this point, all of the data from the file should be
-    in consumer.buffer.  Now we just need to make sure that the buffer
-    contains the correct contents.
-
-    >>> real_data = open(FILENAME).read()
-    >>> real_data == consumer.buffer
-    True
-    >>>
+    For the producer to actually start producing, it needs to be registered
+    with a running BlockingThread.
     """
 
-    implements(interfaces.IPushProducer, interfaces.IReadDescriptor)
+    implements(interfaces.IPushProducer)
 
-    blocksize = BLOCKSIZE
-
-    def __init__(self, filename, consumer):
-        super(FileProducer, self).__init__()
-
-        self.file = open(filename)
-        self.fdnum = self.file.fileno()
+    def __init__(self, url, consumer):
+        self.url = url
+        self.blocking_thread = blocking_thread
         self.deferred = defer.Deferred()
-        self.eof = False
 
         consumer.registerProducer(self, streaming=True)
         self.consumer = consumer
 
-        self.start_reading()
-
-    def doRead(self):
-        """Called when data are available for reading
-
-        To avoid blocking, read() will only be called once on the underlying
-        file object.
+    def run(self):
+        """Loads data and sends it to the consumer.
+        
+        Called by the BlockingThread.
         """
-        newdata = self.file.read(self.blocksize)
-        if newdata:
-            self.consumer.write(newdata)
-        else:
-            # end-of-file
-            self.eof = True
-            return main.CONNECTION_DONE
+        from load import open_url
+        f = open_url(self.url)
+        data = f.read()
+        reactor.callFromThread(self._write, data)
 
-    def start_reading(self):
-        """Register with the Twisted reactor."""
-        reactor.addReader(self)
+    def _write(self, data):
+        """Sends data to the consumer.
 
-    def stop_reading(self):
-        """Unregister with the Twisted reactor."""
-        reactor.removeReader(self)
-
-    def pauseProducing(self):
-        self.stop_reading()
-
-    def resumeProducing(self):
-        self.start_reading()
-
-    def stopProducing(self):
-        from twisted.python import failure
-        connDone = failure.Failure(main.CONNECTION_DONE)
-        self.connectionLost(connDone)
-
-    def fileno(self):
-        """Return the filenumber of the underlying file
-
-        This will obviously fail if file is None or has no fileno.
-
-        >>> consumer = twisttest.TestConsumer()
-        >>> b = FileProducer('/etc/passwd', consumer)
-        >>> b.fileno() > 2
-        True
-        >>>
+        Runs within the reactor thread.
         """
-        return self.fdnum
-
-    def connectionLost(self, reason):
-        self.stop_reading()
+        self.consumer.write(data)
         self.consumer.unregisterProducer()
-        if self.eof:
-            self.deferred.callback(None)
-        else:
-            self.deferred.errback(reason)
+        self.deferred.callback(None)
 
-        # Cleanup
-        self.file.close()
-        self.file = None
 
-    def logPrefix(self):
-        return 'FileProducer'
+class SerialProducer(object):
+    """A Producer which reads data from any URL.
+
+    The producer will do all work when the run method is called, and it does
+    not interact with the reactor in any way.  This producer should only be
+    used in sequential code or in a non-reactor thread.
+    """
+
+    implements(interfaces.IPushProducer)
+
+    def __init__(self, url, consumer):
+        self.url = url
+        consumer.registerProducer(self, streaming=True)
+        self.consumer = consumer
+
+    def run(self):
+        """Loads data and sends it to the consumer.
+        
+        Called by the BlockingThread.
+        """
+        from load import open_url
+        f = open_url(self.url)
+        data = f.read()
+        self.consumer.write(data)
+        self.consumer.unregisterProducer()
 
 
 class HTTPClientProducerProtocol(HTTPPageDownloader):

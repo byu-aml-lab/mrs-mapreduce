@@ -36,34 +36,61 @@ writer_map = {
         }
 default_format = LineConsumer
 
+
 def writerformat(extension):
+    """Returns the writer class associated with the given file extension."""
     return writer_map[extension]
 
-# TODO: Find a better way to infer the file format.
+
 def fileformat(filename):
-    """Guess the file format according to extension of the given filename."""
+    """Returns the Consumer class associated with the given file extension."""
     import os
     extension = os.path.splitext(filename)[1]
     # strip the dot off:
     extension = extension[1:]
     return reader_map.get(extension, default_format)
 
-def fillbucket(url, bucket):
+
+def open_url(url):
+    """Opens a url or file and returns a filelike object."""
+    import urlparse, urllib2
+    parsed_url = urlparse.urlparse(url, 'file')
+    if parsed_url.scheme == 'file':
+        f = open(parsed_url.path)
+    else:
+        f = urllib2.urlopen(url)
+    return f
+
+
+def blocking_fill(url, bucket):
+    """Open a url or file and write it to a bucket."""
+    consumer_cls = fileformat(url)
+    consumer = consumer_cls(bucket)
+    producer = SerialProducer(url, consumer)
+    producer.run()
+
+
+def fillbucket(url, bucket, blockingthread):
     """Open a url or file and start writing it to a bucket.
 
     This will return a deferred that will be called back when the writing
-    is completed.
+    is completed.  The blockingthread is an instance of BlockingThread that
+    will be used if IO cannot be handled natively in Twisted.
     """
     consumer_cls = fileformat(url)
     consumer = consumer_cls(bucket)
-    deferred = urlconsume(url, consumer)
+    deferred = urlconsume(url, consumer, blockingthread)
     return deferred
 
-def urlconsume(url, consumer):
+
+def urlconsume(url, consumer, blockingthread):
     """Open a url and start streaming its contents to a consumer.
 
     The url is assumed to be a file if no scheme is given.  We return a
-    deferred that will be called back when streaming is complete.
+    deferred that will be called back when streaming is complete.  The
+    blockingthread is an instance of BlockingThread that will be used if IO
+    cannot be handled natively in Twisted.  The blockingthread does not need
+    to be started before calling urlconsume.
 
 
     We'll be downloading the New Testament as a test (this will definitely
@@ -87,10 +114,7 @@ def urlconsume(url, consumer):
     import urlparse, urllib2
 
     u = urlparse.urlsplit(url, 'file')
-    if u.scheme == 'file':
-        producer = FileProducer(u.path, consumer)
-        deferred = producer.deferred
-    elif u.scheme in ('http', 'https'):
+    if u.scheme in ('http', 'https'):
         from twisted.internet import reactor
         factory = HTTPClientProducerFactory(url, consumer)
         port = u.port
@@ -105,10 +129,13 @@ def urlconsume(url, consumer):
             from twisted.internet import ssl
             contextFactory = ssl.ClientContextFactory()
             reactor.connectSSL(u.hostname, port, factory, contextFactory)
-
         deferred = factory.deferred
     else:
-        raise RuntimeError("Unsupported URL scheme: %s" % u.scheme)
+        producer = URLProducer(u.path, consumer)
+        blockingthread.register(producer)
+        if not blockingthread.isAlive():
+            blockingthread.start()
+        deferred = producer.deferred
 
     return deferred
 

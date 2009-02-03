@@ -44,6 +44,7 @@ def master_main(registry, user_run, user_setup, args, opts):
     """
     from job import Job
     from util import try_makedirs
+    from io import blocking
 
     # Set up shared directory
     try_makedirs(opts.mrs_shared)
@@ -54,6 +55,8 @@ def master_main(registry, user_run, user_setup, args, opts):
     master = Master(job, registry, opts)
     # create event thread:
     event_thread = MasterEventThread(master)
+    # create blocking thread (which is only started if necessary):
+    job.blockingthread = blocking.BlockingThread()
 
     # Start the other threads:
     event_thread.start()

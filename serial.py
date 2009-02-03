@@ -27,7 +27,6 @@ def serial_main(registry, user_run, user_setup, args, opts):
     from job import Job
 
     job = Job(registry, user_run, user_setup, args, opts)
-    job.start()
     serial = Serial(job)
     serial.run()
     job.join()
@@ -51,7 +50,6 @@ def mockparallel_main(registry, user_run, user_setup, args, opts):
     try_makedirs(opts.mrs_shared)
 
     job = Job(registry, user_run, user_setup, args, opts)
-    job.start()
     mockparallel(job)
 
 
@@ -64,13 +62,12 @@ class Serial(object):
 
     def run(self):
         self.job.update_callback = self.job.end_callback = self.job_updated
+        self.job.start()
 
         while self.ready():
-            print 'hi'
             dataset = self.job.active_data[0]
             dataset.run_serial()
             self.job.check_done()
-
 
     def ready(self):
         """Waits for a dataset to become ready.
@@ -107,13 +104,13 @@ def mockparallel(job):
     that most of the execution time is in I/O, and mockparallel tries to load
     the input for all reduce tasks before doing the first reduce task.
     """
+    job.start()
 
     while not job.done():
         task = job.schedule()
         # FIXME (busy loop):
         if task is None:
             continue
-        print 'got a task'
         task.active()
         task.run()
         task.finished()

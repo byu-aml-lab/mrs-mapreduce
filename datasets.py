@@ -338,13 +338,14 @@ class RemoteData(DataSet):
     def __init__(self, **kwds):
         super(RemoteData, self).__init__(**kwds)
 
+        self.blockingthread = None
         self._fetched = False
         # TODO: instead of needed_buckets and ready_buckets, just do a
         # defer.deferredList.
         self._needed_buckets = set()
         self._ready_buckets = set()
 
-    def fetchall(self, heap=False):
+    def fetchall(self, serial=False, heap=False):
         """Download all of the files.
 
         By default, fetchall assumes that it's being run in a thread other
@@ -352,44 +353,52 @@ class RemoteData(DataSet):
         However, if it is in the main thread, it needs to know, so it can tell
         Twisted to catch SIGTERM.
         """
-        # TODO: set a maximum number of files to read at the same time (do we
-        # really want to have 500 sockets open at once?)
-
-        import threading
-        from twisted.internet import reactor
-
         # Don't call fetchall twice:
         if self._fetched:
             return
         else:
             self._fetched = True
 
-        assert(not self.closed)
-
-        if heap:
+        if serial:
             for bucket in self:
-                bucket.heap = True
+                url = bucket.url
+                if url:
+                    blocking_fill(url, bucket)
+        else:
+            # TODO: set a maximum number of files to read at the same time (do
+            # we really want to have 500 sockets open at once?)
 
-        self._download_done = threading.Condition()
-        self._download_done.acquire()
+            import threading
+            from twisted.internet import reactor
 
-        # TODO: It might be a good idea to make it so fetchall only tries to
-        # load a particular split.  The reason is that mockparallel's status
-        # report looks very confusing since the input for all reduce tasks is
-        # being loaded at the beginning of the first reduce task.
-        for bucket in self:
-            url = bucket.url
-            if url:
-                deferred = fillbucket(url, bucket)
-                reactor.callFromThread(deferred.addCallback,
-                        self.callback, bucket)
-                self._needed_buckets.add(bucket)
+            assert(not self.closed)
 
-        if self._needed_buckets:
-            # block until all downloads finished
-            self._download_done.wait()
+            if heap:
+                for bucket in self:
+                    bucket.heap = True
 
-        self._download_done.release()
+            self._download_done = threading.Condition()
+            self._download_done.acquire()
+
+            # TODO: It might be a good idea to make it so fetchall only tries
+            # to load a particular split.  The reason is that mockparallel's
+            # status report looks very confusing since the input for all
+            # reduce tasks is being loaded at the beginning of the first
+            # reduce task.
+            # TODO: It might also make sense to use a DeferredList here.
+            for bucket in self:
+                url = bucket.url
+                if url:
+                    deferred = fillbucket(url, bucket, self.blockingthread)
+                    reactor.callFromThread(deferred.addCallback,
+                            self.callback, bucket)
+                    self._needed_buckets.add(bucket)
+
+            if self._needed_buckets:
+                # block until all downloads finished
+                self._download_done.wait()
+
+            self._download_done.release()
 
     def callback(self, eof, bucket):
         """Called by Twisted when data are available for reading."""

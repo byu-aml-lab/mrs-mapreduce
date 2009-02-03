@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License along with
 # Mrs.  If not, see <http://www.gnu.org/licenses/>.
 
-from twisted.internet import reactor, interfaces
+from twisted.internet import interfaces
 from zope.interface import implements
 import twisttest
 
