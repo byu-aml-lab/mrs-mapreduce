@@ -22,13 +22,14 @@
 # copyright@byu.edu.
 
 
-# TODO: right now we assume that input files are pre-split.
+# TODO: add a DataSet for resplitting input (right now we assume that input
+# files are pre-split).
 
 from heapq import heappush
 from itertools import chain, izip
 import os
 
-from io import HexWriter, fillbucket
+from io import HexWriter, fillbucket, blocking_fill
 
 
 # TODO: cache data to disk when memory usage is high
@@ -168,11 +169,17 @@ class DataSet(object):
         """Iterate over all buckets."""
         return chain(*self._data)
 
+    def iterdata(self):
+        """Iterate over data from all buckets."""
+        return chain(*self)
+
     def itersplit(self, split):
+        """Iterate over data from buckets for a given split."""
         buckets = self[:, split]
         return chain(*buckets)
 
     def itersource(self, source):
+        """Iterate over data from buckets for a given source."""
         buckets = self[source, :]
         return chain(*buckets)
 
@@ -262,7 +269,6 @@ class DataSet(object):
             raise TypeError("Requires a pair of items.")
 
         isslice1 = isinstance(part1, slice)
-        isslice2 = isinstance(part1, slice)
 
         data = self._data
         if isslice1:

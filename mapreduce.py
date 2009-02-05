@@ -30,6 +30,7 @@ def mrs_map(mapper, input):
         for key, value in mapper(inkey, invalue):
             yield (key, value)
 
+
 def grouped_read(input_file):
     """An iterator that yields key-iterator pairs over a sorted input_file.
 

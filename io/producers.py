@@ -40,7 +40,7 @@ class URLProducer(object):
 
     implements(interfaces.IPushProducer)
 
-    def __init__(self, url, consumer):
+    def __init__(self, url, consumer, blocking_thread):
         self.url = url
         self.blocking_thread = blocking_thread
         self.deferred = defer.Deferred()

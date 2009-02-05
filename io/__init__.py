@@ -24,7 +24,7 @@
 from consumer import LineConsumer
 from textformat import TextWriter
 from hexformat import HexConsumer, HexWriter, hexformat_sort
-from load import writerformat, fillbucket
+from load import writerformat, fillbucket, blocking_fill
 
 
 # vim: et sw=4 sts=4

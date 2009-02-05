@@ -60,6 +60,7 @@ class BlockingThread(threading.Thread):
     """
     def __init__(self, *args, **kwds):
         threading.Thread(self, *args, **kwds)
+        self.setName('BlockingThread')
         # Set this thread to die when the main thread quits.
         self.setDaemon(True)
 

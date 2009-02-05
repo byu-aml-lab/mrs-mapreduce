@@ -25,7 +25,7 @@ import threading
 from io import HexWriter
 
 
-# TODO: add a DataSet for resplitting input.
+# TODO: separate the thread execution into a separate RunThread.
 class Job(threading.Thread):
     """Keep track of all operations that need to be performed.
     
@@ -34,6 +34,7 @@ class Job(threading.Thread):
     """
     def __init__(self, registry, user_run, user_setup, args, opts):
         threading.Thread.__init__(self)
+        self.setName('Job')
         # Quit the whole program, even if this thread is still running:
         self.setDaemon(True)
 

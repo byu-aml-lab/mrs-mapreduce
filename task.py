@@ -123,9 +123,9 @@ class MapTask(Task):
                 source=self.source, directory=directory)
 
         # SETUP INPUT
-        self.input.fetchall()
+        self.input.fetchall(serial)
         if serial:
-            all_input = self.input
+            all_input = self.input.iterdata()
         else:
             all_input = self.input.itersplit(self.split)
 
@@ -164,11 +164,12 @@ class ReduceTask(Task):
         # TODO: Set heap=True when there are still mappers running.  If all
         # mappers are finished, it just slows things down.
         #self.input.fetchall(heap=True)
-        self.input.fetchall()
+        self.input.fetchall(serial)
         if serial:
-            all_input = self.input
+            all_input = self.input.iterdata()
         else:
-            all_input = sorted(self.input.itersplit(self.split))
+            all_input = self.input.itersplit(self.split)
+        sorted_input = sorted(all_input)
 
         # Do the following if external sort is necessary (i.e., the input
         # files are too big to fit in memory):
@@ -177,7 +178,7 @@ class ReduceTask(Task):
         #io.hexfile_sort(interm_names, sorted_name)
 
         # REDUCE PHASE
-        self.output.collect(mrs_reduce(self.reducer, all_input))
+        self.output.collect(mrs_reduce(self.reducer, sorted_input))
 
 
 # vim: et sw=4 sts=4

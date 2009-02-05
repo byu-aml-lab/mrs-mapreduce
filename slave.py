@@ -365,6 +365,7 @@ class Worker(threading.Thread):
     """
     def __init__(self, slave):
         threading.Thread.__init__(self)
+        self.setName('Worker')
         # Die when all other non-daemon threads have exited:
         self.setDaemon(True)
 

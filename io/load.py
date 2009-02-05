@@ -64,6 +64,7 @@ def open_url(url):
 
 def blocking_fill(url, bucket):
     """Open a url or file and write it to a bucket."""
+    from producers import SerialProducer
     consumer_cls = fileformat(url)
     consumer = consumer_cls(bucket)
     producer = SerialProducer(url, consumer)
@@ -110,7 +111,7 @@ def urlconsume(url, consumer, blockingthread):
     <br>Book 40: Matthew</a>
     >>>
     """
-    from producers import FileProducer, HTTPClientProducerFactory
+    from producers import URLProducer, HTTPClientProducerFactory
     import urlparse, urllib2
 
     u = urlparse.urlsplit(url, 'file')
@@ -131,7 +132,7 @@ def urlconsume(url, consumer, blockingthread):
             reactor.connectSSL(u.hostname, port, factory, contextFactory)
         deferred = factory.deferred
     else:
-        producer = URLProducer(u.path, consumer)
+        producer = URLProducer(u.path, consumer, blockingthread)
         blockingthread.register(producer)
         if not blockingthread.isAlive():
             blockingthread.start()
