@@ -130,7 +130,13 @@ class MapTask(Task):
             all_input = self.input.itersplit(self.split)
 
         # MAP PHASE
-        self.output.collect(mrs_map(self.mapper, all_input))
+        self.output.collect(self.map(all_input))
+
+    def map(self, input):
+        """Yields map output iterating over the entries in input."""
+        for inkey, invalue in input:
+            for key, value in self.mapper(inkey, invalue):
+                yield (key, value)
 
 
 class ReduceTask(Task):
@@ -178,7 +184,49 @@ class ReduceTask(Task):
         #io.hexfile_sort(interm_names, sorted_name)
 
         # REDUCE PHASE
-        self.output.collect(mrs_reduce(self.reducer, sorted_input))
+        self.output.collect(self.reduce(sorted_input))
+
+    def reduce(self, input):
+        """Yields reduce output iterating over the entries in input.
+
+        A reducer is an iterator taking a key and an iterator over values for
+        that key.  It yields values for that key.
+        """
+        for key, iterator in self.grouped_read(input):
+            for value in self.reducer(key, iterator):
+                yield (key, value)
+
+    def grouped_read(self, input_file):
+        """Yields key-iterator pairs over a sorted input_file.
+
+        This is very similar to itertools.groupby, except that we assume that the
+        input_file is sorted, and we assume key-value pairs.
+        """
+        input_itr = iter(input_file)
+        input = input_itr.next()
+        next_pair = list(input)
+
+        def subiterator():
+            # Closure warning: don't rebind next_pair anywhere in this function
+            group_key, value = next_pair
+
+            while True:
+                yield value
+                try:
+                    input = input_itr.next()
+                except StopIteration:
+                    next_pair[0] = None
+                    return
+                key, value = input
+                if key != group_key:
+                    # A new key has appeared.
+                    next_pair[:] = key, value
+                    return
+
+        while next_pair[0] is not None:
+            yield next_pair[0], subiterator()
+        raise StopIteration
+
 
 
 # vim: et sw=4 sts=4
