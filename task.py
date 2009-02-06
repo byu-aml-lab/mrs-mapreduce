@@ -112,7 +112,6 @@ class MapTask(Task):
     def run(self, serial=False):
         import datasets
         from itertools import chain
-        from mapreduce import mrs_map
 
         # PREP
         if serial:
@@ -156,7 +155,6 @@ class ReduceTask(Task):
     def run(self, serial=False):
         import datasets
         from itertools import chain
-        from mapreduce import mrs_reduce
 
         # PREP
         if serial:

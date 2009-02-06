@@ -595,6 +595,7 @@ class MapData(ComputedData):
                 self.splits, self.outdir, self.format, self.registry)
         self.tasks_made = True
         task.run(serial=True)
+        self._use_output(task.output)
 
 
 class ReduceData(ComputedData):
@@ -615,6 +616,7 @@ class ReduceData(ComputedData):
                 self.splits, self.outdir, self.format, self.registry)
         self.tasks_made = True
         task.run(serial=True)
+        self._use_output(task.output)
 
 
 def test():
