@@ -480,11 +480,6 @@ class Worker(threading.Thread):
             self._task = None
             self._cond.release()
 
-            # TODO: right now, we call dataset.dump().  Instead,
-            # we should tell the dataset to become available() here, and the
-            # data should automatically be dumped.
-            task.output.dump()
-
             try:
                 self.slave.master_rpc.blocking_call('done', self.slave.id,
                         task.outurls(), self.slave.cookie)

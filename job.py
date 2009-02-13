@@ -61,7 +61,6 @@ class Job(threading.Thread):
         self.active_data = []
         self.waiting_data = []
 
-        # Set up the job directory
         import tempfile
         try:
             shared_dir = self.opts.mrs_shared
@@ -289,11 +288,18 @@ class Job(threading.Thread):
         if nparts is None:
             nparts = self.default_reduce_tasks
 
+        permanent = True
+        if outdir or self.jobdir:
+            if outdir is None:
+                import tempfile
+                outdir = tempfile.mkdtemp(prefix='map_', dir=self.jobdir)
+                permanent = False
+            from util import try_makedirs
+            try_makedirs(outdir)
+
         from datasets import MapData
-        if outdir is None:
-            outdir = self.jobdir
         ds = MapData(input, mapper, nparts, outdir, parter=parter,
-                registry=self.registry, format=format)
+                registry=self.registry, format=format, permanent=permanent)
         ds.blockingthread = self.blockingthread
         self.submit(ds)
         return ds
@@ -310,11 +316,18 @@ class Job(threading.Thread):
         if nparts is None:
             nparts = self.default_reduce_parts
 
+        permanent = True
+        if outdir or self.jobdir:
+            if outdir is None:
+                import tempfile
+                outdir = tempfile.mkdtemp(prefix='reduce_', dir=self.jobdir)
+                permanent = False
+            from util import try_makedirs
+            try_makedirs(outdir)
+
         from datasets import ReduceData
-        if outdir is None:
-            outdir = self.jobdir
         ds = ReduceData(input, reducer, nparts, outdir, parter=parter,
-                registry=self.registry, format=format)
+                registry=self.registry, format=format, permanent=permanent)
         ds.blockingthread = self.blockingthread
         self.submit(ds)
         return ds

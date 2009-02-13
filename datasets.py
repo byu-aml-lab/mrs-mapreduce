@@ -25,7 +25,6 @@
 # TODO: add a DataSet for resplitting input (right now we assume that input
 # files are pre-split).
 
-from heapq import heappush
 from itertools import chain, izip
 import os
 
@@ -41,9 +40,6 @@ class Bucket(object):
     be upgraded to automatically cache data to disk if they get too large to
     stay in memory.
 
-    If (bucket.heap == True), then store data in a heap as they arrive (which
-    makes subsequent sorting faster).
-
     >>> b = Bucket()
     >>> b.append((4, 'test'))
     >>> b.collect([(3, 'a'), (1, 'This'), (2, 'is')])
@@ -54,20 +50,29 @@ class Bucket(object):
     'This is a test'
     >>>
     """
-    def __init__(self, filename=None, format=HexWriter):
+    def __init__(self, filename=None, directory=None, format=HexWriter):
         self._data = []
-        self.heap = False
         self.format = format
         self.filename = filename
+        self.dir = directory
         self.url = None
+        self.writer = None
 
-    def append(self, x):
-        """Collect a single key-value pair
-        """
-        if self.sort:
-            heappush(self._data, x)
-        else:
-            self._data.append(x)
+    def open_writer(self):
+        if self.dir:
+            path = os.path.join(self.dir, self.filename)
+            output_file = open(path, 'a')
+            self.writer = self.format(output_file)
+
+    def close_writer(self):
+        if self.writer:
+            self.writer.close()
+
+    def addpair(self, key, value):
+        """Collect a single key-value pair."""
+        self._data.append((key, value))
+        if self.writer:
+            self.writer.writepair(key, value)
 
     def collect(self, pairiter):
         """Collect all key-value pairs from the given iterable
@@ -76,20 +81,16 @@ class Bucket(object):
         the iterator blocks.
         """
         data = self._data
-        if self.heap:
-            for kvpair in pairiter:
-                heappush(data, kvpair)
-                data.append(kvpair)
+        if self.writer:
+            for key, value in pairiter:
+                data.append((key, value))
+                self.writer.writepair(key, value)
         else:
             for kvpair in pairiter:
                 data.append(kvpair)
 
     def sort(self):
         self._data.sort()
-
-    def clear(self):
-        """Remove all key-value pairs from the Bucket."""
-        self._data = []
 
     def __len__(self):
         return len(self._data)
@@ -100,17 +101,6 @@ class Bucket(object):
 
     def __iter__(self):
         return iter(self._data)
-
-    # TODO: write doctest for dump
-    def dump(self, directory):
-        assert(self.filename is not None)
-        path = os.path.join(directory, self.filename)
-        if len(self):
-            f = open(path, 'w')
-            writer = self.format(f)
-            for key, value in self:
-                writer.writepair(key, value)
-            f.close()
 
 
 class DataSet(object):
@@ -146,18 +136,17 @@ class DataSet(object):
     ['one', 'hello', None]
     >>>
     """
-    def __init__(self, sources=0, splits=0, directory=None, format=HexWriter):
-        self.directory = directory
+    def __init__(self, sources=0, splits=0, dir=None, format=HexWriter,
+            permanent=True):
         self.sources = sources
         self.splits = splits
         self.format = format
+        self.permanent = permanent
         self.closed = False
-
-        # Whether self.directory will get cleaned up
-        self.temporary = not self.directory
+        self.dir = dir
 
         # For now assume that all sources have the same # of splits.
-        self._data = [[Bucket(filename=self.filename(i, j))
+        self._data = [[Bucket(filename=self.filename(i, j), directory=self.dir)
                 for j in xrange(splits)]
                 for i in xrange(sources)]
 
@@ -183,7 +172,6 @@ class DataSet(object):
         buckets = self[source, :]
         return chain(*buckets)
 
-    # TODO: remove temporary directories!!
     def close(self):
         """Close DataSet for future use.
 
@@ -192,20 +180,11 @@ class DataSet(object):
         the system to free resources.  Don't close a DataSet unless you really
         mean it.
         """
-        if self.directory and self.temporary:
+        if self.dir and not self.permanent:
             from util import remove_recursive
-            remove_recursive(self.directory)
+            remove_recursive(self.dir)
+        self._data = None
         self.closed = True
-
-    def dump(self):
-        """Write out all of the key-value pairs to files."""
-        import tempfile
-        # TODO: we should really clean these directories up at some point!
-        if self.directory is None:
-            self.directory = tempfile.mkdtemp()
-        for source in self._data:
-            for bucket in source:
-                bucket.dump(self.directory)
 
     def ready(self):
         """Report whether DataSet is ready.
@@ -323,6 +302,8 @@ class Output(DataSet):
     def collect(self, itr):
         """Collect all of the key-value pairs from the given iterator."""
         buckets = self[0, :]
+        for bucket in buckets:
+            bucket.open_writer()
         n = self.splits
         if n == 1:
             bucket = buckets[0]
@@ -333,7 +314,9 @@ class Output(DataSet):
                 key, value = kvpair
                 split = partition(key, n)
                 bucket = buckets[split]
-                bucket.append(kvpair)
+                bucket.addpair(kvpair)
+        for bucket in buckets:
+            bucket.close_writer()
 
 
 class RemoteData(DataSet):
@@ -351,7 +334,7 @@ class RemoteData(DataSet):
         self._needed_buckets = set()
         self._ready_buckets = set()
 
-    def fetchall(self, serial=False, heap=False):
+    def fetchall(self, serial=False):
         """Download all of the files.
 
         By default, fetchall assumes that it's being run in a thread other
@@ -378,10 +361,6 @@ class RemoteData(DataSet):
             from twisted.internet import reactor
 
             assert(not self.closed)
-
-            if heap:
-                for bucket in self:
-                    bucket.heap = True
 
             self._download_done = threading.Condition()
             self._download_done.acquire()
@@ -470,11 +449,12 @@ class ComputedData(RemoteData):
     regenerate its contents.  It can also decide whether to save the data to
     permanent storage or to leave them in memory on the slaves.
     """
-    def __init__(self, input, func, nparts, outdir, parter=None,
-            format=None, registry=None):
+    def __init__(self, input, func, nparts, dir=None, parter=None,
+            format=None, registry=None, permanent=True):
         # At least for now, we create 1 task for each split in the input
         ntasks = input.splits
-        super(ComputedData, self).__init__(sources=ntasks, splits=nparts)
+        super(ComputedData, self).__init__(sources=ntasks, splits=nparts,
+                dir=dir, permanent=permanent)
 
         if registry is None:
             from registry import Registry
@@ -495,7 +475,6 @@ class ComputedData(RemoteData):
 
         assert(not input.closed)
         self.input = input
-        self.outdir = outdir
         self.format = format
 
         # TODO: store a mapping from tasks to hosts and a map from hosts to
@@ -582,7 +561,7 @@ class MapData(ComputedData):
         from task import MapTask
         for i in xrange(self.sources):
             task = MapTask(self.input, i, i, self.func_name,
-                    self.part_name, self.splits, self.outdir, self.format,
+                    self.part_name, self.splits, self.dir, self.format,
                     self.registry)
             task.dataset = self
             self.tasks_todo.append(task)
@@ -592,7 +571,7 @@ class MapData(ComputedData):
         from task import MapTask
         self.splits = 1
         task = MapTask(self.input, 0, 0, self.func_name, self.part_name,
-                self.splits, self.outdir, self.format, self.registry)
+                self.splits, self.dir, self.format, self.registry)
         self.tasks_made = True
         task.run(serial=True)
         self._use_output(task.output)
@@ -603,7 +582,7 @@ class ReduceData(ComputedData):
         from task import ReduceTask
         for i in xrange(self.sources):
             task = ReduceTask(self.input, i, i, self.func_name,
-                    self.part_name, self.splits, self.outdir, self.format,
+                    self.part_name, self.splits, self.dir, self.format,
                     self.registry)
             task.dataset = self
             self.tasks_todo.append(task)
@@ -613,7 +592,7 @@ class ReduceData(ComputedData):
         from task import ReduceTask
         self.splits = 1
         task = ReduceTask(self.input, 0, 0, self.func_name, self.part_name,
-                self.splits, self.outdir, self.format, self.registry)
+                self.splits, self.dir, self.format, self.registry)
         self.tasks_made = True
         task.run(serial=True)
         self._use_output(task.output)

@@ -39,12 +39,11 @@ if __name__ == '__main__':
 
 # rather than importing all submodules, we just import the ones that are
 # expected to be useful outside of Mrs internals.
-import cli, datasets, partition, registry, version
+import cli, partition, registry, version
+from io import HexWriter, TextWriter
 
 VERSION = version.VERSION
 Registry = registry.Registry
-HexWriter = io.HexWriter
-TextWriter = io.TextWriter
 main = cli.main
 primary_impl = cli.primary_impl
 hash_partition = partition.hash_partition

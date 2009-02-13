@@ -35,21 +35,16 @@ class Task(object):
     number that will be created by this Task.  It is just used for
     informational purposes, like naming output files.
     """
-    def __init__(self, input, split, source, outdir, format):
+    def __init__(self, input, split, source, storage, format):
         self.input = input
         self.source = source
         self.split = split
-        self.outdir = outdir
+        self.storage = storage
         self.dataset = None
         self.format = format
 
         self.output = None
         self._outurls = []
-
-        # TODO: check to see if there's somewhere better for this:
-        if outdir:
-            from util import try_makedirs
-            try_makedirs(outdir)
 
     def active(self):
         self.dataset.task_started(self)
@@ -88,17 +83,11 @@ class Task(object):
         else:
             return self._outurls
 
-    def tempdir(self, prefix):
-        import tempfile
-        directory = tempfile.mkdtemp(dir=self.outdir,
-                prefix=('%s_%s_' % (prefix, self.source)))
-        return directory
-
 
 class MapTask(Task):
     def __init__(self, input, split, source, map_name, part_name, nparts,
-            outdir, format, registry):
-        Task.__init__(self, input, split, source, outdir, format)
+            storage, format, registry):
+        Task.__init__(self, input, split, source, storage, format)
         self.map_name = map_name
         self.mapper = registry[map_name]
         self.part_name = part_name
@@ -114,12 +103,8 @@ class MapTask(Task):
         from itertools import chain
 
         # PREP
-        if serial:
-            directory = None
-        else:
-            directory = self.tempdir('map')
         self.output = datasets.Output(self.partition, self.nparts,
-                source=self.source, directory=directory)
+                source=self.source, dir=self.storage, format=self.format)
 
         # SETUP INPUT
         self.input.fetchall(serial)
@@ -140,8 +125,8 @@ class MapTask(Task):
 
 class ReduceTask(Task):
     def __init__(self, input, split, source, reduce_name, part_name, nparts,
-            outdir, format, registry):
-        Task.__init__(self, input, split, source, outdir, format)
+            storage, format, registry):
+        Task.__init__(self, input, split, source, storage, format)
         self.reduce_name = reduce_name
         self.reducer = registry[reduce_name]
         self.part_name = part_name
@@ -157,17 +142,10 @@ class ReduceTask(Task):
         from itertools import chain
 
         # PREP
-        if serial:
-            directory = None
-        else:
-            directory = self.tempdir('reduce')
         self.output = datasets.Output(self.partition, self.nparts,
-                directory=directory, format=self.format)
+                dir=self.storage, format=self.format)
 
         # SORT PHASE
-        # TODO: Set heap=True when there are still mappers running.  If all
-        # mappers are finished, it just slows things down.
-        #self.input.fetchall(heap=True)
         self.input.fetchall(serial)
         if serial:
             all_input = self.input.iterdata()

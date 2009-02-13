@@ -43,11 +43,7 @@ def master_main(registry, user_run, user_setup, args, opts):
     will return master_main's return value.
     """
     from job import Job
-    from util import try_makedirs
     from io import blocking
-
-    # Set up shared directory
-    try_makedirs(opts.mrs_shared)
 
     # create job thread:
     job = Job(registry, user_run, user_setup, args, opts)
