@@ -50,11 +50,11 @@ class Bucket(object):
     'This is a test'
     >>>
     """
-    def __init__(self, filename=None, directory=None, format=HexWriter):
+    def __init__(self, filename=None, dir=None, format=HexWriter):
         self._data = []
         self.format = format
         self.filename = filename
-        self.dir = directory
+        self.dir = dir
         self.url = None
         self.writer = None
 
@@ -103,60 +103,29 @@ class Bucket(object):
         return iter(self._data)
 
 
-class DataSet(object):
+class BaseDataSet(object):
     """Manage input to or output from a map or reduce operation.
 
     A DataSet is naturally a two-dimensional list.  There are some number of
     sources, and for each source, there are one or more splits.
-
-    Low-level Testing.  Normally a DataSet holds Buckets, but for now we'll be
-    loose for testing purposes.  This also makes it clear how slicing works,
-    so it's not a waste of space.
-    >>> ds = DataSet(sources=3, splits=3)
-    >>> len(ds)
-    9
-    >>> ds[0, 0] = 'zero'
-    >>> ds[0, 1] = 'one'
-    >>> ds[0, 2] = 'two'
-    >>> ds[1, 0] = None
-    >>> ds[1, 1] = 'hello'
-    >>> ds[1, 2] = None
-    >>> ds[2, 1] = None
-    >>> print ds[0, 1]
-    one
-    >>> print ds[1, 0]
-    None
-    >>> print ds[0, 1:]
-    ['one', 'two']
-    >>> print ds[0, :]
-    ['zero', 'one', 'two']
-    >>> print ds[0:2, 1:3]
-    [['one', 'two'], ['hello', None]]
-    >>> print ds[:, 1]
-    ['one', 'hello', None]
-    >>>
     """
     def __init__(self, sources=0, splits=0, dir=None, format=HexWriter,
             permanent=True):
         self.sources = sources
         self.splits = splits
+        self.dir = dir
         self.format = format
         self.permanent = permanent
         self.closed = False
-        self.dir = dir
-
-        # For now assume that all sources have the same # of splits.
-        self._data = [[Bucket(filename=self.filename(i, j), directory=self.dir)
-                for j in xrange(splits)]
-                for i in xrange(sources)]
+        self._data = None
 
     def __len__(self):
         """Number of buckets in this DataSet."""
-        return sum(len(source) for source in self._data)
+        raise NotImplementedError
 
     def __iter__(self):
         """Iterate over all buckets."""
-        return chain(*self._data)
+        raise NotImplementedError
 
     def iterdata(self):
         """Iterate over data from all buckets."""
@@ -270,7 +239,107 @@ class DataSet(object):
             return self._data[part1][part2]
 
 
-class Output(DataSet):
+class DataSet(BaseDataSet):
+    """Manage input to or output from a map or reduce operation.
+
+    A DataSet is naturally a two-dimensional list.  There are some number of
+    sources, and for each source, there are one or more splits.
+
+    Low-level Testing.  Normally a DataSet holds Buckets, but for now we'll be
+    loose for testing purposes.  This also makes it clear how slicing works,
+    so it's not a waste of space.
+    >>> ds = DataSet(sources=3, splits=3)
+    >>> len(ds)
+    9
+    >>> ds[0, 0] = 'zero'
+    >>> ds[0, 1] = 'one'
+    >>> ds[0, 2] = 'two'
+    >>> ds[1, 0] = None
+    >>> ds[1, 1] = 'hello'
+    >>> ds[1, 2] = None
+    >>> ds[2, 1] = None
+    >>> print ds[0, 1]
+    one
+    >>> print ds[1, 0]
+    None
+    >>> print ds[0, 1:]
+    ['one', 'two']
+    >>> print ds[0, :]
+    ['zero', 'one', 'two']
+    >>> print ds[0:2, 1:3]
+    [['one', 'two'], ['hello', None]]
+    >>> print ds[:, 1]
+    ['one', 'hello', None]
+    >>>
+    """
+    def __init__(self, **kwds):
+        BaseDataSet.__init__(self, **kwds)
+
+        # For now assume that all sources have the same # of splits.
+        self._data = [[Bucket(self.filename(i, j), self.dir, self.format)
+                for j in xrange(self.splits)]
+                for i in xrange(self.sources)]
+
+    def __len__(self):
+        """Number of buckets in this DataSet."""
+        return sum(len(source) for source in self._data)
+
+    def __iter__(self):
+        """Iterate over all buckets."""
+        return chain(*self._data)
+
+    def __setitem__(self, item, value):
+        """Set an item.
+
+        For now, you can only set a split in the second dimension.
+        """
+        # Separate the two dimensions:
+        try:
+            part1, part2 = item
+        except (TypeError, ValueError):
+            raise TypeError("Requires a pair of items.")
+
+        if isinstance(part1, slice):
+            raise NotImplementedError
+
+        self._data[part1][part2] = value
+
+    def __getitem__(self, item):
+        """Retrieve an item or split.
+        
+        At the moment, we're not very consistent about whether what we return
+        is a view or a [shallow] copy.  Write at your own risk.
+        """
+        # Separate the two dimensions:
+        try:
+            part1, part2 = item
+        except (TypeError, ValueError):
+            raise TypeError("Requires a pair of items.")
+
+        isslice1 = isinstance(part1, slice)
+
+        data = self._data
+        if isslice1:
+            lst = []
+            wild_goose_chase = True
+            for sourcelst in data[part1]:
+                try:
+                    lst.append(sourcelst[part2])
+                    wild_goose_chase = False
+                except IndexError:
+                    lst.append([])
+
+            if wild_goose_chase:
+                # every sourcelst[part2] raised an indexerror
+                raise IndexError("No items matching %s" % part2)
+
+            return lst
+
+        else:
+            return self._data[part1][part2]
+
+
+class Output(BaseDataSet):
     """Collect output from a map or reduce task.
     
     This is only used on the slave side.  It takes a partition function and a
@@ -287,17 +356,56 @@ class Output(DataSet):
     >>>
     """
     def __init__(self, partition, splits, source=0, **kwds):
-        super(Output, self).__init__(splits=splits, **kwds)
+        BaseDataSet.__init__(self, splits=splits, **kwds)
+        self.fixed_source = source
 
         self.partition = partition
         # One source and splits splits
-        self._data = [[Bucket(format=self.format,
-                filename=self.filename(source, i)) for i in xrange(splits)]]
+        self._data = [Bucket(self.filename(source, j), self.dir, self.format)
+                for j in xrange(splits)]
 
         # For now, the externally visible url is just the filename on the
         # local or networked filesystem.
         for bucket in self:
             bucket.url = bucket.filename
+
+    def __len__(self):
+        """Number of buckets in this DataSet."""
+        return self.splits
+
+    def __iter__(self):
+        """Iterate over all buckets."""
+        return iter(self._data)
+
+    def __setitem__(self, item, value):
+        """Set an item."""
+        # Separate the two dimensions:
+        try:
+            part1, part2 = item
+        except (TypeError, ValueError):
+            raise TypeError("Requires a pair of items.")
+
+        if part1 != self.fixed_source:
+            raise ValueError('Source %s does not exist.' % part1)
+
+        self._data[part2] = value
+
+    def __getitem__(self, item):
+        """Retrieve an item or split.
+        
+        At the moment, we're not very consistent about whether what we return
+        is a view or a [shallow] copy.  Write at your own risk.
+        """
+        # Separate the two dimensions:
+        try:
+            part1, part2 = item
+        except (TypeError, ValueError):
+            raise TypeError("Requires a pair of items.")
+
+        if part1 != self.fixed_source:
+            raise ValueError('Source %s does not exist.' % part1)
+
+        return self._data[part2]
 
     def collect(self, itr):
         """Collect all of the key-value pairs from the given iterator."""
@@ -325,7 +433,7 @@ class RemoteData(DataSet):
     Subclasses need to set the url for each bucket.
     """
     def __init__(self, **kwds):
-        super(RemoteData, self).__init__(**kwds)
+        DataSet.__init__(self, **kwds)
 
         self.blockingthread = None
         self._fetched = False
@@ -435,7 +543,7 @@ class FileData(RemoteData):
         # TODO: relax this requirement
         assert(sources * splits == n)
 
-        super(FileData, self).__init__(sources=sources, splits=splits, **kwds)
+        RemoteData.__init__(self, sources=sources, splits=splits, **kwds)
 
         from itertools import izip
         for bucket, url in zip(self, urls):
@@ -453,8 +561,8 @@ class ComputedData(RemoteData):
             format=None, registry=None, permanent=True):
         # At least for now, we create 1 task for each split in the input
         ntasks = input.splits
-        super(ComputedData, self).__init__(sources=ntasks, splits=nparts,
-                dir=dir, permanent=permanent)
+        RemoteData.__init__(self, sources=ntasks, splits=nparts, dir=dir,
+                permanent=permanent)
 
         if registry is None:
             from registry import Registry
@@ -552,7 +660,10 @@ class ComputedData(RemoteData):
 
     def _use_output(self, output):
         """Uses the contents of the given Output dataset."""
-        self._data = output._data
+        # Note that this assumes there's only one source and one output set.
+        self._data = [output._data]
+        self.sources = 1
+        self.splits = len(output._data)
         self._fetched = True
 
 
