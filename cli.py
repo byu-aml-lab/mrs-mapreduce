@@ -93,9 +93,9 @@ def main(registry, run=None, setup=None, update_parser=None):
 
     (opts, args) = parser.parse_args(sys.argv[2:])
 
-    if opts.debug:
+    if opts.mrs_debug:
         logger.setLevel(logging.DEBUG)
-    elif opts.verbose:
+    elif opts.mrs_verbose:
         logger.setLevel(logging.INFO)
 
     try:
@@ -134,10 +134,10 @@ def option_parser():
 
     parser = param.OptionParser(conflict_handler='resolve')
     parser.usage = USAGE
-    parser.add_option('-v', '--verbose', dest='verbose', action='store_true',
-            help='Verbose mode (set log level to INFO)')
-    parser.add_option('-d', '--debug', dest='debug', action='store_true',
-            help='Debug mode (set log level to DEBUG)')
+    parser.add_option('-v', '--mrs-verbose', dest='mrs_verbose',
+            action='store_true', help='Verbose mode (set log level to INFO)')
+    parser.add_option('-d', '--mrs-debug', dest='mrs_debug',
+            action='store_true', help='Debug mode (set log level to DEBUG)')
 
     return parser
 
