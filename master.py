@@ -403,11 +403,11 @@ class RemoteSlave(object):
         if assignment.map:
             deferred = self.rpc.callRemote('start_map', task.source,
                     task.inurls(), task.map_name, task.part_name,
-                    task.nparts, task.outdir, extension, self.cookie)
+                    task.nparts, task.storage, extension, self.cookie)
         elif assignment.reduce:
             deferred = self.rpc.callRemote('start_reduce', task.source,
                     task.inurls(), task.reduce_name, task.part_name,
-                    task.nparts, task.outdir, extension, self.cookie)
+                    task.nparts, task.storage, extension, self.cookie)
         else:
             raise RuntimeError
 

@@ -45,8 +45,8 @@ class TwistedThread(threading.Thread):
     """
 
     def __init__(self, **kwds):
-        self.setName('TwistedThread')
         threading.Thread.__init__(self, **kwds)
+        self.setName('TwistedThread')
 
         # Die when all other non-daemon threads have exited:
         self.setDaemon(True)

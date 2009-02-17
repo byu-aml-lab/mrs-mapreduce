@@ -59,7 +59,7 @@ class BlockingThread(threading.Thread):
     This thread deals with IO that cannot be handled natively in Twisted.
     """
     def __init__(self, *args, **kwds):
-        threading.Thread(self, *args, **kwds)
+        threading.Thread.__init__(self, *args, **kwds)
         self.setName('BlockingThread')
         # Set this thread to die when the main thread quits.
         self.setDaemon(True)

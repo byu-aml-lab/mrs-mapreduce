@@ -40,7 +40,8 @@ class TextWriter(object):
     def __init__(self, file):
         self.file = file
 
-    def writepair(self, key, value):
+    def writepair(self, kvpair):
+        key, value = kvpair
         print >>self.file, key, value
 
     def close(self):

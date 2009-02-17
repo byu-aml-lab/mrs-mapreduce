@@ -61,6 +61,7 @@ class Bucket(object):
     def open_writer(self):
         if self.dir:
             path = os.path.join(self.dir, self.filename)
+            print 'open_writer for', path
             output_file = open(path, 'a')
             self.writer = self.format(output_file)
 
@@ -68,11 +69,11 @@ class Bucket(object):
         if self.writer:
             self.writer.close()
 
-    def addpair(self, key, value):
+    def addpair(self, kvpair):
         """Collect a single key-value pair."""
-        self._data.append((key, value))
+        self._data.append(kvpair)
         if self.writer:
-            self.writer.writepair(key, value)
+            self.writer.writepair(kvpair)
 
     def collect(self, pairiter):
         """Collect all key-value pairs from the given iterable
@@ -82,9 +83,9 @@ class Bucket(object):
         """
         data = self._data
         if self.writer:
-            for key, value in pairiter:
-                data.append((key, value))
-                self.writer.writepair(key, value)
+            for kvpair in pairiter:
+                data.append(kvpair)
+                self.writer.writepair(kvpair)
         else:
             for kvpair in pairiter:
                 data.append(kvpair)
@@ -409,7 +410,7 @@ class Output(BaseDataSet):
 
     def collect(self, itr):
         """Collect all of the key-value pairs from the given iterator."""
-        buckets = self[0, :]
+        buckets = list(self)
         for bucket in buckets:
             bucket.open_writer()
         n = self.splits

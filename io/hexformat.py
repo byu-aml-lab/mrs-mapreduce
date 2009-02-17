@@ -72,8 +72,9 @@ class HexWriter(TextWriter):
     def __init__(self, file):
         super(HexWriter, self).__init__(file)
 
-    def writepair(self, key, value):
+    def writepair(self, kvpair):
         """Write a key-value pair to a HexFormat."""
+        key, value = kvpair
         print >>self.file, enhex(key), enhex(value)
 
     def close(self):
