@@ -293,7 +293,7 @@ class Job(threading.Thread):
             if outdir is None:
                 import tempfile
                 outdir = tempfile.mkdtemp(prefix='map_', dir=self.jobdir)
-                permanent = False
+                permanent = self.opts.mrs_keep_jobdir
             from util import try_makedirs
             try_makedirs(outdir)
 
@@ -321,7 +321,7 @@ class Job(threading.Thread):
             if outdir is None:
                 import tempfile
                 outdir = tempfile.mkdtemp(prefix='reduce_', dir=self.jobdir)
-                permanent = False
+                permanent = self.opts.mrs_keep_jobdir
             from util import try_makedirs
             try_makedirs(outdir)
 

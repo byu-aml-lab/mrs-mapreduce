@@ -50,20 +50,27 @@ class Bucket(object):
     'This is a test'
     >>>
     """
-    def __init__(self, filename=None, dir=None, format=HexWriter):
+    def __init__(self, prefix=None, dir=None, format=HexWriter):
         self._data = []
         self.format = format
-        self.filename = filename
+        self.prefix = prefix
         self.dir = dir
         self.url = None
         self.writer = None
 
     def open_writer(self):
         if self.dir:
-            path = os.path.join(self.dir, self.filename)
-            print 'open_writer for', path
-            output_file = open(path, 'a')
+            # Note that Python 2.6 has NamedTemporaryFile(delete=False), which
+            # would make this easier.
+            import tempfile
+            fd, filename = tempfile.mkstemp(dir=self.dir, prefix=self.prefix,
+                    suffix='.' + self.format.ext)
+            output_file = os.fdopen(fd, 'a')
             self.writer = self.format(output_file)
+
+            # For now, the externally visible url is just the filename on the
+            # local or networked filesystem.
+            self.url = filename
 
     def close_writer(self):
         if self.writer:
@@ -179,15 +186,15 @@ class BaseDataSet(object):
         """
         return
 
-    def filename(self, source, split):
+    def prefix(self, source, split):
         """Return the filename for the output split for the given index.
         
-        >>> ds = DataSet(sources=4, splits=5, directory='/tmp')
-        >>> ds.filename(2, 4)
-        '/tmp/source_2_split_4.mrsx'
+        >>> ds = DataSet(sources=4, splits=5, dir='/tmp')
+        >>> ds.prefix(2, 4)
+        '/tmp/source_2_split_4'
         >>>
         """
-        return 'source_%s_split_%s.%s' % (source, split, self.format.ext)
+        return 'source_%s_split_%s_' % (source, split)
 
     def __setitem__(self, item, value):
         """Set an item.
@@ -277,7 +284,7 @@ class DataSet(BaseDataSet):
         BaseDataSet.__init__(self, **kwds)
 
         # For now assume that all sources have the same # of splits.
-        self._data = [[Bucket(self.filename(i, j), self.dir, self.format)
+        self._data = [[Bucket(self.prefix(i, j), self.dir, self.format)
                 for j in xrange(self.splits)]
                 for i in xrange(self.sources)]
 
@@ -362,13 +369,8 @@ class Output(BaseDataSet):
 
         self.partition = partition
         # One source and splits splits
-        self._data = [Bucket(self.filename(source, j), self.dir, self.format)
+        self._data = [Bucket(self.prefix(source, j), self.dir, self.format)
                 for j in xrange(splits)]
-
-        # For now, the externally visible url is just the filename on the
-        # local or networked filesystem.
-        for bucket in self:
-            bucket.url = bucket.filename
 
     def __len__(self):
         """Number of buckets in this DataSet."""
