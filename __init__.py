@@ -37,6 +37,15 @@ if __name__ == '__main__':
     mrs.main(mapper, reducer)
 """
 
+# Set up the default logging configuration.
+import logging, sys
+logger = logging.getLogger('mrs')
+logger.setLevel(logging.WARNING)
+handler = logging.StreamHandler(sys.stderr)
+formatter = logging.Formatter('%(asctime)s: %(levelname)s: %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
 # rather than importing all submodules, we just import the ones that are
 # expected to be useful outside of Mrs internals.
 import cli, partition, registry, version
@@ -50,6 +59,7 @@ hash_partition = partition.hash_partition
 mod_partition = partition.mod_partition
 
 # We need to set __all__ to make sure that pydoc has everything:
-__all__ = dir()
+__all__ = ['logger', 'cli', 'partition', 'HexWriter', 'TextWriter', 'VERSION',
+        'Registry', 'main', 'primary_impl', 'hash_partition', 'mod_partition']
 
 # vim: et sw=4 sts=4

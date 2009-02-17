@@ -21,7 +21,6 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
-import sys
 from version import VERSION
 
 USAGE = (""
@@ -33,6 +32,9 @@ The subcommand IMPLEMENTATION must be the first argument and can be "master",
 "slave", "serial", or "mock_parallel".  Note that you can give --help
 separately for each subcommand."""
 )
+
+from logging import getLogger
+logger = getLogger('mrs')
 
 
 def main(registry, run=None, setup=None, update_parser=None):
@@ -95,6 +97,8 @@ def main(registry, run=None, setup=None, update_parser=None):
         main_function(registry, run, setup, args, options)
         sys.exit(0)
     except KeyboardInterrupt:
+        import sys
+        logger.critical('Quitting due to keyboard interrupt.')
         print >>sys.stderr, "Interrupted."
         sys.exit(1)
 

@@ -26,11 +26,14 @@
 More information coming soon.
 """
 
-import sys
+import logging
 import threading
 from twisted.internet import reactor, defer
 from twist import TwistedThread, GrimReaper, PingTask
 from twistrpc import RequestXMLRPC, uses_request
+
+logger = logging.getLogger('mrs')
+del logging
 
 # TODO: Switch to using "with" for locks when we stop supporting pre-2.5.
 # from __future__ import with_statement
@@ -77,7 +80,7 @@ def master_main(registry, user_run, user_setup, args, opts):
     event_thread.join()
 
     if master.reaper.traceback:
-        print >>sys.stderr, master.reaper.traceback
+        logger.critical('Exception: %s' % master.reaper.traceback)
 
 
 # TODO: when we stop supporting Python older than 2.5, use inlineCallbacks:
@@ -139,13 +142,13 @@ class Master(object):
         try:
             self.server_port = reactor.listenTCP(self.port, site)
         except error.CannotListenError:
-            print >>sys.stderr, "Error: port already in use."
+            logger.error('Port already in use.')
             self.reaper.reap()
             return
         address = self.server_port.getHost()
 
         # Report which port we're listening on (and write to a file)
-        print >>sys.stderr, "Listening on port %s" % address.port
+        logger.info('Listening on port %s.' % address.port)
         if self.runfile:
             portfile = open(self.runfile, 'w')
             print >>portfile, address.port
@@ -165,10 +168,10 @@ class Master(object):
         """Called when the given slave is ready and idle."""
         # TODO: we might need to resurrect the slave
         if not slave.alive():
-            print "Slave resurrected."
+            logger.warning('Slave resurrected.')
             slave.resurrect()
         if slave.assignment:
-            print "Slave says it's ready, but it still has an assignment!"
+            logger.error('Slave reported ready but still has an assignment.')
             slave.assignment.remove_worker(slave)
         self.slaves.push_idle(slave)
 
@@ -306,11 +309,11 @@ class MasterInterface(RequestXMLRPC):
         from version import VERSION
 
         if version != VERSION:
-            print "Client tried to sign in with mismatched version."
+            logger.warning('Client tried to sign in with mismatched version.')
             return -1, {}
         if not self.registry.verify(source_hash, reg_hash):
             # The slaves are running different code than the master is.
-            print "Client tried to sign in with nonmatching code."
+            logger.warning('Client tried to sign in with nonmatching code.')
             return -1, {}
         host = request.client.host
         slave = self.master.new_slave(host, slave_port, cookie)
@@ -329,7 +332,7 @@ class MasterInterface(RequestXMLRPC):
             slave.update_timestamp()
             return True
         else:
-            print "In ready(), slave with id %s not found." % slave_id
+            logger.error('Slave called ready but id %s not found.' % slave_id)
             return False
 
     # TODO: The slave should be specific about what it finished.
@@ -345,7 +348,7 @@ class MasterInterface(RequestXMLRPC):
             slave.update_timestamp()
             return True
         else:
-            print "In done(), slave with id %s not found." % slave_id
+            logger.error('Slave called done but id %s not found.' % slave_id)
             return False
 
     def xmlrpc_ping(self, slave_id, cookie):
@@ -431,8 +434,7 @@ class RemoteSlave(object):
         """Set the timestamp to the current time."""
         from datetime import datetime
         if not self.alive():
-            print >>sys.stderr, ("Warning: updating the timestamp of a slave"
-                    " we thought was dead!")
+            logger.warning('Updating the timestamp of a slave that was dead.')
         self.timestamp = datetime.utcnow()
 
     def get_timestamp(self):
@@ -452,9 +454,12 @@ class RemoteSlave(object):
             self.ping_task.stop()
             self._alive = False
 
+            message = 'Lost a slave due to network error'
             if reason:
-                print >>sys.stderr, reason
-            print >>sys.stderr, 'Lost slave due to network error.'
+                message += ': %s' % reason
+            else:
+                message += '.'
+            logger.warning(message)
 
             # Alert the master:
             self.master.slave_gone(self)
@@ -529,8 +534,7 @@ class Slaves(object):
         """Set a slave as idle.
         """
         if slave.id >= len(self._slaves) or self._slaves[slave.id] is None:
-            print >>sys.stderr, ("Nonexistent slave can't be pushed to "
-                    "the idle queue!")
+            logger.error('Nonexistent slave pushed to the idle queue.')
         if slave not in self._idle_slaves:
             self._idle_slaves.append(slave)
 
@@ -553,7 +557,7 @@ class Assignment(object):
 
         self.done = False
         self.workers = []
-    
+
     def finished(self, urls):
         self.task.finished(urls)
 
@@ -565,7 +569,7 @@ class Assignment(object):
         try:
             self.workers.remove(slave)
         except ValueError:
-            print "Slave wasn't in the worker list.  Is this a problem?"
+            logger.warning('Removed a slave that was not in the worker list.')
         if not self.workers:
             self.task.canceled()
 

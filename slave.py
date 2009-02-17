@@ -55,6 +55,9 @@ from twisted.internet import reactor, defer
 from twist import TwistedThread, GrimReaper, PingTask, ErrbackException
 from twistrpc import RequestXMLRPC, TimeoutProxy
 
+from logging import getLogger
+logger = getLogger('mrs')
+
 
 def slave_main(registry, user_run, user_setup, args, opts):
     """Run Mrs Slave
@@ -84,7 +87,7 @@ def slave_main(registry, user_run, user_setup, args, opts):
     event_thread.join()
 
     if slave.reaper.traceback:
-        print slave.reaper.traceback
+        logger.error('Exception: %s' % slave.reaper.traceback)
 
 
 # TODO: when we stop supporting Python older than 2.5, use inlineCallbacks:
@@ -166,8 +169,8 @@ class Slave(object):
         deferred.addCallbacks(self.signin_callback, self.signin_errback)
 
     def signin_errback(self, failure):
-        print failure
-        self.quit('Unable to contact master.')
+        logger.error('Unable to contact master: %s' % failure)
+        self.quit()
 
     # State 2
     def signin_callback(self, value):
@@ -207,8 +210,7 @@ class Slave(object):
 
     def ready_success(self, value):
         """Called when reporting in as ready succeeded."""
-        import sys
-        print >>sys.stderr, "Connected to master."
+        logger.info('Connected to master.')
         self.update_timestamp()
         self.timeouts = 0
         if not self.ping_task.running:
@@ -216,20 +218,18 @@ class Slave(object):
 
     def ready_failure(self, err):
         """Called when reporting in as ready failed."""
-        import sys
         give_up = False
         if err.check(defer.TimeoutError):
             self.timeouts += 1
             if self.timeouts > PING_ATTEMPTS:
-                print >>sys.stderr, "Too many ping timeouts.  Giving up."
+                logger.critical('Too many timeouts.  Giving up.')
                 give_up = True
             else:
                 # Try to connect again
-                print >>sys.stderr, "Reconnect timed out.  Trying again."
+                logger.error('Reconnect timed out.  Trying again.')
                 self.report_ready()
         else:
-            print >>sys.stderr, "Couldn't report in due to network error."
-            print >>sys.stderr, err
+            logger.critical('Failed to report due to network error: %s' % err)
             give_up = True
 
         if give_up:
@@ -242,19 +242,16 @@ class Slave(object):
         we aren't very lenient, but in the future we could allow a few
         failures before disconnecting.
         """
-        import sys
-
         give_up = False
         if err.check(defer.TimeoutError):
             self.timeouts += 1
             if self.timeouts > PING_ATTEMPTS:
-                print >>sys.stderr, "Too many ping timeouts.  Giving up."
+                logger.critical('Too many ping timeouts.  Giving up.')
                 give_up = True
             else:
-                print >>sys.stderr, 'Ping timeout.  Trying again.'
+                logger.error('Ping timeout.  Trying again.')
         else:
-            print >>sys.stderr, 'Lost master due to network error.'
-            print >>sys.stderr, err
+            logger.critical('Lost master due to network error: %s' % err)
 
         if give_up:
             self.ping_task.stop()
@@ -291,15 +288,8 @@ class Slave(object):
         """Called by the worker so the Slave can have a reference to it."""
         self.worker = worker
 
-    def die(self, exception):
-        """Die with an exception."""
-        self.reaper.reap(exception)
-
-    def quit(self, message=None):
+    def quit(self):
         """Called to quit the slave."""
-        if message:
-            import sys
-            print >>sys.stderr, message
         self.reaper.reap()
 
     def reconnect(self):
@@ -445,8 +435,6 @@ class Worker(threading.Thread):
 
     def run(self):
         """Run the worker."""
-        import sys
-
         # Run user_setup if requested:
         self._setup_ready.wait()
         user_setup = self.slave.user_setup
@@ -454,8 +442,10 @@ class Worker(threading.Thread):
             try:
                 user_setup(self.options)
             except Exception, e:
-                print "Caught an exception in the Worker thread (in setup)!"
-                self.slave.die(e)
+                import traceback
+                logger.critical('Exception in the Worker thread (in setup): %s'
+                    % traceback.format_exc())
+                self.slave.quit()
                 return
 
         # Alert the Twisted thread that user_setup is done.
@@ -472,8 +462,10 @@ class Worker(threading.Thread):
             try:
                 task.run()
             except Exception, e:
-                print >>sys.stderr, "Caught an exception in the Worker thread!"
-                self.slave.die(e)
+                import traceback
+                logger.critical('Exception in the Worker thread (in run): %s'
+                    % traceback.format_exc())
+                self.slave.quit()
                 return
 
             self._cond.acquire()
@@ -487,10 +479,7 @@ class Worker(threading.Thread):
                 # TODO: We should be able to retry calling done, but this will
                 # only be possible if done uses some unique id.  For now,
                 # retrying done can be very destructive.
-                #print >>sys.stderr, ("RPC error when reporting back."
-                #        "  Trying again.")
-                print >>sys.stderr, ("RPC error when reporting back."
-                        "  Giving up.")
+                logger.error('RPC error when reporting back.  Giving up.')
                 self.slave.reconnect()
 
 

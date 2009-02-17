@@ -31,6 +31,9 @@ PING_STDDEV = 0.1
 import threading
 from twisted.internet import reactor, defer, error
 
+from logging import getLogger
+logger = getLogger('mrs')
+
 # TODO: Once the master uses TwistedThread for everything, remove setDaemon.
 
 class TwistedThread(threading.Thread):
@@ -114,7 +117,7 @@ class PingTask(object):
             self.running = False
             self._cancel()
         else:
-            print 'Warning: Tried to stop a PingTask twice!'
+            logger.warning('Tried to stop a PingTask twice.')
 
     def _update_timestamp(self):
         """Set the timestamp to the current time."""
@@ -203,10 +206,7 @@ class GrimReaper(object):
         self.event = threading.Event()
         self.traceback = None
 
-    def reap(self, exception=None):
-        if exception is not None:
-            import traceback
-            self.traceback = traceback.format_exc()
+    def reap(self):
         self.event.set()
 
     def wait(self):

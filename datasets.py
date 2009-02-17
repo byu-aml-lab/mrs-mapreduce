@@ -30,6 +30,9 @@ import os
 
 from io import HexWriter, fillbucket, blocking_fill
 
+from logging import getLogger
+logger = getLogger('mrs')
+
 
 # TODO: cache data to disk when memory usage is high
 class Bucket(object):
@@ -645,10 +648,10 @@ class ComputedData(RemoteData):
             import sys
             if task in self.tasks_done:
                 # someone else already did it
-                print >>sys.stderr, "Warning: two slaves completed the same task!"
+                logger.warning('Two slaves completed the same task.')
             else:
                 # someone else already did it
-                print >>sys.stderr, "Warning: an inactive task was finished!"
+                logger.warning('An inactive task was finished.')
             return
 
     def close(self):

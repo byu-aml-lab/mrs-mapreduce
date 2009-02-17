@@ -24,6 +24,9 @@
 import threading
 from io import HexWriter
 
+from logging import getLogger
+logger = getLogger('mrs')
+
 
 # TODO: separate the thread execution into a separate RunThread.
 class Job(threading.Thread):
@@ -96,9 +99,9 @@ class Job(threading.Thread):
                 die = True
 
         if die:
-            # The user code threw some exception.  Print out the error.
             import traceback
-            traceback.print_exc()
+            logger.error('Exception raised in the setup or run function: '
+                    + traceback.print_exc())
         self.end()
 
     def submit(self, dataset):
