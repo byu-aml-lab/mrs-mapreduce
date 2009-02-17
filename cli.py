@@ -33,8 +33,8 @@ The subcommand IMPLEMENTATION must be the first argument and can be "master",
 separately for each subcommand."""
 )
 
-from logging import getLogger
-logger = getLogger('mrs')
+import logging
+logger = logging.getLogger('mrs')
 
 
 def main(registry, run=None, setup=None, update_parser=None):
@@ -91,10 +91,15 @@ def main(registry, run=None, setup=None, update_parser=None):
     else:
         parser.error("Invalid Mrs Implementation: %s" % mrs_impl)
 
-    (options, args) = parser.parse_args(sys.argv[2:])
+    (opts, args) = parser.parse_args(sys.argv[2:])
+
+    if opts.debug:
+        logger.setLevel(logging.DEBUG)
+    elif opts.verbose:
+        logger.setLevel(logging.INFO)
 
     try:
-        main_function(registry, run, setup, args, options)
+        main_function(registry, run, setup, args, opts)
         sys.exit(0)
     except KeyboardInterrupt:
         import sys
@@ -129,6 +134,10 @@ def option_parser():
 
     parser = param.OptionParser(conflict_handler='resolve')
     parser.usage = USAGE
+    parser.add_option('-v', '--verbose', dest='verbose', action='store_true',
+            help='Verbose mode (set log level to INFO)')
+    parser.add_option('-d', '--debug', dest='debug', action='store_true',
+            help='Debug mode (set log level to DEBUG)')
 
     return parser
 

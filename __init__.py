@@ -42,7 +42,8 @@ import logging, sys
 logger = logging.getLogger('mrs')
 logger.setLevel(logging.WARNING)
 handler = logging.StreamHandler(sys.stderr)
-formatter = logging.Formatter('%(asctime)s: %(levelname)s: %(message)s')
+format = '%(asctime)s,%(msecs)d: %(levelname)s: %(message)s'
+formatter = logging.Formatter(format, '%H:%M:%S')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
