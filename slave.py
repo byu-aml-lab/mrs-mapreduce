@@ -380,8 +380,8 @@ class Worker(threading.Thread):
         The given callback function will be invoked in the reactor thread.
         """
         self.options = options
-        self._setup_ready.set()
         self._setup_callback = callback
+        self._setup_ready.set()
 
     def start_map(self, source, inputs, map_name, part_name, nparts, output,
             extension):
