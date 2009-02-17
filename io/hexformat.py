@@ -21,12 +21,17 @@
 # 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, e-mail
 # copyright@byu.edu.
 
+import codecs
+
 from consumer import LineConsumer
 from textformat import TextWriter
 from itertools import islice
 import twisttest
 
 # TODO: sort should just sort on the first field
+
+hex_encoder = codecs.getencoder('hex_codec')
+hex_decoder = codecs.getdecoder('hex_codec')
 
 class HexConsumer(LineConsumer):
     """A key-value store using ASCII hexadecimal encoding
@@ -54,7 +59,9 @@ class HexConsumer(LineConsumer):
     def __iter__(self):
         """Iterate over key-value pairs."""
         for line in self.lines():
-            key, value = [dehex(field) for field in line.split()]
+            encoded_key, encoded_value = line.split()
+            key, length = hex_decoder(encoded_key)
+            value, length = hex_decoder(encoded_value)
             yield (key, value)
 
 
@@ -75,7 +82,9 @@ class HexWriter(TextWriter):
     def writepair(self, kvpair):
         """Write a key-value pair to a HexFormat."""
         key, value = kvpair
-        print >>self.file, enhex(key), enhex(value)
+        encoded_key, length = hex_encoder(key)
+        encoded_value, length = hex_encoder(value)
+        print >>self.file, encoded_key, encoded_value
 
     def close(self):
         self.file.close()
@@ -102,35 +111,6 @@ def hexformat_sort(in_filenames, out_filename):
     retcode = proc.wait()
     if retcode != 0:
         raise RuntimeError("Sort failed.")
-
-def enhex(byteseq):
-    """Encode an arbitrary byte sequence as an ASCII hexadecimal string.
-    
-    Make sure that whatever you send in is packed as a str.  Use the
-    struct module in the standard Python library to help you do this.
-    If you fail to do so, this will raise a TypeError.
-    """
-    # Note that hex() returns strings like '0x61', and we don't want the 0x.
-    return ''.join(hex(ord(byte))[2:] for byte in byteseq)
-
-def dehex(hexstr):
-    """Decode a string of ASCII hexadecimal characters as a byte sequence.
-    
-    This will raise a ValueError if the input can't be interpreted as a string
-    of hexadecimal characters (e.g., if you have a 'q' in there somewhere).
-    By the way, you may wish to unpack the data.  Use the struct module to do
-    this.
-    """
-    return ''.join(chr(int(pair, 16)) for pair in group_by_two(hexstr))
-
-def group_by_two(s):
-    """Read a string two characters at a time.
-
-    If there's an odd number of characters, throw out the last one.
-    """
-    I = iter(s)
-    while True:
-        yield I.next() + I.next()
 
 
 def test():
