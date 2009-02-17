@@ -343,6 +343,7 @@ class MasterInterface(RequestXMLRPC):
         """
         slave = self.master.get_slave(slave_id, cookie)
         if slave is not None:
+            logger.info('Slave %s reported completion.' % slave_id)
             self.master.slave_result(slave, files)
             self.master.slave_ready(slave)
             slave.update_timestamp()
@@ -355,9 +356,11 @@ class MasterInterface(RequestXMLRPC):
         """Slave checking if we're still here."""
         slave = self.master.get_slave(slave_id, cookie)
         if slave:
+            logger.debug('Received a ping from the slave %s.' % slave_id)
             slave.update_timestamp()
             return True
         else:
+            logger.info('Received a spurious ping.')
             return False
 
 

@@ -72,7 +72,6 @@ class TwistedThread(threading.Thread):
         reactor.callFromThread(reactor.stop)
 
 
-# TODO: make it so the slave can use this, too
 class PingTask(object):
     """Periodically make an XML RPC call to the ping procedure.
     
@@ -174,12 +173,14 @@ class PingTask(object):
         if recent_activity:
             self._schedule_next()
         else:
+            logger.debug('Pinging "%s".' % self.ping_args[1])
             deferred, self._connector = self.rpc.powerful_call(*self.ping_args)
             deferred.addCallback(self._callback)
             deferred.addErrback(self._errback)
 
     def _callback(self, value):
         """Called when the slave responds to a ping."""
+        logger.debug('Ping reply received from "%s".' % self.ping_args[1])
         self._update_timestamp()
         self._schedule_next()
         # Call the user's callback:
@@ -187,6 +188,7 @@ class PingTask(object):
 
     def _errback(self, err):
         """Called when the slave fails to respond to a ping."""
+        logger.debug('Ping failed for "%s".' % self.ping_args[1])
         if err.check(error.ConnectionDone):
             # We'll assume that this means that the user requested a cancel
             # and that it's gone through.

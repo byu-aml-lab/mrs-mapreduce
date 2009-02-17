@@ -312,6 +312,7 @@ class SlaveInterface(RequestXMLRPC):
             output, extension, cookie):
         self.slave.check_cookie(cookie)
         self.slave.update_timestamp()
+        logger.debug('Received a Map assignment from the master.')
         return self.slave.worker.start_map(source, inputs, func_name,
                 part_name, nparts, output, extension)
 
@@ -319,6 +320,7 @@ class SlaveInterface(RequestXMLRPC):
             nparts, output, extension, cookie):
         self.slave.check_cookie(cookie)
         self.slave.update_timestamp()
+        logger.debug('Received a Reduce assignment from the master.')
         return self.slave.worker.start_reduce(source, inputs, func_name,
                 part_name, nparts, output, extension)
 
@@ -328,7 +330,7 @@ class SlaveInterface(RequestXMLRPC):
         self.slave.alive = False
         # We delay before actually stopping because we need to make sure that
         # the response gets sent back.
-        logger.info('Quitting as requested by an RPC call.')
+        logger.info('Received a request to quit from the master.')
         reactor.callLater(QUIT_DELAY, self.slave.quit)
         return True
 
@@ -337,6 +339,7 @@ class SlaveInterface(RequestXMLRPC):
         """
         self.slave.check_cookie(cookie)
         self.slave.update_timestamp()
+        logger.debug('Received a ping from the master.')
         return True
 
 
@@ -437,6 +440,7 @@ class Worker(threading.Thread):
         """Run the worker."""
         # Run user_setup if requested:
         self._setup_ready.wait()
+        logger.debug('Starting to run the user setup function.')
         user_setup = self.slave.user_setup
         if user_setup:
             try:
@@ -459,6 +463,7 @@ class Worker(threading.Thread):
             task = self._task
             self._cond.release()
 
+            logger.debug('Starting to run a new task.')
             try:
                 task.run()
             except Exception, e:
@@ -467,11 +472,13 @@ class Worker(threading.Thread):
                     % traceback.format_exc())
                 self.slave.quit()
                 return
+            logger.debug('Task complete.')
 
             self._cond.acquire()
             self._task = None
             self._cond.release()
 
+            logger.debug('Reporting task completion to the master.')
             try:
                 self.slave.master_rpc.blocking_call('done', self.slave.id,
                         task.outurls(), self.slave.cookie)
@@ -480,6 +487,7 @@ class Worker(threading.Thread):
                 # only be possible if done uses some unique id.  For now,
                 # retrying done can be very destructive.
                 logger.error('RPC error when reporting back.  Giving up.')
+                # TODO: Introduce a delay, and don't reconnect forever.
                 self.slave.reconnect()
 
 
