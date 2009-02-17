@@ -143,7 +143,7 @@ class ReduceTask(Task):
 
         # PREP
         self.output = datasets.Output(self.partition, self.nparts,
-                dir=self.storage, format=self.format)
+                source=self.source, dir=self.storage, format=self.format)
 
         # SORT PHASE
         self.input.fetchall(serial)
