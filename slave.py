@@ -328,8 +328,8 @@ class SlaveInterface(RequestXMLRPC):
         self.slave.alive = False
         # We delay before actually stopping because we need to make sure that
         # the response gets sent back.
-        reactor.callLater(QUIT_DELAY, self.slave.quit,
-                "Quitting as requested by an RPC call.")
+        logger.info('Quitting as requested by an RPC call.')
+        reactor.callLater(QUIT_DELAY, self.slave.quit)
         return True
 
     def xmlrpc_ping(self, cookie):
