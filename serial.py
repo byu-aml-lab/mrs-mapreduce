@@ -28,8 +28,8 @@ def serial_main(registry, user_run, user_setup, args, opts):
 
     job = Job(registry, user_run, user_setup, args, opts)
     serial = Serial(job)
+    job.start()
     serial.run()
-    job.join()
 
 
 def mockparallel_main(registry, user_run, user_setup, args, opts):
@@ -59,11 +59,9 @@ class Serial(object):
         self.job = job
         import threading
         self.cv = threading.Condition()
+        job.update_callback = job.end_callback = self.job_updated
 
     def run(self):
-        self.job.update_callback = self.job.end_callback = self.job_updated
-        self.job.start()
-
         while self.ready():
             dataset = self.job.active_data[0]
             dataset.run_serial()

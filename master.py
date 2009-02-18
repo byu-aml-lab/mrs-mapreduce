@@ -68,7 +68,6 @@ def master_main(registry, user_run, user_setup, args, opts):
     except KeyboardInterrupt:
         pass
 
-    # Tell event thread to finish.
     event_thread.shutdown()
 
     # Clean up jobdir
