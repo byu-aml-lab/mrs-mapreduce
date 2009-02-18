@@ -408,7 +408,11 @@ class Output(BaseDataSet):
         except (TypeError, ValueError):
             raise TypeError("Requires a pair of items.")
 
-        if part1 != self.fixed_source:
+        if isinstance(part1, slice):
+            start, stop, step = part1.indices(self.fixed_source + 1)
+            if self.fixed_source not in xrange(start, stop, step):
+                raise ValueError('Source not covered by the given range.')
+        elif part1 != self.fixed_source:
             raise ValueError('Source %s does not exist.' % part1)
 
         return self._data[part2]
