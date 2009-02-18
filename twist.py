@@ -173,7 +173,7 @@ class PingTask(object):
         if recent_activity:
             self._schedule_next()
         else:
-            logger.debug('Pinging "%s".' % self.ping_args[1])
+            logger.debug('Pinging %s.' % str(self.ping_args))
             deferred, self._connector = self.rpc.powerful_call(*self.ping_args)
             deferred.addCallback(self._callback)
             deferred.addErrback(self._errback)

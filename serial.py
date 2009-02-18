@@ -73,6 +73,10 @@ class Serial(object):
         Returns True when a dataset is ready and False when the job is
         finished.
         """
+        # A quick optimization for jobs with lots of datasets:
+        if self.job.active_data:
+            return True
+
         self.cv.acquire()
         try:
             while True:
