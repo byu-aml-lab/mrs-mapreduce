@@ -294,7 +294,7 @@ class Job(threading.Thread):
             try_makedirs(outdir)
 
         from datasets import Output
-        ds = MapData(parter, nparts, dir=outdir, format=format,
+        ds = Output(parter, nparts, dir=outdir, format=format,
                 permanent=permanent)
         return ds
 
