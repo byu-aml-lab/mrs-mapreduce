@@ -227,10 +227,8 @@ class BaseDataSet(object):
         except (TypeError, ValueError):
             raise TypeError("Requires a pair of items.")
 
-        isslice1 = isinstance(part1, slice)
-
         data = self._data
-        if isslice1:
+        if isinstance(part1, slice):
             lst = []
             wild_goose_chase = True
             for sourcelst in data[part1]:
@@ -327,10 +325,8 @@ class DataSet(BaseDataSet):
         except (TypeError, ValueError):
             raise TypeError("Requires a pair of items.")
 
-        isslice1 = isinstance(part1, slice)
-
         data = self._data
-        if isslice1:
+        if isinstance(part1, slice):
             lst = []
             wild_goose_chase = True
             for sourcelst in data[part1]:
@@ -410,12 +406,18 @@ class Output(BaseDataSet):
 
         if isinstance(part1, slice):
             start, stop, step = part1.indices(self.fixed_source + 1)
-            if self.fixed_source not in xrange(start, stop, step):
+            if self.fixed_source in xrange(start, stop, step):
+                # Since the first part is a slice, we have to return a list.
+                if isinstance(part2, slice):
+                    return self._data[part2]
+                else:
+                    return [self._data[part2]]
+            else:
                 raise ValueError('Source not covered by the given range.')
         elif part1 != self.fixed_source:
             raise ValueError('Source %s does not exist.' % part1)
-
-        return self._data[part2]
+        else:
+            return self._data[part2]
 
     def collect(self, itr):
         """Collect all of the key-value pairs from the given iterator."""
