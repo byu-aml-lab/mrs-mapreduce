@@ -182,7 +182,7 @@ class BaseDataSet(object):
         """
         return True
 
-    def fetchall(self, **kwds):
+    def fetchall(self, *args, **kwds):
         """Download all of the files.
 
         For most types of DataSets, this is a no-op.
