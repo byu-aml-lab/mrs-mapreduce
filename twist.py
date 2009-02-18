@@ -180,7 +180,7 @@ class PingTask(object):
 
     def _callback(self, value):
         """Called when the slave responds to a ping."""
-        logger.debug('Ping reply received from "%s".' % self.ping_args[1])
+        logger.debug('Ping reply received %s.' % str(self.ping_args))
         self._update_timestamp()
         self._schedule_next()
         # Call the user's callback:

@@ -355,7 +355,7 @@ class MasterInterface(RequestXMLRPC):
         """Slave checking if we're still here."""
         slave = self.master.get_slave(slave_id, cookie)
         if slave:
-            logger.debug('Received a ping from the slave %s.' % slave_id)
+            logger.debug('Received a ping from slave %s.' % slave_id)
             slave.update_timestamp()
             return True
         else:
@@ -561,6 +561,7 @@ class Assignment(object):
         self.workers = []
 
     def finished(self, urls):
+        self.done = True
         self.task.finished(urls)
 
     def add_worker(self, slave):
@@ -572,7 +573,7 @@ class Assignment(object):
             self.workers.remove(slave)
         except ValueError:
             logger.warning('Removed a slave that was not in the worker list.')
-        if not self.workers:
+        if not self.done and not self.workers:
             self.task.canceled()
 
 

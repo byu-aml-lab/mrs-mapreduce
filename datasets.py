@@ -639,8 +639,11 @@ class ComputedData(RemoteData):
         self.tasks_active.append(task)
 
     def task_canceled(self, task):
-        self.tasks_active.remove(task)
-        self.tasks_todo.append(task)
+        if task in self.tasks_active:
+            self.tasks_active.remove(task)
+            self.tasks_todo.append(task)
+        elif task not in self.tasks_todo and task not in self.tasks_done:
+            logger.warning('A task must be either todo, or active, or done.')
 
     def task_finished(self, task):
         if task in self.tasks_active:
@@ -651,7 +654,6 @@ class ComputedData(RemoteData):
             self.tasks_active.remove(task)
             self.tasks_done.append(task)
         else:
-            import sys
             if task in self.tasks_done:
                 # someone else already did it
                 logger.warning('Two slaves completed the same task.')
