@@ -695,9 +695,12 @@ class MapData(ComputedData):
         self.splits = 1
         task = MapTask(self.input, 0, 0, self.func_name, self.part_name,
                 self.splits, self.dir, self.format, self.registry)
+        # TODO: make this less hackish (this makes sure that done() works).
+        self.tasks_todo = [None]
         self.tasks_made = True
         task.run(serial=True)
         self._use_output(task.output)
+        self.tasks_todo = []
 
 
 class ReduceData(ComputedData):
@@ -716,9 +719,12 @@ class ReduceData(ComputedData):
         self.splits = 1
         task = ReduceTask(self.input, 0, 0, self.func_name, self.part_name,
                 self.splits, self.dir, self.format, self.registry)
+        # TODO: make this less hackish (this makes sure that done() works).
+        self.tasks_todo = [None]
         self.tasks_made = True
         task.run(serial=True)
         self._use_output(task.output)
+        self.tasks_todo = []
 
 
 def test():
