@@ -209,14 +209,21 @@ class Job(threading.Thread):
         condition has been met.
         """
         self._runwaitcv.acquire()
-        if self._runwaitlist:
-            ready = [ds for ds in self._runwaitlist if ds.done()]
-
-            if ready:
-                self._runwaitlist = None
-                self._runwaitresult = ready
-                self._runwaitcv.notify()
+        if self._check_runwaitlist():
+            self._runwaitcv.notify()
         self._runwaitcv.release()
+
+    def _check_runwaitlist(self):
+        """Finds whether any dataset in the runwaitlist is ready.
+        
+        Returns a list of all datasets that are ready or None if the
+        runwaitlist is not set.
+        """
+        runwaitlist = self._runwaitlist
+        if runwaitlist:
+            return [ds for ds in runwaitlist if ds.done()]
+        else:
+            return None
 
     def wait(self, *datasets, **kwds):
         """Wait for any of the given DataSets to complete.
@@ -229,14 +236,15 @@ class Job(threading.Thread):
 
         self._runwaitcv.acquire()
         self._runwaitlist = datasets
-        self._runwaitresult = []
 
-        self._runwaitcv.wait(timeout)
+        ready_list = self._check_runwaitlist()
+        if not ready_list:
+            self._runwaitcv.wait(timeout)
+            ready_list = self._check_runwaitlist()
+            self._runwaitlist = None
 
-        ready = self._runwaitresult
-        self._runwaitlist = None
         self._runwaitcv.release()
-        return ready
+        return ready_list
 
     # TODO: give a useful message in the serial case.
     def status(self):
