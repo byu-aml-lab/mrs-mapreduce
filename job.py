@@ -100,8 +100,8 @@ class Job(threading.Thread):
 
         if die:
             import traceback
-            logger.error('Exception raised in the setup or run function: '
-                    + traceback.print_exc())
+            logger.error('Exception raised in the setup or run function: %s'
+                    % traceback.format_exc())
         self.end()
 
     def submit(self, dataset):
