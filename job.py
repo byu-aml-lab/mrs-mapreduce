@@ -279,6 +279,25 @@ class Job(threading.Thread):
         ds.blockingthread = self.blockingthread
         return ds
 
+    def output_data(self, nparts=None, outdir=None, parter=None,
+            format=HexWriter):
+        if nparts is None:
+            nparts = self.default_reduce_tasks
+
+        permanent = True
+        if outdir or self.jobdir:
+            if outdir is None:
+                import tempfile
+                outdir = tempfile.mkdtemp(prefix='output_', dir=self.jobdir)
+                permanent = self.opts.mrs_keep_jobdir
+            from util import try_makedirs
+            try_makedirs(outdir)
+
+        from datasets import Output
+        ds = MapData(parter, nparts, dir=outdir, format=format,
+                permanent=permanent)
+        return ds
+
     def map_data(self, input, mapper, nparts=None, outdir=None, parter=None,
             format=HexWriter):
         """Define a set of data computed with a map operation.
