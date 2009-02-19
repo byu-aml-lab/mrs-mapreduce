@@ -39,12 +39,17 @@ class Bucket(object):
     """Hold data from a source or for a split.
 
     Data can be manually dumped to disk, in which case the data will be saved
-    to the given filename with the specified format.  Eventually Bucket will
-    be upgraded to automatically cache data to disk if they get too large to
-    stay in memory.
+    to the given filename with the specified format.
 
-    >>> b = Bucket()
-    >>> b.append((4, 'test'))
+    Attributes:
+        source: An integer showing which source the data come from.
+        split: An integer showing which split the data is directed to.
+        dir: A string specifying the directory for writes.
+        format: The class to be used for formatting writes.
+        url: A string showing a URL that can be used to read the data.
+
+    >>> b = Bucket(0, 0)
+    >>> b.addpair((4, 'test'))
     >>> b.collect([(3, 'a'), (1, 'This'), (2, 'is')])
     >>> ' '.join(value for key, value in b)
     'test a This is'
@@ -53,37 +58,38 @@ class Bucket(object):
     'This is a test'
     >>>
     """
-    def __init__(self, prefix=None, dir=None, format=HexWriter):
+    def __init__(self, source, split, dir=None, format=HexWriter):
         self._data = []
         self.format = format
-        self.prefix = prefix
+        self.source = source
+        self.split = split
         self.dir = dir
         self.url = None
-        self.writer = None
+        self._writer = None
 
     def open_writer(self):
         if self.dir:
             # Note that Python 2.6 has NamedTemporaryFile(delete=False), which
             # would make this easier.
             import tempfile
-            fd, filename = tempfile.mkstemp(dir=self.dir, prefix=self.prefix,
+            fd, filename = tempfile.mkstemp(dir=self.dir, prefix=self.prefix(),
                     suffix='.' + self.format.ext)
             output_file = os.fdopen(fd, 'a')
-            self.writer = self.format(output_file)
+            self._writer = self.format(output_file)
 
             # For now, the externally visible url is just the filename on the
             # local or networked filesystem.
             self.url = filename
 
     def close_writer(self):
-        if self.writer:
-            self.writer.close()
+        if self._writer:
+            self._writer.close()
 
     def addpair(self, kvpair):
         """Collect a single key-value pair."""
         self._data.append(kvpair)
-        if self.writer:
-            self.writer.writepair(kvpair)
+        if self._writer:
+            self._writer.writepair(kvpair)
 
     def collect(self, pairiter):
         """Collect all key-value pairs from the given iterable
@@ -92,13 +98,23 @@ class Bucket(object):
         the iterator blocks.
         """
         data = self._data
-        if self.writer:
+        if self._writer:
             for kvpair in pairiter:
                 data.append(kvpair)
-                self.writer.writepair(kvpair)
+                self._writer.writepair(kvpair)
         else:
             for kvpair in pairiter:
                 data.append(kvpair)
+
+    def prefix(self):
+        """Return the filename for the output split for the given index.
+        
+        >>> b = Bucket(2, 4)
+        >>> b.prefix()
+        'source_2_split_4_'
+        >>>
+        """
+        return 'source_%s_split_%s_' % (self.source, self.split)
 
     def sort(self):
         self._data.sort()
@@ -189,16 +205,6 @@ class BaseDataSet(object):
         """
         return
 
-    def prefix(self, source, split):
-        """Return the filename for the output split for the given index.
-        
-        >>> ds = DataSet(sources=4, splits=5, dir='/tmp')
-        >>> ds.prefix(2, 4)
-        '/tmp/source_2_split_4'
-        >>>
-        """
-        return 'source_%s_split_%s_' % (source, split)
-
     def __setitem__(self, item, value):
         """Set an item.
 
@@ -285,7 +291,7 @@ class DataSet(BaseDataSet):
         BaseDataSet.__init__(self, **kwds)
 
         # For now assume that all sources have the same # of splits.
-        self._data = [[Bucket(self.prefix(i, j), self.dir, self.format)
+        self._data = [[Bucket(i, j, self.dir, self.format)
                 for j in xrange(self.splits)]
                 for i in xrange(self.sources)]
 
@@ -368,7 +374,7 @@ class Output(BaseDataSet):
 
         self.partition = partition
         # One source and splits splits
-        self._data = [Bucket(self.prefix(source, j), self.dir, self.format)
+        self._data = [Bucket(source, j, self.dir, self.format)
                 for j in xrange(splits)]
 
     def __len__(self):
@@ -531,13 +537,13 @@ class FileData(RemoteData):
     >>> data = FileData(urls)
     >>> len(data)
     2
-    >>> data.fetchall(mainthread=True)
+    >>> data.fetchall(serial=True)
     >>> data[0, 0][0]
     (0, '<html>\\n')
     >>> data[0, 0][1]
     (1, '<head>\\n')
     >>> data[0, 1][0]
-    (0, '#!/usr/bin/env python\\n')
+    (0, '# Mrs\\n')
     >>>
     """
     def __init__(self, urls, sources=None, splits=None, **kwds):
