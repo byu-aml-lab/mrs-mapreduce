@@ -46,6 +46,8 @@ threads complete.
 
 # Number of ping timeouts before giving up:
 PING_ATTEMPTS = 50
+WATCHDOG_INTERVAL = 5
+WATCHDOG_TIMEOUT = 2
 
 COOKIE_LEN = 8
 QUIT_DELAY = 0.5
@@ -145,6 +147,8 @@ class Slave(object):
         self.id = None
         self.alive = True
         self.cookie = self.rand_cookie()
+        self.timestamp = None
+        self.watchdog_stamp = None
 
     # State 1
     def signin(self):
@@ -187,7 +191,8 @@ class Slave(object):
         # Save the slave id given by the master.
         self.id = slave_id
 
-        # Create the Ping Task
+        self.run_watchdog()
+
         ping_args = ('ping', self.id, self.cookie)
         self.ping_task = PingTask(self.pingdelay, ping_args, self.master_rpc,
                 self.ping_success, self.ping_failure, self.get_timestamp)
@@ -270,6 +275,22 @@ class Slave(object):
     def get_timestamp(self):
         """Report the most recent timestamp."""
         return self.timestamp
+
+    def run_watchdog(self):
+        from datetime import datetime, timedelta
+        max_delay = timedelta(seconds=(WATCHDOG_TIMEOUT + WATCHDOG_INTERVAL))
+        now = datetime.utcnow()
+        stamp = self.watchdog_stamp
+        if (stamp is not None) and (now - stamp > max_delay):
+            logger.error('Watchdog alarm triggered.  This means that Mrs'
+                    ' is falling behind on basic communication.  This may be'
+                    ' a symptom that the computer is overloaded.  However, it'
+                    ' may also mean that the user map or reduce function is'
+                    ' using a library that does not release the Global'
+                    ' Interpreter Lock (GIL), in which case the function must'
+                    ' be rewritten to use the library in a separate process.')
+        self.watchdog_stamp = now
+        reactor.callLater(WATCHDOG_INTERVAL, self.run_watchdog)
 
     # Miscellaneous
     @classmethod
