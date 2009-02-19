@@ -308,21 +308,21 @@ class SlaveInterface(RequestXMLRPC):
         RequestXMLRPC.__init__(self)
         self.slave = slave
 
-    def xmlrpc_start_map(self, source, inputs, func_name, part_name, nparts,
+    def xmlrpc_start_map(self, source, inputs, func_name, part_name, splits,
             output, extension, cookie):
         self.slave.check_cookie(cookie)
         self.slave.update_timestamp()
         logger.debug('Received a Map assignment from the master.')
         return self.slave.worker.start_map(source, inputs, func_name,
-                part_name, nparts, output, extension)
+                part_name, splits, output, extension)
 
     def xmlrpc_start_reduce(self, source, inputs, func_name, part_name,
-            nparts, output, extension, cookie):
+            splits, output, extension, cookie):
         self.slave.check_cookie(cookie)
         self.slave.update_timestamp()
         logger.debug('Received a Reduce assignment from the master.')
         return self.slave.worker.start_reduce(source, inputs, func_name,
-                part_name, nparts, output, extension)
+                part_name, splits, output, extension)
 
     def xmlrpc_quit(self, cookie):
         self.slave.check_cookie(cookie)
@@ -386,7 +386,7 @@ class Worker(threading.Thread):
         self._setup_callback = callback
         self._setup_ready.set()
 
-    def start_map(self, source, inputs, map_name, part_name, nparts, output,
+    def start_map(self, source, inputs, map_name, part_name, splits, output,
             extension):
         """Tell this worker to start working on a map task.
 
@@ -405,13 +405,13 @@ class Worker(threading.Thread):
         if self._task is None:
             registry = self.slave.registry
             self._task = MapTask(input_data, 0, source, map_name, part_name,
-                    nparts, output, format, registry)
+                    splits, output, format, registry)
             success = True
             self._cond.notify()
         self._cond.release()
         return success
 
-    def start_reduce(self, source, inputs, reduce_name, part_name, nparts,
+    def start_reduce(self, source, inputs, reduce_name, part_name, splits,
             output, extension):
         """Tell this worker to start working on a reduce task.
 
@@ -430,7 +430,7 @@ class Worker(threading.Thread):
         if self._task is None:
             registry = self.slave.registry
             self._task = ReduceTask(input_data, 0, source, reduce_name,
-                    part_name, nparts, output, format, registry)
+                    part_name, splits, output, format, registry)
             success = True
             self._cond.notify()
         self._cond.release()

@@ -484,11 +484,11 @@ class ComputedData(RemoteData):
     regenerate its contents.  It can also decide whether to save the data to
     permanent storage or to leave them in memory on the slaves.
     """
-    def __init__(self, input, func, nparts, dir=None, parter=None,
+    def __init__(self, input, func, splits, dir=None, parter=None,
             format=None, registry=None, permanent=True):
         # At least for now, we create 1 task for each split in the input
         ntasks = input.splits
-        RemoteData.__init__(self, sources=ntasks, splits=nparts, dir=dir,
+        RemoteData.__init__(self, sources=ntasks, splits=splits, dir=dir,
                 permanent=permanent)
 
         if registry is None:

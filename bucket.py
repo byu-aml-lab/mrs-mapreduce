@@ -63,6 +63,7 @@ class Bucket(object):
 
     def open_writer(self):
         if self.dir:
+            import os
             # Note that Python 2.6 has NamedTemporaryFile(delete=False), which
             # would make this easier.
             import tempfile
