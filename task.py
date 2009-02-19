@@ -58,10 +58,10 @@ class Task(object):
         self.dataset.task_canceled(self)
 
     def inurls(self):
-        splits = self.input[:, self.split]
+        buckets = self.input[:, self.split]
 
         urls = []
-        for bucket in splits:
+        for bucket in buckets:
             url = bucket.url
             if url is None:
                 urls.append('')
@@ -85,7 +85,7 @@ class Task(object):
 
 
 class MapTask(Task):
-    def __init__(self, input, split, source, map_name, part_name, nparts,
+    def __init__(self, input, split, source, map_name, part_name, splits,
             storage, format, registry):
         Task.__init__(self, input, split, source, storage, format)
         self.map_name = map_name
@@ -96,15 +96,11 @@ class MapTask(Task):
             self.partition = hash_partition
         else:
             self.partition = registry[part_name]
-        self.nparts = nparts
+        self.splits = splits
 
     def run(self, serial=False):
         import datasets
         from itertools import chain
-
-        # PREP
-        self.output = datasets.Output(self.partition, self.nparts,
-                source=self.source, dir=self.storage, format=self.format)
 
         # SETUP INPUT
         self.input.fetchall(serial)
@@ -114,7 +110,9 @@ class MapTask(Task):
             all_input = self.input.itersplit(self.split)
 
         # MAP PHASE
-        self.output.collect(self.map(all_input))
+        itr = self.map(all_input)
+        self.output = datasets.LocalData(itr, self.splits, source=self.source,
+                parter=self.partition, dir=self.storage, format=self.format)
 
     def map(self, input):
         """Yields map output iterating over the entries in input."""
@@ -124,7 +122,7 @@ class MapTask(Task):
 
 
 class ReduceTask(Task):
-    def __init__(self, input, split, source, reduce_name, part_name, nparts,
+    def __init__(self, input, split, source, reduce_name, part_name, splits,
             storage, format, registry):
         Task.__init__(self, input, split, source, storage, format)
         self.reduce_name = reduce_name
@@ -135,15 +133,11 @@ class ReduceTask(Task):
             self.partition = hash_partition
         else:
             self.partition = registry[part_name]
-        self.nparts = nparts
+        self.splits = splits
 
     def run(self, serial=False):
         import datasets
         from itertools import chain
-
-        # PREP
-        self.output = datasets.Output(self.partition, self.nparts,
-                source=self.source, dir=self.storage, format=self.format)
 
         # SORT PHASE
         self.input.fetchall(serial)
@@ -160,7 +154,9 @@ class ReduceTask(Task):
         #io.hexfile_sort(interm_names, sorted_name)
 
         # REDUCE PHASE
-        self.output.collect(self.reduce(sorted_input))
+        itr = self.reduce(sorted_input)
+        self.output = datasets.LocalData(itr, self.splits, source=self.source,
+                parter=self.partition, dir=self.storage, format=self.format)
 
     def reduce(self, input):
         """Yields reduce output iterating over the entries in input.

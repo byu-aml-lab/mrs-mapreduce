@@ -256,31 +256,36 @@ class DataSet(BaseDataSet):
             return self._data[part1][part2]
 
 
-class Output(BaseDataSet):
+class LocalData(BaseDataSet):
     """Collect output from a map or reduce task.
     
     This is only used on the slave side.  It takes a partition function and a
     number of splits to use.  Note that the `source`, which is just used for
     naming files, represents which output source is being created.
 
-    >>> o = Output((lambda x, n: x%n), 4)
     >>> lst = [(4, 'to_0'), (5, 'to_1'), (7, 'to_3'), (9, 'to_1')]
-    >>> o.collect(lst)
+    >>> o = LocalData(lst, splits=4, parter=(lambda x, n: x%n))
     >>> list(o[0, 1])
     [(5, 'to_1'), (9, 'to_1')]
     >>> list(o[0, 3])
     [(7, 'to_3')]
     >>>
     """
-    def __init__(self, partition, splits, source=0, **kwds):
+    def __init__(self, itr, splits, source=0, parter=None, **kwds):
         BaseDataSet.__init__(self, splits=splits, **kwds)
         self.fixed_source = source
 
-        self.partition = partition
+        if parter is None:
+            from partition import hash_partition
+            parter = hash_partition
+        self.parter = parter
+
         # One source and splits splits
         from bucket import Bucket
         self._data = [Bucket(source, j, self.dir, self.format)
                 for j in xrange(splits)]
+
+        self._collect(itr)
 
     def __len__(self):
         """Number of buckets in this DataSet."""
@@ -330,7 +335,7 @@ class Output(BaseDataSet):
         else:
             return self._data[part2]
 
-    def collect(self, itr):
+    def _collect(self, itr):
         """Collect all of the key-value pairs from the given iterator."""
         buckets = list(self)
         for bucket in buckets:
@@ -340,10 +345,10 @@ class Output(BaseDataSet):
             bucket = buckets[0]
             bucket.collect(itr)
         else:
-            partition = self.partition
+            parter = self.parter
             for kvpair in itr:
                 key, value = kvpair
-                split = partition(key, n)
+                split = parter(key, n)
                 bucket = buckets[split]
                 bucket.addpair(kvpair)
         for bucket in buckets:
@@ -583,7 +588,7 @@ class ComputedData(RemoteData):
         self.input = None
 
     def _use_output(self, output):
-        """Uses the contents of the given Output dataset."""
+        """Uses the contents of the given LocalData."""
         # Note that this assumes there's only one source and one output set.
         self._data = [output._data]
         self.sources = 1

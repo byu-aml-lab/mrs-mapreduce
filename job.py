@@ -282,15 +282,17 @@ class Job(threading.Thread):
                 self.end_callback()
 
     def file_data(self, filenames):
+        """Defines a set of data from a list of urls."""
         from datasets import FileData
         ds = FileData(filenames)
         ds.blockingthread = self.blockingthread
         return ds
 
-    def output_data(self, nparts=None, outdir=None, parter=None,
+    def local_data(self, itr, splits=None, outdir=None, parter=None,
             format=HexWriter):
-        if nparts is None:
-            nparts = self.default_reduce_tasks
+        """Defines a set of data to be built locally from a given iterator."""
+        if splits is None:
+            splits = self.default_reduce_tasks
 
         permanent = True
         if outdir or self.jobdir:
@@ -301,12 +303,12 @@ class Job(threading.Thread):
             from util import try_makedirs
             try_makedirs(outdir)
 
-        from datasets import Output
-        ds = Output(parter, nparts, dir=outdir, format=format,
+        from datasets import LocalData
+        ds = LocalData(itr, splits, dir=outdir, parter=None, format=format,
                 permanent=permanent)
         return ds
 
-    def map_data(self, input, mapper, nparts=None, outdir=None, parter=None,
+    def map_data(self, input, mapper, splits=None, outdir=None, parter=None,
             format=HexWriter):
         """Define a set of data computed with a map operation.
 
@@ -315,8 +317,8 @@ class Job(threading.Thread):
 
         Called from the user-specified run function.
         """
-        if nparts is None:
-            nparts = self.default_reduce_tasks
+        if splits is None:
+            splits = self.default_reduce_tasks
 
         permanent = True
         if outdir or self.jobdir:
@@ -328,13 +330,13 @@ class Job(threading.Thread):
             try_makedirs(outdir)
 
         from datasets import MapData
-        ds = MapData(input, mapper, nparts, outdir, parter=parter,
+        ds = MapData(input, mapper, splits, outdir, parter=parter,
                 registry=self.registry, format=format, permanent=permanent)
         ds.blockingthread = self.blockingthread
         self.submit(ds)
         return ds
 
-    def reduce_data(self, input, reducer, nparts=None, outdir=None,
+    def reduce_data(self, input, reducer, splits=None, outdir=None,
             parter=None, format=HexWriter):
         """Define a set of data computed with a reducer operation.
 
@@ -343,8 +345,8 @@ class Job(threading.Thread):
 
         Called from the user-specified run function.
         """
-        if nparts is None:
-            nparts = self.default_reduce_parts
+        if splits is None:
+            splits = self.default_reduce_parts
 
         permanent = True
         if outdir or self.jobdir:
@@ -356,7 +358,7 @@ class Job(threading.Thread):
             try_makedirs(outdir)
 
         from datasets import ReduceData
-        ds = ReduceData(input, reducer, nparts, outdir, parter=parter,
+        ds = ReduceData(input, reducer, splits, outdir, parter=parter,
                 registry=self.registry, format=format, permanent=permanent)
         ds.blockingthread = self.blockingthread
         self.submit(ds)
