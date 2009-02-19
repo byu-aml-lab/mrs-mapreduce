@@ -26,108 +26,11 @@
 # files are pre-split).
 
 from itertools import chain, izip
-import os
 
 from io import HexWriter, fillbucket, blocking_fill
 
 from logging import getLogger
 logger = getLogger('mrs')
-
-
-# TODO: cache data to disk when memory usage is high
-class Bucket(object):
-    """Hold data from a source or for a split.
-
-    Data can be manually dumped to disk, in which case the data will be saved
-    to the given filename with the specified format.
-
-    Attributes:
-        source: An integer showing which source the data come from.
-        split: An integer showing which split the data is directed to.
-        dir: A string specifying the directory for writes.
-        format: The class to be used for formatting writes.
-        url: A string showing a URL that can be used to read the data.
-
-    >>> b = Bucket(0, 0)
-    >>> b.addpair((4, 'test'))
-    >>> b.collect([(3, 'a'), (1, 'This'), (2, 'is')])
-    >>> ' '.join(value for key, value in b)
-    'test a This is'
-    >>> b.sort()
-    >>> ' '.join(value for key, value in b)
-    'This is a test'
-    >>>
-    """
-    def __init__(self, source, split, dir=None, format=HexWriter):
-        self._data = []
-        self.format = format
-        self.source = source
-        self.split = split
-        self.dir = dir
-        self.url = None
-        self._writer = None
-
-    def open_writer(self):
-        if self.dir:
-            # Note that Python 2.6 has NamedTemporaryFile(delete=False), which
-            # would make this easier.
-            import tempfile
-            fd, filename = tempfile.mkstemp(dir=self.dir, prefix=self.prefix(),
-                    suffix='.' + self.format.ext)
-            output_file = os.fdopen(fd, 'a')
-            self._writer = self.format(output_file)
-
-            # For now, the externally visible url is just the filename on the
-            # local or networked filesystem.
-            self.url = filename
-
-    def close_writer(self):
-        if self._writer:
-            self._writer.close()
-
-    def addpair(self, kvpair):
-        """Collect a single key-value pair."""
-        self._data.append(kvpair)
-        if self._writer:
-            self._writer.writepair(kvpair)
-
-    def collect(self, pairiter):
-        """Collect all key-value pairs from the given iterable
-
-        The collection can be a generator or a Mrs format.  This will block if
-        the iterator blocks.
-        """
-        data = self._data
-        if self._writer:
-            for kvpair in pairiter:
-                data.append(kvpair)
-                self._writer.writepair(kvpair)
-        else:
-            for kvpair in pairiter:
-                data.append(kvpair)
-
-    def prefix(self):
-        """Return the filename for the output split for the given index.
-        
-        >>> b = Bucket(2, 4)
-        >>> b.prefix()
-        'source_2_split_4_'
-        >>>
-        """
-        return 'source_%s_split_%s_' % (self.source, self.split)
-
-    def sort(self):
-        self._data.sort()
-
-    def __len__(self):
-        return len(self._data)
-
-    def __getitem__(self, item):
-        """Get a particular item, mainly for debugging purposes"""
-        return self._data[item]
-
-    def __iter__(self):
-        return iter(self._data)
 
 
 class BaseDataSet(object):
@@ -291,6 +194,7 @@ class DataSet(BaseDataSet):
         BaseDataSet.__init__(self, **kwds)
 
         # For now assume that all sources have the same # of splits.
+        from bucket import Bucket
         self._data = [[Bucket(i, j, self.dir, self.format)
                 for j in xrange(self.splits)]
                 for i in xrange(self.sources)]
@@ -374,6 +278,7 @@ class Output(BaseDataSet):
 
         self.partition = partition
         # One source and splits splits
+        from bucket import Bucket
         self._data = [Bucket(source, j, self.dir, self.format)
                 for j in xrange(splits)]
 
@@ -563,8 +468,7 @@ class FileData(RemoteData):
 
         RemoteData.__init__(self, sources=sources, splits=splits, **kwds)
 
-        from itertools import izip
-        for bucket, url in zip(self, urls):
+        for bucket, url in izip(self, urls):
             bucket.url = url
 
 
