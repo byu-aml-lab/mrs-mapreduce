@@ -278,17 +278,22 @@ class Slave(object):
 
     def run_watchdog(self):
         from datetime import datetime, timedelta
-        max_delay = timedelta(seconds=(WATCHDOG_TIMEOUT + WATCHDOG_INTERVAL))
+        timeout = timedelta(seconds=(WATCHDOG_TIMEOUT))
         now = datetime.utcnow()
         stamp = self.watchdog_stamp
-        if (stamp is not None) and (now - stamp > max_delay):
-            logger.error('Watchdog alarm triggered.  This means that Mrs'
+        if stamp is None:
+            delay = timedelta()
+        else:
+            delay = (now - stamp) - timedelta(seconds=WATCHDOG_INTERVAL)
+        if delay > timeout:
+            logger.error('Watchdog alarm triggered (%s).  This means that Mrs'
                     ' is falling behind on basic communication.  This may be'
                     ' a symptom that the computer is overloaded.  However, it'
                     ' may also mean that the user map or reduce function is'
                     ' using a library that does not release the Global'
                     ' Interpreter Lock (GIL), in which case the function must'
-                    ' be rewritten to use the library in a separate process.')
+                    ' be rewritten to use the library in a separate process.'
+                    % delay)
         self.watchdog_stamp = now
         reactor.callLater(WATCHDOG_INTERVAL, self.run_watchdog)
 
