@@ -27,8 +27,6 @@
 
 from itertools import chain, izip
 
-from io import HexWriter, fillbucket, blocking_fill
-
 from logging import getLogger
 logger = getLogger('mrs')
 
@@ -39,7 +37,7 @@ class BaseDataSet(object):
     A DataSet is naturally a two-dimensional list.  There are some number of
     sources, and for each source, there are one or more splits.
     """
-    def __init__(self, sources=0, splits=0, dir=None, format=HexWriter,
+    def __init__(self, sources=0, splits=0, dir=None, format=None,
             permanent=True):
         self.sources = sources
         self.splits = splits
@@ -378,6 +376,7 @@ class RemoteData(DataSet):
         However, if it is in the main thread, it needs to know, so it can tell
         Twisted to catch SIGTERM.
         """
+        from io.load import fillbucket, blocking_fill
         # Don't call fetchall twice:
         if self._fetched:
             return
@@ -410,6 +409,7 @@ class RemoteData(DataSet):
             for bucket in self:
                 url = bucket.url
                 if url:
+
                     deferred = fillbucket(url, bucket, self.blockingthread)
                     reactor.callFromThread(deferred.addCallback,
                             self.callback, bucket)

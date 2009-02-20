@@ -420,7 +420,7 @@ class Worker(threading.Thread):
         """
         from task import MapTask
         from datasets import FileData
-        from io import writerformat
+        from io.load import writerformat
 
         input_data = FileData(inputs, splits=1)
         input_data.blockingthread = self.blockingthread
@@ -445,7 +445,7 @@ class Worker(threading.Thread):
         """
         from task import ReduceTask
         from datasets import FileData
-        from io import writerformat
+        from io.load import writerformat
 
         input_data = FileData(inputs, splits=1)
         input_data.blockingthread = self.blockingthread

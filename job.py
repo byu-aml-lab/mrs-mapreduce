@@ -22,7 +22,6 @@
 # copyright@byu.edu.
 
 import threading
-from io import HexWriter
 
 from logging import getLogger
 logger = getLogger('mrs')
@@ -289,7 +288,7 @@ class Job(threading.Thread):
         return ds
 
     def local_data(self, itr, splits=None, outdir=None, parter=None,
-            format=HexWriter):
+            format=None):
         """Defines a set of data to be built locally from a given iterator."""
         if splits is None:
             splits = self.default_reduce_tasks
@@ -309,7 +308,7 @@ class Job(threading.Thread):
         return ds
 
     def map_data(self, input, mapper, splits=None, outdir=None, parter=None,
-            format=HexWriter):
+            format=None):
         """Define a set of data computed with a map operation.
 
         Specify the input dataset and a mapper function.  The mapper must be
@@ -337,7 +336,7 @@ class Job(threading.Thread):
         return ds
 
     def reduce_data(self, input, reducer, splits=None, outdir=None,
-            parter=None, format=HexWriter):
+            parter=None, format=None):
         """Define a set of data computed with a reducer operation.
 
         Specify the input dataset and a reducer function.  The reducer must be

@@ -24,7 +24,7 @@
 
 def mrs_simple(job, args, opts):
     """Default run function for a map phase and reduce phase"""
-    from io import TextWriter
+    from io.textformat import TextWriter
 
     if len(args) < 2:
         import sys

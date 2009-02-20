@@ -50,7 +50,8 @@ logger.addHandler(handler)
 # rather than importing all submodules, we just import the ones that are
 # expected to be useful outside of Mrs internals.
 import cli, partition, registry, version
-from io import HexWriter, TextWriter
+from io.hexformat import HexWriter
+from io.textformat import TextWriter
 
 VERSION = version.VERSION
 Registry = registry.Registry

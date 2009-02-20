@@ -1,5 +1,6 @@
-########################################################################
-# An Introduction to Mrs
+===================
+Introduction to Mrs
+===================
 
 The name Mrs might stand for MapReduce Simplified, or MapReduce
 Straightforward, or MapReduce Spartan.  Something that starts with S,
@@ -16,8 +17,8 @@ version of the WordCount MapReduce program described in the paper.  We
 think it's pretty.
 
 
-########################################################################
-# Defining Map Functions
+Defining Map Functions
+======================
 
 Let's look at how to create map functions in more detail.  The simple
 WordCount mapper is:
@@ -75,8 +76,8 @@ required but no saved state is needed.  The class is the best way when
 the generator needs to modify state while processing input.
 
 
-########################################################################
-# Complex MapReduce Programs
+Complex MapReduce Programs
+==========================
 
 Sometimes a MapReduce program is more complex than a map operation
 followed by a reduce operation.

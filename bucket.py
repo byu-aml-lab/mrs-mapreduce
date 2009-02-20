@@ -22,8 +22,6 @@
 # copyright@byu.edu.
 
 
-from io import HexWriter
-
 from logging import getLogger
 logger = getLogger('mrs')
 
@@ -52,12 +50,16 @@ class Bucket(object):
     'This is a test'
     >>>
     """
-    def __init__(self, source, split, dir=None, format=HexWriter):
+    def __init__(self, source, split, dir=None, format=None):
         self._data = []
-        self.format = format
         self.source = source
         self.split = split
         self.dir = dir
+        if format is None:
+            from io.hexformat import HexWriter
+            format = HexWriter
+        self.format = format
+
         self.url = None
         self._writer = None
 

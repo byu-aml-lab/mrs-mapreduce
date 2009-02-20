@@ -41,6 +41,9 @@ class Task(object):
         self.split = split
         self.storage = storage
         self.dataset = None
+        if format is None:
+            from io.hexformat import HexWriter
+            format = HexWriter
         self.format = format
 
         self.output = None
