@@ -1,5 +1,5 @@
 # Mrs
-# Copyright 2008 Andrew McNabb <amcnabb-mrs@mcnabbs.org>
+# Copyright 2008-2009 Brigham Young University
 #
 # This file is part of Mrs.
 #
@@ -15,6 +15,10 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # Mrs.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Inquiries regarding any further use of Mrs, please contact the Copyright
+# Licensing Office, Brigham Young University, 3760 HBLL, Provo, UT 84602,
+# (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
 
 from twisted.internet import interfaces
 from zope.interface import implements
