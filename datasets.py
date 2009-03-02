@@ -335,8 +335,6 @@ class LocalData(BaseDataSet):
     def _collect(self, itr):
         """Collect all of the key-value pairs from the given iterator."""
         buckets = list(self)
-        for bucket in buckets:
-            bucket.open_writer()
         n = self.splits
         if n == 1:
             bucket = buckets[0]

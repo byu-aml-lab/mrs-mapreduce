@@ -185,7 +185,8 @@ class Slave(object):
         slave_id, optdict = value
 
         if slave_id < 0:
-            self.quit('Master rejected signin.')
+            logger.error('Master rejected signin.')
+            self.quit()
 
         # Save the slave id given by the master.
         self.id = slave_id

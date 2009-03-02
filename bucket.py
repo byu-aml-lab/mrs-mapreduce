@@ -63,7 +63,7 @@ class Bucket(object):
         self._writer = None
 
     def open_writer(self):
-        if self.dir:
+        if self.dir and not self._writer:
             import os
             # Note that Python 2.6 has NamedTemporaryFile(delete=False), which
             # would make this easier.
@@ -80,11 +80,14 @@ class Bucket(object):
     def close_writer(self):
         if self._writer:
             self._writer.close()
+            self._writer = None
 
     def addpair(self, kvpair):
         """Collect a single key-value pair."""
         self._data.append(kvpair)
-        if self._writer:
+        if self.dir:
+            if not self._writer:
+                self.open_writer()
             self._writer.writepair(kvpair)
 
     def collect(self, pairiter):
@@ -94,7 +97,9 @@ class Bucket(object):
         the iterator blocks.
         """
         data = self._data
-        if self._writer:
+        if self.dir:
+            if not self._writer:
+                self.open_writer()
             for kvpair in pairiter:
                 data.append(kvpair)
                 self._writer.writepair(kvpair)
