@@ -97,7 +97,7 @@ class _ParamMeta(type):
         # Update documentation based on our parameters
         if '__doc__' not in classdict:
             classdict['__doc__'] = '%s -- Class using Params' % classname
-        docs = [('%s: %s (default=%r)' % (param_name,
+        docs = [('%s: %s (default=%s)' % (param_name,
                     params[param_name].doc, params[param_name].default))
                     for param_name in params]
         docs.sort()
