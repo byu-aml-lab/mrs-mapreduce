@@ -299,8 +299,9 @@ class OptionParser(optparse.OptionParser):
             else:
                 option = '--%s' % name
                 dest = name
+            doc = '%s (default=%r)' % (param.doc, param.default)
             subgroup.add_option(option, action='store', dest=dest,
-                    metavar=attr.upper(), type=param.type, help=param.doc)
+                    metavar=attr.upper(), type=param.type, help=doc)
         return subgroup
 
 
