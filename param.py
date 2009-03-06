@@ -56,6 +56,32 @@ class Param(object):
         self.default = default
         self.doc = doc
         self.type = type
+        self.check()
+
+    def check(self):
+        """Check for validity."""
+        if self.type == 'bool':
+            if self.default is None:
+                self.default = False
+            assert self.default is False
+
+    def inherit(self, base):
+        """Replace any None elements with replacements from a base instance."""
+        if param.doc is None:
+            self.doc = baseparam.doc
+        if param.type is None:
+            self.type = baseparam.type
+        if param.default is None:
+            self.default = baseparam.default
+        # Make sure that we didn't inherit an invalid default.
+        self.check()
+
+    def copy(self):
+        p = Param()
+        p.default = self.default
+        p.type = self.type
+        p.doc = self.doc
+        return p
 
 
 class _ParamMeta(type):
@@ -87,19 +113,17 @@ class _ParamMeta(type):
                 # This base class doesn't have a params list.
                 continue
 
-            for param_name in baseparams:
-                if param_name in params:
-                    if params[param_name].doc is None:
-                        params[param_name].doc = baseparams[param_name].doc
+            for name, baseparam in baseparams.iteritems():
+                if name in params:
+                    params[name].inherit(baseparam)
                 else:
-                    params[param_name] = baseparams[param_name]
+                    params[name] = baseparam.copy()
 
         # Update documentation based on our parameters
         if '__doc__' not in classdict:
             classdict['__doc__'] = '%s -- Class using Params' % classname
-        docs = [('%s: %s (default=%s)' % (param_name,
-                    params[param_name].doc, params[param_name].default))
-                    for param_name in params]
+        docs = [('%s: %s (default=%s)' % (name, param.doc, param.default))
+                    for name, param in params.iteritems()]
         docs.sort()
         classdict['__doc__'] = classdict['__doc__'] + \
                 '\n    '.join(['\n%s Parameters:' % classname] + docs)
@@ -300,8 +324,12 @@ class OptionParser(optparse.OptionParser):
                 option = '--%s' % name
                 dest = name
             doc = '%s (default=%s)' % (param.doc, param.default)
-            subgroup.add_option(option, action='store', dest=dest,
-                    metavar=attr.upper(), type=param.type, help=doc)
+            if param.type == 'bool':
+                subgroup.add_option(option, action='store_true', dest=dest,
+                        help=doc)
+            else:
+                subgroup.add_option(option, action='store', dest=dest,
+                        metavar=attr.upper(), type=param.type, help=doc)
         return subgroup
 
 
