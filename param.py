@@ -49,13 +49,18 @@ class Param(object):
     Attributes:
         default: The default value to be used.
         type: The optparse-style type to be used when interpreting command-line
-                arguments ('string', 'int', ...).
+                arguments ('string', 'int', ...).  If the type is 'bool', then
+                the Param defaults to false, and specifying the command-line
+                option sets it to True.
         doc: Help text.
+        shortopt: A short form of the option, used for commonly-used options.
+                Use this sparingly since conflicts are dangerous.
     """
-    def __init__(self, default=None, type='string', doc=None):
+    def __init__(self, default=None, type='string', doc=None, shortopt=None):
         self.default = default
         self.doc = doc
         self.type = type
+        self.shortopt = shortopt
         self.check()
 
     def check(self):
@@ -73,6 +78,8 @@ class Param(object):
             self.type = baseparam.type
         if param.default is None:
             self.default = baseparam.default
+        if param.shortopt is None:
+            self.shortopt = baseparam.shortopt
         # Make sure that we didn't inherit an invalid default.
         self.check()
 
@@ -81,6 +88,7 @@ class Param(object):
         p.default = self.default
         p.type = self.type
         p.doc = self.doc
+        p.shortopt = self.shortopt
         return p
 
 
@@ -324,12 +332,17 @@ class OptionParser(optparse.OptionParser):
                 option = '--%s' % name
                 dest = name
             doc = '%s (default=%s)' % (param.doc, param.default)
+            opts = [option]
+            if param.shortopt:
+                opts.append(param.shortopt)
+            kwds = {'help': doc, 'dest': dest}
             if param.type == 'bool':
-                subgroup.add_option(option, action='store_true', dest=dest,
-                        help=doc)
+                kwds['action'] = 'store_true'
             else:
-                subgroup.add_option(option, action='store', dest=dest,
-                        metavar=attr.upper(), type=param.type, help=doc)
+                kwds['action'] = 'store'
+                kwds['metavar'] = attr.upper()
+                kwds['type'] = param.type
+            subgroup.add_option(*opts, **kwds)
         return subgroup
 
 
