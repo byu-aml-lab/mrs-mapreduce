@@ -172,7 +172,7 @@ class ParamObj:
         burrows in the earth.
     <BLANKLINE>
     Rabbit Parameters:
-        a_b_c: A param with underscores (default='default')
+        a_b_c: A param with underscores (default=hello)
         weight: Body Weight (default=42)
     >>> m.weight
     42
@@ -335,7 +335,7 @@ class OptionParser(optparse.OptionParser):
             opts = [option]
             if param.shortopt:
                 opts.append(param.shortopt)
-            kwds = {'help': doc, 'dest': dest}
+            kwds = {'help': doc, 'dest': dest, 'default': param.default}
             if param.type == 'bool':
                 kwds['action'] = 'store_true'
             else:
@@ -429,7 +429,7 @@ class Rabbit(ParamObj):
     burrows in the earth.
     """
     _params = dict(weight=Param(default=42, doc='Body Weight', type='int'),
-            a_b_c=Param(default='default', doc='A param with underscores'))
+            a_b_c=Param(default='hello', doc='A param with underscores'))
 
     def __init__(self, **kwds):
         ParamObj.__init__(self, **kwds)

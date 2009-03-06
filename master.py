@@ -38,49 +38,6 @@ del logging
 # from __future__ import with_statement
 
 
-def master_main(registry, user_run, user_setup, args, opts):
-    """Run Mrs Master
-
-    Master Main is called directly from Mrs Main.  On exit, the process
-    will return master_main's return value.
-    """
-    from job import Job
-    from io import blocking
-
-    # create job thread:
-    job = Job(registry, user_run, user_setup, args, opts)
-    # create master state:
-    master = Master(job, registry, opts)
-    # create event thread:
-    event_thread = MasterEventThread(master)
-    # create blocking thread (which is only started if necessary):
-    job.blockingthread = blocking.BlockingThread()
-
-    # Start the other threads:
-    event_thread.start()
-    job.start()
-
-    try:
-        # Note: under normal circumstances, the reactor (in the event
-        # thread) will quit on its own.
-        master.reaper.wait()
-    except KeyboardInterrupt:
-        pass
-
-    event_thread.shutdown()
-
-    # Clean up jobdir
-    if not opts.mrs_keep_jobdir:
-        from util import remove_recursive
-        remove_recursive(job.jobdir)
-
-    # Wait for event thread to finish.
-    event_thread.join()
-
-    if master.reaper.traceback:
-        logger.critical('Exception: %s' % master.reaper.traceback)
-
-
 # TODO: when we stop supporting Python older than 2.5, use inlineCallbacks:
 class MasterEventThread(TwistedThread):
     """Thread on master that runs the Twisted reactor
@@ -106,7 +63,7 @@ class MasterEventThread(TwistedThread):
         self.master.reaper.reap()
 
 
-class Master(object):
+class MasterState(object):
     """Mrs Master"""
 
     def __init__(self, job, registry, opts, **kwds):

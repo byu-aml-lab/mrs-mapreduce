@@ -55,12 +55,11 @@ from io.textformat import TextWriter
 VERSION = version.VERSION
 Registry = registry.Registry
 main = cli.main
-primary_impl = cli.primary_impl
 hash_partition = partition.hash_partition
 mod_partition = partition.mod_partition
 
 # We need to set __all__ to make sure that pydoc has everything:
 __all__ = ['logger', 'cli', 'partition', 'HexWriter', 'TextWriter', 'VERSION',
-        'Registry', 'main', 'primary_impl', 'hash_partition', 'mod_partition']
+        'Registry', 'main', 'hash_partition', 'mod_partition']
 
 # vim: et sw=4 sts=4
