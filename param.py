@@ -204,7 +204,7 @@ def import_object(name):
     >>> x = import_object('zzzzz')
     Traceback (most recent call last):
         ...
-    ImportError: No module named zzzzz
+    ImportError: Could not import zzzzz from any module.
     >>>
     """
     # Note that we don't use fromlist.  As pointed out at
@@ -224,7 +224,10 @@ def import_object(name):
 
     obj = module
     for part in parts[1:]:
-        obj = getattr(obj, part)
+        try:
+            obj = getattr(obj, part)
+        except AttributeError:
+            raise ImportError
     return obj
 
 
@@ -392,7 +395,7 @@ class _Option(optparse.Option):
             try:
                 paramobj = import_object(value)
             except ImportError, e:
-                message = 'option %s: %s' % (opt_str, str(e))
+                message = 'option %s: Could not load %s' % (opt_str, value)
                 raise optparse.OptionValueError(message)
 
         try:
