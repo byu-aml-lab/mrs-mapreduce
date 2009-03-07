@@ -63,6 +63,7 @@ class MasterEventThread(TwistedThread):
         self.master.reaper.reap()
 
 
+# TODO: consider merging this into impl.Master
 class MasterState(object):
     """Mrs Master"""
 
@@ -71,9 +72,9 @@ class MasterState(object):
         self.opts = opts
 
         # TODO: get rid of these:
-        self.port = opts.mrs_port
-        self.runfile = opts.mrs_runfile
-        self.rpc_timeout = opts.mrs_timeout
+        self.port = opts.mrs__port
+        self.runfile = opts.mrs__runfile
+        self.rpc_timeout = opts.mrs__timeout
 
         self.reaper = GrimReaper()
         self.job = job
@@ -339,7 +340,7 @@ class RemoteSlave(object):
         self._alive = True
         self.update_timestamp()
 
-        pingdelay = self.master.opts.mrs_pingdelay
+        pingdelay = self.master.opts.mrs__pingdelay
         ping_args = ('ping', self.cookie,)
         self.ping_task = PingTask(pingdelay, ping_args, self.rpc,
                 self.ping_success, self.rpc_failure, self.get_timestamp)

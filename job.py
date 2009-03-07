@@ -50,7 +50,7 @@ class Job(threading.Thread):
 
         self.default_reduce_parts = 1
         try:
-            self.default_reduce_tasks = opts.mrs_reduce_tasks
+            self.default_reduce_tasks = opts.mrs__reduce_tasks
         except AttributeError:
             self.default_reduce_tasks = 1
 
@@ -64,7 +64,7 @@ class Job(threading.Thread):
 
         import tempfile
         try:
-            shared_dir = self.opts.mrs_shared
+            shared_dir = self.opts.mrs__shared
             self.jobdir = tempfile.mkdtemp(prefix='mrs.job_', dir=shared_dir)
         except AttributeError:
             self.jobdir = None
@@ -297,7 +297,7 @@ class Job(threading.Thread):
             if outdir is None:
                 import tempfile
                 outdir = tempfile.mkdtemp(prefix='output_', dir=self.jobdir)
-                permanent = self.opts.mrs_keep_jobdir
+                permanent = self.opts.mrs__keep_jobdir
             from util import try_makedirs
             try_makedirs(outdir)
 
@@ -323,7 +323,7 @@ class Job(threading.Thread):
             if outdir is None:
                 import tempfile
                 outdir = tempfile.mkdtemp(prefix='map_', dir=self.jobdir)
-                permanent = self.opts.mrs_keep_jobdir
+                permanent = self.opts.mrs__keep_jobdir
             from util import try_makedirs
             try_makedirs(outdir)
 
@@ -351,7 +351,7 @@ class Job(threading.Thread):
             if outdir is None:
                 import tempfile
                 outdir = tempfile.mkdtemp(prefix='reduce_', dir=self.jobdir)
-                permanent = self.opts.mrs_keep_jobdir
+                permanent = self.opts.mrs__keep_jobdir
             from util import try_makedirs
             try_makedirs(outdir)
 

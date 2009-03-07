@@ -60,37 +60,6 @@ from logging import getLogger
 logger = getLogger('mrs')
 
 
-def slave_main(registry, user_run, user_setup, args, opts):
-    """Run Mrs Slave
-
-    Slave Main is called directly from Mrs Main.  On exit, the process
-    will return slave_main's return value.
-    """
-
-    slave = Slave(registry, user_setup, opts)
-
-    # Create the other threads:
-    worker = Worker(slave)
-    event_thread = SlaveEventThread(slave)
-
-    # Start the other threads:
-    event_thread.start()
-    worker.start()
-
-    try:
-        # Note: under normal circumstances, the reactor (in the event
-        # thread) will quit on its own.
-        slave.reaper.wait()
-    except KeyboardInterrupt:
-        pass
-
-    event_thread.shutdown()
-    event_thread.join()
-
-    if slave.reaper.traceback:
-        logger.error('Exception: %s' % slave.reaper.traceback)
-
-
 # TODO: when we stop supporting Python older than 2.5, use inlineCallbacks:
 class SlaveEventThread(TwistedThread):
     """Thread on slave that runs the Twisted reactor
@@ -130,18 +99,17 @@ class Slave(object):
     few minutes.
     """
 
-    def __init__(self, registry, user_setup, opts):
-        self.mrs_master = opts.mrs_master
+    def __init__(self, registry, user_setup, master_url, pingdelay, timeout):
         self.registry = registry
         self.user_setup = user_setup
-        self.pingdelay = opts.mrs_pingdelay
+        self.pingdelay = pingdelay
 
         self.reaper = GrimReaper()
         self.worker = None
         self.ping_task = None
         self.timeouts = 0
 
-        self.master_rpc = TimeoutProxy(self.mrs_master, opts.mrs_timeout)
+        self.master_rpc = TimeoutProxy(master_url, timeout)
 
         self.id = None
         self.alive = True

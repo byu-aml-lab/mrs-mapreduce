@@ -142,7 +142,7 @@ class MockParallel(Implementation):
         from util import try_makedirs
 
         # Set up shared directory
-        try_makedirs(opts.mrs_shared)
+        try_makedirs(self.shared)
 
         job = Job(registry, user_run, user_setup, args, opts)
         job.start()
@@ -232,6 +232,38 @@ class Slave(Network):
     _params = dict(
         master=Param(doc='URL of the Master RPC server'),
         )
+
+    def _main(args, opts):
+        """Run Mrs Slave
+
+        Slave Main is called directly from Mrs Main.  On exit, the process
+        will return slave_main's return value.
+        """
+
+        slave = Slave(self.registry, self.setup, self.master,
+                self.self.pingdelay, self.timeout)
+
+        # Create the other threads:
+        worker = Worker(slave)
+        event_thread = SlaveEventThread(slave)
+
+        # Start the other threads:
+        event_thread.start()
+        worker.start()
+
+        try:
+            # Note: under normal circumstances, the reactor (in the event
+            # thread) will quit on its own.
+            slave.reaper.wait()
+        except KeyboardInterrupt:
+            pass
+
+        event_thread.shutdown()
+        event_thread.join()
+
+        if slave.reaper.traceback:
+            logger.error('Exception: %s' % slave.reaper.traceback)
+
 
 
 # vim: et sw=4 sts=4

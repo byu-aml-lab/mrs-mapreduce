@@ -316,7 +316,7 @@ class OptionParser(optparse.OptionParser):
                 option.extend(opt, value, values, self)
         return values
 
-    def add_param_object(self, param_obj, prefix=''):
+    def add_param_object(self, param_obj, prefix='', values=None):
         """Adds a option group for the parameters in a ParamObj.
         
         The given prefix will be prepended to each long option.
@@ -335,6 +335,7 @@ class OptionParser(optparse.OptionParser):
                 option = '--%s' % name
                 dest = name
             doc = '%s (default=%s)' % (param.doc, param.default)
+
             opts = [option]
             if param.shortopt:
                 opts.append(param.shortopt)
@@ -346,6 +347,8 @@ class OptionParser(optparse.OptionParser):
                 kwds['metavar'] = attr.upper()
                 kwds['type'] = param.type
             subgroup.add_option(*opts, **kwds)
+            if values:
+                setattr(values, dest, param.default)
         return subgroup
 
 
@@ -406,12 +409,16 @@ class _Option(optparse.Option):
 
         self.remove_suboptions(parser)
 
-        if paramobj._params:
+        try:
+            params = paramobj._params
+        except AttributeError:
+            params = None
+        if params:
             if self._long_opts:
                 prefix = self._long_opts[0][2:]
             else:
                 prefix = self._short_opts[0][1]
-            self.subgroup = parser.add_param_object(paramobj, prefix)
+            self.subgroup = parser.add_param_object(paramobj, prefix, values)
 
 
 ##############################################################################
