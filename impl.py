@@ -164,7 +164,7 @@ class MockParallel(Implementation):
 
 class Network(Implementation):
     _params = dict(
-        port=Param(default=0, type='int',
+        port=Param(default=0, type='int', shortopt='-P',
             doc='RPC Port for incoming requests'),
         timeout=Param(default=20, type='float',
             doc='Timeout for RPC calls (incl. pings)'),
@@ -232,18 +232,18 @@ class Master(Network):
 
 class Slave(Network):
     _params = dict(
-        master=Param(doc='URL of the Master RPC server'),
+        master=Param(shortopt='-M', doc='URL of the Master RPC server'),
         )
 
-    def _main(args, opts):
+    def _main(self, args, opts):
         """Run Mrs Slave
 
         Slave Main is called directly from Mrs Main.  On exit, the process
         will return slave_main's return value.
         """
-
-        slave = Slave(self.registry, self.setup, self.master,
-                self.self.pingdelay, self.timeout)
+        from slave import SlaveState, SlaveEventThread, Worker
+        slave = SlaveState(self.registry, self.setup, self.master,
+                self.pingdelay, self.timeout)
 
         # Create the other threads:
         worker = Worker(slave)

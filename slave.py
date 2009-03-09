@@ -85,7 +85,7 @@ class SlaveEventThread(TwistedThread):
         self.slave.quit()
 
 
-class Slave(object):
+class SlaveState(object):
     """State of a Mrs slave
     
     Since execution flow is event-driven, a little overview might be helpful.
