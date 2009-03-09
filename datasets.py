@@ -271,10 +271,6 @@ class LocalData(BaseDataSet):
     def __init__(self, itr, splits, source=0, parter=None, **kwds):
         BaseDataSet.__init__(self, splits=splits, **kwds)
         self.fixed_source = source
-
-        if parter is None:
-            from partition import hash_partition
-            parter = hash_partition
         self.parter = parter
 
         # One source and splits splits
@@ -482,23 +478,14 @@ class ComputedData(RemoteData):
     permanent storage or to leave them in memory on the slaves.
     """
     def __init__(self, input, func, splits, dir=None, parter=None,
-            format=None, registry=None, permanent=True):
+            format=None, permanent=True):
         # At least for now, we create 1 task for each split in the input
         ntasks = input.splits
         RemoteData.__init__(self, sources=ntasks, splits=splits, dir=dir,
                 permanent=permanent)
 
-        if registry is None:
-            from registry import Registry
-            self.registry = Registry()
-        else:
-            self.registry = registry
-
-        self.func_name = self.registry.as_name(func)
-        if parter is None:
-            self.part_name = ''
-        else:
-            self.part_name = self.registry.as_name(parter)
+        self.func = func
+        self.parter = parter
 
         self.tasks_made = False
         self.tasks_todo = []
@@ -597,9 +584,8 @@ class MapData(ComputedData):
     def make_tasks(self):
         from task import MapTask
         for i in xrange(self.sources):
-            task = MapTask(self.input, i, i, self.func_name,
-                    self.part_name, self.splits, self.dir, self.format,
-                    self.registry)
+            task = MapTask(self.input, i, i, self.func,
+                    self.parter, self.splits, self.dir, self.format)
             task.dataset = self
             self.tasks_todo.append(task)
         self.tasks_made = True
@@ -607,8 +593,8 @@ class MapData(ComputedData):
     def run_serial(self):
         from task import MapTask
         self.splits = 1
-        task = MapTask(self.input, 0, 0, self.func_name, self.part_name,
-                self.splits, self.dir, self.format, self.registry)
+        task = MapTask(self.input, 0, 0, self.func, self.parter,
+                self.splits, self.dir, self.format)
         # TODO: make this less hackish (this makes sure that done() works).
         self.tasks_todo = [None]
         self.tasks_made = True
@@ -621,9 +607,8 @@ class ReduceData(ComputedData):
     def make_tasks(self):
         from task import ReduceTask
         for i in xrange(self.sources):
-            task = ReduceTask(self.input, i, i, self.func_name,
-                    self.part_name, self.splits, self.dir, self.format,
-                    self.registry)
+            task = ReduceTask(self.input, i, i, self.func,
+                    self.parter, self.splits, self.dir, self.format)
             task.dataset = self
             self.tasks_todo.append(task)
         self.tasks_made = True
@@ -631,8 +616,8 @@ class ReduceData(ComputedData):
     def run_serial(self):
         from task import ReduceTask
         self.splits = 1
-        task = ReduceTask(self.input, 0, 0, self.func_name, self.part_name,
-                self.splits, self.dir, self.format, self.registry)
+        task = ReduceTask(self.input, 0, 0, self.func, self.parter,
+                self.splits, self.dir, self.format)
         # TODO: make this less hackish (this makes sure that done() works).
         self.tasks_todo = [None]
         self.tasks_made = True

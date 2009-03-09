@@ -99,9 +99,9 @@ class SlaveState(object):
     few minutes.
     """
 
-    def __init__(self, registry, user_setup, master_url, pingdelay, timeout):
-        self.registry = registry
-        self.user_setup = user_setup
+    def __init__(self, program_hash, master_url, pingdelay,
+            timeout):
+        self.program_hash = program_hash
         self.pingdelay = pingdelay
 
         self.reaper = GrimReaper()
@@ -121,6 +121,7 @@ class SlaveState(object):
     def signin(self):
         """Start Slave RPC Server and sign in to master."""
         from twisted.web import server
+        import registry
 
         resource = SlaveInterface(self)
         site = server.Site(resource)
@@ -131,12 +132,9 @@ class SlaveState(object):
         from version import VERSION
         cookie = self.cookie
         port = address.port
-        source_hash = self.registry.source_hash()
-        reg_hash = self.registry.reg_hash()
 
         deferred = self.master_rpc.callRemote('signin', VERSION, cookie, port,
-                source_hash, reg_hash)
-
+                self.program_hash)
         deferred.addCallbacks(self.signin_callback, self.signin_errback)
 
     def signin_errback(self, failure):
@@ -150,7 +148,7 @@ class SlaveState(object):
         This is the callback after signin.  After saving the return values,
         schedule the user_setup function to be run in the Worker.
         """
-        slave_id, optdict = value
+        slave_id, optdict, args = value
 
         if slave_id < 0:
             logger.error('Master rejected signin.')
@@ -167,9 +165,9 @@ class SlaveState(object):
 
         # Tell the Worker to run the user_setup function.
         import optparse
-        options = optparse.Values(optdict)
+        opts = optparse.Values(optdict)
         callback = self.report_ready
-        self.worker.start_setup(options, callback)
+        self.worker.start_setup(opts, args, callback)
 
     def report_ready(self):
         """Report to the master that we are ready to accept tasks.
@@ -350,7 +348,7 @@ class Worker(threading.Thread):
     This needs to run in a daemon thread rather than in the main thread so
     that it can be killed by other threads.
     """
-    def __init__(self, slave):
+    def __init__(self, slave, program_class):
         threading.Thread.__init__(self)
         self.setName('Worker')
         # Die when all other non-daemon threads have exited:
@@ -367,16 +365,19 @@ class Worker(threading.Thread):
         self.active = False
         self.exception = None
 
-        self.options = None
+        self.opts = None
+        self.program_class = program_class
+        self.program = None
         self._setup_ready = threading.Event()
         self._setup_callback = None
 
-    def start_setup(self, options, callback):
+    def start_setup(self, opts, args, callback):
         """Start running the user_setup function.
         
         The given callback function will be invoked in the reactor thread.
         """
-        self.options = options
+        self.opts = opts
+        self.args = args
         self._setup_callback = callback
         self._setup_ready.set()
 
@@ -397,9 +398,10 @@ class Worker(threading.Thread):
         success = False
         self._cond.acquire()
         if self._task is None:
-            registry = self.slave.registry
-            self._task = MapTask(input_data, 0, source, map_name, part_name,
-                    splits, output, format, registry)
+            mapper = getattr(self.program, map_name)
+            parter = getattr(self.program, part_name)
+            self._task = MapTask(input_data, 0, source, mapper, parter,
+                    splits, output, format)
             success = True
             self._cond.notify()
         self._cond.release()
@@ -422,9 +424,10 @@ class Worker(threading.Thread):
         success = False
         self._cond.acquire()
         if self._task is None:
-            registry = self.slave.registry
-            self._task = ReduceTask(input_data, 0, source, reduce_name,
-                    part_name, splits, output, format, registry)
+            reducer = getattr(self.program, map_name)
+            parter = getattr(self.program, part_name)
+            self._task = ReduceTask(input_data, 0, source, reducer,
+                    parter, splits, output, format)
             success = True
             self._cond.notify()
         self._cond.release()
@@ -435,16 +438,14 @@ class Worker(threading.Thread):
         # Run user_setup if requested:
         self._setup_ready.wait()
         logger.debug('Starting to run the user setup function.')
-        user_setup = self.slave.user_setup
-        if user_setup:
-            try:
-                user_setup(self.options)
-            except Exception, e:
-                import traceback
-                logger.critical('Exception in the Worker thread (in setup): %s'
-                    % traceback.format_exc())
-                self.slave.quit()
-                return
+        try:
+            self.program = self.program_class(self.opts, self.args)
+        except Exception, e:
+            import traceback
+            logger.critical('Exception in Program initialization: %s'
+                % traceback.format_exc())
+            self.slave.quit()
+            return
 
         # Alert the Twisted thread that user_setup is done.
         reactor.callFromThread(self._setup_callback)

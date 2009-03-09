@@ -20,10 +20,12 @@
 # Licensing Office, Brigham Young University, 3760 HBLL, Provo, UT 84602,
 # (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
 
+"""MapReduce Tasks.
 
-# TODO: source is really just used for naming output files; it should be
-# replaced by a more descriptive parameter that makes it clear that it's
-# not necessarily the source number.
+A Task represents a unit of work.  A Task is created on the master,
+serialized, sent to the slave, and then created on the slave.
+"""
+
 
 class Task(object):
     """Manage input and output for a piece of a map or reduce operation.
@@ -87,17 +89,11 @@ class Task(object):
 
 
 class MapTask(Task):
-    def __init__(self, input, split, source, map_name, part_name, splits,
-            storage, format, registry):
+    def __init__(self, input, split, source, mapper, parter, splits,
+            storage, format):
         Task.__init__(self, input, split, source, storage, format)
-        self.map_name = map_name
-        self.mapper = registry[map_name]
-        self.part_name = part_name
-        if part_name == '':
-            from partition import hash_partition
-            self.partition = hash_partition
-        else:
-            self.partition = registry[part_name]
+        self.mapper = mapper
+        self.partition = parter
         self.splits = splits
 
     def run(self, serial=False):
@@ -124,17 +120,11 @@ class MapTask(Task):
 
 
 class ReduceTask(Task):
-    def __init__(self, input, split, source, reduce_name, part_name, splits,
-            storage, format, registry):
+    def __init__(self, input, split, source, reducer, parter, splits,
+            storage, format):
         Task.__init__(self, input, split, source, storage, format)
-        self.reduce_name = reduce_name
-        self.reducer = registry[reduce_name]
-        self.part_name = part_name
-        if part_name == '':
-            from partition import hash_partition
-            self.partition = hash_partition
-        else:
-            self.partition = registry[part_name]
+        self.reducer = reducer
+        self.partition = parter
         self.splits = splits
 
     def run(self, serial=False):

@@ -36,18 +36,15 @@ import sys
 logger = logging.getLogger('mrs')
 
 
-def main(registry, run=None, setup=None, update_parser=None):
+def main(program, update_parser=None):
     """Run a MapReduce program.
 
-    Requires a run function and a Registry.
-    
-    If setup is provided, it will be called before performing any work, and
-    all command-line options will be passed in.
+    Requires a program class (which inherits from mrs.MapReduce) and an
+    optional update_parser function.
     
     If you want to modify the basic Mrs Parser, provide an update_parser
     function that takes a parser and either modifies it or returns a new one.
-    The parser will be given all options/arguments except the Mrs
-    Implementation.  Note that no option should ever have the value None.
+    Note that no option should ever have the value None.
     """
     import param
 
@@ -57,12 +54,10 @@ def main(registry, run=None, setup=None, update_parser=None):
     opts, args = parser.parse_args()
 
     mrs_impl = param.instantiate(opts, 'mrs')
-    mrs_impl.run = run
-    mrs_impl.setup = setup
-    mrs_impl.registry = registry
+    mrs_impl.program = program
 
     try:
-        mrs_impl.main(args, opts)
+        mrs_impl.main(opts, args)
         sys.exit(0)
     except KeyboardInterrupt:
         logger.critical('Quitting due to keyboard interrupt.')

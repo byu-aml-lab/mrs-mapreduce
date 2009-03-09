@@ -33,7 +33,7 @@ class Job(threading.Thread):
     When run as a thread, call the user-specified run function, which will
     submit datasets to be computed.
     """
-    def __init__(self, registry, user_run, user_setup, args, opts):
+    def __init__(self, program_class, opts, args):
         threading.Thread.__init__(self)
         self.setName('Job')
         # Quit the whole program, even if this thread is still running:
@@ -42,11 +42,10 @@ class Job(threading.Thread):
         # The BlockingThread is only used in the parallel implementation.
         self.blockingthread = None
 
-        self.registry = registry
-        self.user_run = user_run
-        self.user_setup = user_setup
-        self.args = args
+        self.program = None
+        self.program_class = program_class
         self.opts = opts
+        self.args = args
 
         self.default_reduce_parts = 1
         try:
@@ -80,26 +79,22 @@ class Job(threading.Thread):
         Call the user-specified run function, which will submit datasets to be
         computed.
         """
-        job = self
-        die = False
-
-        if self.user_setup:
-            try:
-                self.user_setup(self.opts)
-            except Exception, e:
-                # The user code threw some exception.  Print out the error.
-                die = True
-
-        if not die:
-            try:
-                self.user_run(job, self.args, self.opts)
-            except Exception, e:
-                die = True
-
-        if die:
+        try:
+            self.program = self.program_class(self.opts, self.args)
+        except Exception, e:
             import traceback
-            logger.error('Exception raised in the setup or run function: %s'
+            logger.critical('Exception while instantiating the program: %s'
                     % traceback.format_exc())
+            self.end()
+
+        try:
+            self.program.run(self)
+        except Exception, e:
+            import traceback
+            logger.critical('Exception raised in the run function: %s'
+                    % traceback.format_exc())
+            self.end()
+
         self.end()
 
     def submit(self, dataset):
@@ -311,7 +306,7 @@ class Job(threading.Thread):
         """Define a set of data computed with a map operation.
 
         Specify the input dataset and a mapper function.  The mapper must be
-        in the job's registry and may be specified as a name or function.
+        in the program instance.
 
         Called from the user-specified run function.
         """
@@ -329,7 +324,7 @@ class Job(threading.Thread):
 
         from datasets import MapData
         ds = MapData(input, mapper, splits, outdir, parter=parter,
-                registry=self.registry, format=format, permanent=permanent)
+                format=format, permanent=permanent)
         ds.blockingthread = self.blockingthread
         self.submit(ds)
         return ds
@@ -339,7 +334,7 @@ class Job(threading.Thread):
         """Define a set of data computed with a reducer operation.
 
         Specify the input dataset and a reducer function.  The reducer must be
-        in the job's registry and may be specified as a name or function.
+        in the program instance.
 
         Called from the user-specified run function.
         """
@@ -357,7 +352,7 @@ class Job(threading.Thread):
 
         from datasets import ReduceData
         ds = ReduceData(input, reducer, splits, outdir, parter=parter,
-                registry=self.registry, format=format, permanent=permanent)
+                format=format, permanent=permanent)
         ds.blockingthread = self.blockingthread
         self.submit(ds)
         return ds

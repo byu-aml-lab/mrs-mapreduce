@@ -67,9 +67,10 @@ class MasterEventThread(TwistedThread):
 class MasterState(object):
     """Mrs Master"""
 
-    def __init__(self, job, registry, opts, **kwds):
-        self.registry = registry
+    def __init__(self, job, program_hash, opts, args, **kwds):
+        self.program_hash = program_hash
         self.opts = opts
+        self.args = args
 
         # TODO: get rid of these:
         self.port = opts.mrs__port
@@ -93,7 +94,8 @@ class MasterState(object):
         from twisted.internet import reactor, error
 
         # Start RPC master server thread
-        resource = MasterInterface(self, self.registry, self.opts)
+        resource = MasterInterface(self, self.program_hash, self.opts,
+                self.args)
         site = server.Site(resource)
         try:
             self.server_port = reactor.listenTCP(self.port, site)
@@ -231,18 +233,18 @@ class MasterInterface(RequestXMLRPC):
     Note that any method not beginning with an underscore will be exposed to
     remote hosts.
     """
-    def __init__(self, master, registry, opts):
+    def __init__(self, master, program_hash, opts, args):
         """Initialize the master's RPC interface.
 
-        Requires `master`, `registry` (a Registry instance which keeps track
-        of which names map to which MapReduce functions), and `opts` (which is
-        a optparse.Values instance containing command-line arguments on the
-        master.
+        Requires `master`, `program_hash` (the result of registry.object_hash
+        on the program class), and `opts` (which is a optparse.Values instance
+        containing command-line arguments on the master.
         """
         RequestXMLRPC.__init__(self)
         self.master = master
-        self.registry = registry
+        self.program_hash = program_hash
         self.opts = opts
+        self.args = args
 
     @uses_request
     def xmlrpc_whoami(self, request):
@@ -255,8 +257,8 @@ class MasterInterface(RequestXMLRPC):
         return host
 
     @uses_request
-    def xmlrpc_signin(self, request, version, cookie, slave_port, source_hash,
-            reg_hash):
+    def xmlrpc_signin(self, request, version, cookie, slave_port,
+            program_hash):
         """Slave reporting for duty.
 
         It returns the slave_id and option dictionary.  Returns (-1, {}) if
@@ -267,7 +269,7 @@ class MasterInterface(RequestXMLRPC):
         if version != VERSION:
             logger.warning('Client tried to sign in with mismatched version.')
             return -1, {}
-        if not self.registry.verify(source_hash, reg_hash):
+        if self.program_hash != program_hash
             # The slaves are running different code than the master is.
             logger.warning('Client tried to sign in with nonmatching code.')
             return -1, {}
@@ -278,7 +280,7 @@ class MasterInterface(RequestXMLRPC):
         else:
             raw_iter = self.opts.__dict__.iteritems()
             optdict = dict((k, v) for k, v in raw_iter if v is not None)
-            return (slave.id, optdict)
+            return (slave.id, optdict, self.args)
 
     def xmlrpc_ready(self, slave_id, cookie):
         """Slave is ready for work."""
@@ -362,14 +364,17 @@ class RemoteSlave(object):
         task = assignment.task
         extension = task.format.ext
         # TODO: convert these RPC calls to be asynchronous!
+        part_name = self.registry[task.parter]
         if assignment.map:
+            map_name = self.registry[task.mapper]
             deferred = self.rpc.callRemote('start_map', task.source,
-                    task.inurls(), task.map_name, task.part_name,
-                    task.splits, task.storage, extension, self.cookie)
+                    task.inurls(), map_name, part_name, task.splits,
+                    task.storage, extension, self.cookie)
         elif assignment.reduce:
+            reduce_name = self.registry[task.reducer]
             deferred = self.rpc.callRemote('start_reduce', task.source,
-                    task.inurls(), task.reduce_name, task.part_name,
-                    task.splits, task.storage, extension, self.cookie)
+                    task.inurls(), reduce_name, part_name, task.splits,
+                    task.storage, extension, self.cookie)
         else:
             raise RuntimeError
 

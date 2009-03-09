@@ -21,19 +21,20 @@
 # Licensing Office, Brigham Young University, 3760 HBLL, Provo, UT 84602,
 # (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
 
-from string import punctuation
+import string
 import mrs
 
-def mapper(key, value):
-    for word in value.split():
-        word = word.strip(punctuation).lower()
-        if word:
-            yield (word, str(1))
+class WordCount(mrs.MapReduce):
+    def map(self, key, value):
+        for word in value.split():
+            word = word.strip(string.punctuation).lower()
+            if word:
+                yield (word, str(1))
 
-def reducer(key, value_iter):
-    yield str(sum(int(x) for x in value_iter))
+    def reduce(self, key, values):
+        yield str(sum(int(x) for x in values))
 
 if __name__ == '__main__':
-    mrs.main(mrs.Registry(globals()))
+    mrs.main(WordCount)
 
 # vim: et sw=4 sts=4

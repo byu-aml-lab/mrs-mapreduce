@@ -49,11 +49,11 @@ class Implementation(ParamObj):
         self.setup = None
         self.registry = None
 
-    def main(self, args=None, opts=None):
-        if args is None:
-            args = []
+    def main(self, opts=None, args=None):
         if opts is None:
             opts = object()
+        if args is None:
+            args = []
         if self.run is None:
             from run import mrs_simple
             self.run = mrs_simple
@@ -63,9 +63,9 @@ class Implementation(ParamObj):
         elif self.verbose:
             logger.setLevel(logging.INFO)
 
-        self._main(args, opts)
+        self._main(opts, args)
 
-    def _main(self, args, opts):
+    def _main(self, opts, args):
         """Method to be overridden by subclasses."""
         raise NotImplementedError('Implementation must be extended.')
 
@@ -79,10 +79,10 @@ class Serial(Implementation):
         import threading
         self.cv = threading.Condition()
 
-    def _main(self, args, opts):
+    def _main(self, opts, args):
         from job import Job
 
-        self.job = Job(self.registry, self.run, self.setup, args, opts)
+        self.job = Job(self.program, opts, args)
         self.job.update_callback = self.job.end_callback = self.job_updated
         self.job.start()
 
@@ -136,7 +136,7 @@ class MockParallel(Implementation):
     that most of the execution time is in I/O, and mockparallel tries to load
     the input for all reduce tasks before doing the first reduce task.
     """
-    def main(registry, user_run, user_setup, args):
+    def _main(self, opts, args):
         raise NotImplementedError("The mockparallel implementation is"
                 "temporarily broken.  Sorry.")
 
@@ -146,7 +146,7 @@ class MockParallel(Implementation):
         # Set up shared directory
         try_makedirs(self.shared)
 
-        job = Job(registry, user_run, user_setup, args, opts)
+        job = Job(self.program, opts, args)
         job.start()
 
         while not job.done():
@@ -186,7 +186,7 @@ class Master(Network):
         runfile=Param(doc="Server's RPC port will be written here"),
         )
 
-    def _main(self, args, opts):
+    def _main(self, opts, args):
         """Run Mrs Master
 
         Master Main is called directly from Mrs Main.  On exit, the process
@@ -195,11 +195,13 @@ class Master(Network):
         from job import Job
         from io import blocking
         from master import MasterState, MasterEventThread
+        import registry
 
         # create job thread:
-        job = Job(self.registry, self.run, self.setup, args, opts)
+        job = Job(self.program, opts, args)
         # create master state:
-        master = MasterState(job, self.registry, opts)
+        program_hash = registry.object_hash(self.program)
+        master = MasterState(job, program_hash, opts, args)
         # create event thread:
         event_thread = MasterEventThread(master)
         # create blocking thread (which is only started if necessary):
@@ -235,18 +237,20 @@ class Slave(Network):
         master=Param(shortopt='-M', doc='URL of the Master RPC server'),
         )
 
-    def _main(self, args, opts):
+    def _main(self, opts, args):
         """Run Mrs Slave
 
         Slave Main is called directly from Mrs Main.  On exit, the process
         will return slave_main's return value.
         """
         from slave import SlaveState, SlaveEventThread, Worker
-        slave = SlaveState(self.registry, self.setup, self.master,
+        import registry
+        program_hash = registry.object_hash(self.program)
+        slave = SlaveState(program_hash, self.setup, self.master,
                 self.pingdelay, self.timeout)
 
         # Create the other threads:
-        worker = Worker(slave)
+        worker = Worker(slave, self.program)
         event_thread = SlaveEventThread(slave)
 
         # Start the other threads:

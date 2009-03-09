@@ -25,11 +25,12 @@
 
 Your Mrs MapReduce program might look something like this:
 
-def mapper(key, value):
-    yield newkey, newvalue
+class Program(mrs.MapReduce):
+    def map(key, value):
+        yield newkey, newvalue
 
-def reducer(key, values):
-    yield newvalue
+    def reduce(key, values):
+        yield newvalue
 
 if __name__ == '__main__':
     import mrs
@@ -48,18 +49,15 @@ logger.addHandler(handler)
 
 # rather than importing all submodules, we just import the ones that are
 # expected to be useful outside of Mrs internals.
-import cli, partition, registry, version
+import cli, registry, version
 from io.hexformat import HexWriter
 from io.textformat import TextWriter
+from mapreduce import MapReduce
 
 VERSION = version.VERSION
-Registry = registry.Registry
 main = cli.main
-hash_partition = partition.hash_partition
-mod_partition = partition.mod_partition
 
 # We need to set __all__ to make sure that pydoc has everything:
-__all__ = ['logger', 'cli', 'partition', 'HexWriter', 'TextWriter', 'VERSION',
-        'Registry', 'main', 'hash_partition', 'mod_partition']
+__all__ = ['logger', 'cli', 'HexWriter', 'TextWriter', 'VERSION', 'main',]
 
 # vim: et sw=4 sts=4
