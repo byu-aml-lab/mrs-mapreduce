@@ -129,8 +129,9 @@ def submit_master(name, script_vars, cmdline, jobdir):
         echo $IP_ADDRESS >$HOST_FILE
 
         # Master
-        $PYTHON $MRS_PROGRAM master -S "$JOBDIR" --mrs-runfile "$PORT_FILE" \
-                -T "$TIMEOUT" --mrs-pingdelay="$TIMEOUT" ${ARGS[@]} >$OUTPUT
+        $PYTHON $MRS_PROGRAM --mrs=Master --mrs-shared="$JOBDIR" \
+                --mrs-runfile="$PORT_FILE" --mrs-timeout="$TIMEOUT" \
+                --mrs-pingdelay="$TIMEOUT" ${ARGS[@]} >$OUTPUT
         ''' % script_vars
 
     cmdline += ['-N', name + QSUB_NAME_MASTER]
@@ -170,8 +171,8 @@ def submit_slave(name, script_vars, cmdline, jobdir, master_jobid):
         while [[ ! -e $PORT_FILE ]]; do sleep 1; done
         PORT=$(cat $PORT_FILE)
         HOST=$(cat $HOST_FILE)
-        $PYTHON $MRS_PROGRAM slave -M "$HOST:$PORT" -T "$TIMEOUT" \
-                --mrs-pingdelay="$TIMEOUT"
+        $PYTHON $MRS_PROGRAM --mrs=Slave --mrs-master="$HOST:$PORT" \
+                --mrs-timeout="$TIMEOUT" --mrs-pingdelay="$TIMEOUT"
         ''' % script_vars
 
     # Don't print jobid to stdout
