@@ -91,6 +91,8 @@ class Serial(Implementation):
             dataset.run_serial()
             self.job.check_done()
 
+        self.job.join()
+
     def ready(self):
         """Waits for a dataset to become ready.
 
