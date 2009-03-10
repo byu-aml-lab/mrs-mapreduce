@@ -37,11 +37,13 @@ class MapReduce(object):
     extended.  The simplest usable program (see wordcount.py) simply provides
     implementations for map and reduce.
 
-    A program may optionally override the run and __init__ methods.  The run
-    method defines the stages of a MapReduce job.  The default implementation
-    consists of a map stage followed by a reduce stage.  The __init__ method
-    gets called on the master and each worker.  It takes a single argument
-    opts, which contains the values parsed from the command-line.
+    A program may optionally override the `run`, `__init__`, and `bypass`
+    methods.  The `run` method defines the stages of a MapReduce job.  Its
+    default implementation consists of a map stage followed by a reduce stage.
+    The `__init__` method gets called on the master and each worker.  It takes
+    a single argument opts, which contains the values parsed from the
+    command-line.  The `bypass` method allows a program to define an alternate
+    implementation that bypasses the MapReduce framework.
 
     It is important to understand that a separate MapReduce instance is
     created on the master and each worker.  The map and reduce methods cannot
@@ -109,5 +111,12 @@ class MapReduce(object):
     # The default partition function is hash_partition:
     partition = hash_partition
 
+    def bypass(self):
+        """Bypass implementation.
+
+        The user may choose to use the bypass implementation instead of using
+        MapReduce.
+        """
+        raise NotImplementedError
 
 # vim: et sw=4 sts=4

@@ -64,6 +64,14 @@ class Implementation(ParamObj):
         raise NotImplementedError('Implementation must be extended.')
 
 
+class Bypass(Implementation):
+    """Runs a program, bypassing the MapReduce functions."""
+
+    def _main(self, opts, args):
+        program = self.program_class(opts, args)
+        program.bypass()
+
+
 class Serial(Implementation):
     """Runs a MapReduce job in serial."""
 

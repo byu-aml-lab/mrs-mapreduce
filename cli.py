@@ -87,7 +87,7 @@ def option_parser():
     parser.usage = USAGE
     parser.add_option('-I', '--mrs', dest='mrs', metavar='IMPLEMENTATION',
             action='extend', search=['mrs.impl'], default='Serial',
-            help='Mrs Implementation (Serial, Master, Slave, etc.)')
+            help='Mrs Implementation (Serial, Master, Slave, Bypass, etc.)')
 
     return parser
 
