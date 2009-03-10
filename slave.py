@@ -223,6 +223,7 @@ class SlaveState(object):
                 logger.error('Ping timeout.  Trying again.')
         else:
             logger.critical('Lost master due to network error: %s' % err)
+            give_up = True
 
         if give_up:
             self.ping_task.stop()
