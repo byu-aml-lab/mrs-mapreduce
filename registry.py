@@ -102,12 +102,14 @@ def object_hash(obj):
 
 
 class Registry(object):
-    """Manage a two-way mapping between functions and their names.
+    """Manage a mapping between methods and their names.
 
-    Use this like a dictionary where
-    registry['name'] = function
+    A Registry keeps track of all attributes of an object that can be stored
+    in a dict.  Any attributes that cannot be keys, such as lists, are
+    ignored.
 
     >>> class A(object):
+    ...   lst = [1, 2, 3]
     ...   def f(self):
     ...     return 1
     ...   def g(self):
@@ -129,7 +131,11 @@ class Registry(object):
         for name in dir(program):
             if not name.startswith('__'):
                 attr = getattr(program, name)
-                self.attrs[attr] = name
+                #print 'registering:', name, attr
+                try:
+                    self.attrs[attr] = name
+                except TypeError:
+                    pass
 
     def __getitem__(self, attr):
         return self.attrs[attr]

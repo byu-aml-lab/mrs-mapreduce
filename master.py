@@ -68,6 +68,7 @@ class MasterState(object):
     """Mrs Master"""
 
     def __init__(self, job, program_hash, opts, args, **kwds):
+        self.job = job
         self.program_hash = program_hash
         self.opts = opts
         self.args = args
@@ -78,14 +79,11 @@ class MasterState(object):
         self.rpc_timeout = opts.mrs__timeout
 
         self.reaper = GrimReaper()
-        self.job = job
         self.job.update_callback = self.job_updated
         self.job.end_callback = self.job_ended
 
-        # stuff that used to be in Supervisor:
         self.assignments = {}
         self.slaves = Slaves()
-
         self.server_port = None
 
     # State 1 (run in the event thread):
@@ -172,7 +170,7 @@ class MasterState(object):
                 self.slaves.push_idle(slave)
                 return
 
-            assignment = Assignment(next)
+            assignment = Assignment(next, self.job.registry)
             assignment.add_worker(slave)
             deferred = slave.assign(assignment)
             #deferred.addCallback(self.assign_succeed)
@@ -269,7 +267,7 @@ class MasterInterface(RequestXMLRPC):
         if version != VERSION:
             logger.warning('Client tried to sign in with mismatched version.')
             return -1, {}
-        if self.program_hash != program_hash
+        if self.program_hash != program_hash:
             # The slaves are running different code than the master is.
             logger.warning('Client tried to sign in with nonmatching code.')
             return -1, {}
@@ -363,17 +361,16 @@ class RemoteSlave(object):
 
         task = assignment.task
         extension = task.format.ext
+        func_name = assignment.func_name
+        part_name = assignment.part_name
         # TODO: convert these RPC calls to be asynchronous!
-        part_name = self.registry[task.parter]
         if assignment.map:
-            map_name = self.registry[task.mapper]
             deferred = self.rpc.callRemote('start_map', task.source,
-                    task.inurls(), map_name, part_name, task.splits,
+                    task.inurls(), func_name, part_name, task.splits,
                     task.storage, extension, self.cookie)
         elif assignment.reduce:
-            reduce_name = self.registry[task.reducer]
             deferred = self.rpc.callRemote('start_reduce', task.source,
-                    task.inurls(), reduce_name, part_name, task.splits,
+                    task.inurls(), func_name, part_name, task.splits,
                     task.storage, extension, self.cookie)
         else:
             raise RuntimeError
@@ -513,7 +510,7 @@ class Slaves(object):
 
 
 class Assignment(object):
-    def __init__(self, task):
+    def __init__(self, task, registry):
         from task import MapTask, ReduceTask
         self.map = isinstance(task, MapTask)
         self.reduce = isinstance(task, ReduceTask)
@@ -521,6 +518,12 @@ class Assignment(object):
 
         self.done = False
         self.workers = []
+
+        self.part_name = registry[task.partition]
+        if self.map:
+            self.func_name = registry[task.mapper]
+        elif self.reduce:
+            self.func_name = registry[task.reducer]
 
     def finished(self, urls):
         self.done = True

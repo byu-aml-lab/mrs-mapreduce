@@ -42,8 +42,9 @@ class Job(threading.Thread):
         # The BlockingThread is only used in the parallel implementation.
         self.blockingthread = None
 
-        self.program = None
         self.program_class = program_class
+        self.program = None
+        self.registry = None
         self.opts = opts
         self.args = args
 
@@ -86,6 +87,9 @@ class Job(threading.Thread):
             logger.critical('Exception while instantiating the program: %s'
                     % traceback.format_exc())
             self.end()
+
+        import registry
+        self.registry = registry.Registry(self.program)
 
         try:
             self.program.run(self)
@@ -322,6 +326,9 @@ class Job(threading.Thread):
             from util import try_makedirs
             try_makedirs(outdir)
 
+        if not parter:
+            parter = self.program.partition
+
         from datasets import MapData
         ds = MapData(input, mapper, splits, outdir, parter=parter,
                 format=format, permanent=permanent)
@@ -349,6 +356,9 @@ class Job(threading.Thread):
                 permanent = self.opts.mrs__keep_jobdir
             from util import try_makedirs
             try_makedirs(outdir)
+
+        if not parter:
+            parter = self.program.partition
 
         from datasets import ReduceData
         ds = ReduceData(input, reducer, splits, outdir, parter=parter,

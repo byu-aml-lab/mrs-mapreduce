@@ -36,7 +36,7 @@ import sys
 logger = logging.getLogger('mrs')
 
 
-def main(program, update_parser=None):
+def main(program_class, update_parser=None):
     """Run a MapReduce program.
 
     Requires a program class (which inherits from mrs.MapReduce) and an
@@ -54,7 +54,7 @@ def main(program, update_parser=None):
     opts, args = parser.parse_args()
 
     mrs_impl = param.instantiate(opts, 'mrs')
-    mrs_impl.program = program
+    mrs_impl.program_class = program_class
 
     try:
         mrs_impl.main(opts, args)

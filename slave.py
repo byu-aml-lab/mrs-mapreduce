@@ -424,7 +424,7 @@ class Worker(threading.Thread):
         success = False
         self._cond.acquire()
         if self._task is None:
-            reducer = getattr(self.program, map_name)
+            reducer = getattr(self.program, reduce_name)
             parter = getattr(self.program, part_name)
             self._task = ReduceTask(input_data, 0, source, reducer,
                     parter, splits, output, format)

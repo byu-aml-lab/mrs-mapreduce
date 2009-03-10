@@ -45,18 +45,12 @@ class Implementation(ParamObj):
 
     def __init__(self):
         ParamObj.__init__(self)
-        self.run = None
-        self.setup = None
-        self.registry = None
 
     def main(self, opts=None, args=None):
         if opts is None:
             opts = object()
         if args is None:
             args = []
-        if self.run is None:
-            from run import mrs_simple
-            self.run = mrs_simple
 
         if self.debug:
             logger.setLevel(logging.DEBUG)
@@ -82,7 +76,7 @@ class Serial(Implementation):
     def _main(self, opts, args):
         from job import Job
 
-        self.job = Job(self.program, opts, args)
+        self.job = Job(self.program_class, opts, args)
         self.job.update_callback = self.job.end_callback = self.job_updated
         self.job.start()
 
@@ -146,7 +140,7 @@ class MockParallel(Implementation):
         # Set up shared directory
         try_makedirs(self.shared)
 
-        job = Job(self.program, opts, args)
+        job = Job(self.program_class, opts, args)
         job.start()
 
         while not job.done():
@@ -195,12 +189,12 @@ class Master(Network):
         from job import Job
         from io import blocking
         from master import MasterState, MasterEventThread
-        import registry
 
         # create job thread:
-        job = Job(self.program, opts, args)
+        job = Job(self.program_class, opts, args)
         # create master state:
-        program_hash = registry.object_hash(self.program)
+        import registry
+        program_hash = registry.object_hash(self.program_class)
         master = MasterState(job, program_hash, opts, args)
         # create event thread:
         event_thread = MasterEventThread(master)
@@ -245,12 +239,12 @@ class Slave(Network):
         """
         from slave import SlaveState, SlaveEventThread, Worker
         import registry
-        program_hash = registry.object_hash(self.program)
-        slave = SlaveState(program_hash, self.setup, self.master,
-                self.pingdelay, self.timeout)
+        program_hash = registry.object_hash(self.program_class)
+        slave = SlaveState(program_hash, self.master, self.pingdelay,
+                self.timeout)
 
         # Create the other threads:
-        worker = Worker(slave, self.program)
+        worker = Worker(slave, self.program_class)
         event_thread = SlaveEventThread(slave)
 
         # Start the other threads:
