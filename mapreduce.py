@@ -49,6 +49,10 @@ class MapReduce(object):
     created on the master and each worker.  The map and reduce methods cannot
     safely write state to self, since this state will not be shared between
     workers.
+
+    Attributes:
+        opts: An optparse.Values instance with all command-line options.
+        args: A list of command-line positional arguments.
     """
     def map(self, key, value):
         """Map function.
@@ -118,5 +122,19 @@ class MapReduce(object):
         MapReduce.
         """
         raise NotImplementedError
+
+    def random(self, offset):
+        """Creates a Random instance for MapReduce programs to use.
+
+        The offset parameter allows programs to specify separate subsequences.
+        Any two calls with the same offset will return Random instances that
+        generate the same sequence of pseudo-random numbers.
+        """
+        import random
+        import sys
+        seed = opts.mrs__seed + sys.maxint * offset
+        self.random = random.Random(opts.mrs__seed)
+
+
 
 # vim: et sw=4 sts=4

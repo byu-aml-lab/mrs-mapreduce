@@ -27,9 +27,22 @@ specifies its command-line options.
 """
 
 from param import ParamObj, Param
+import binascii
+import random
+import os
+import sys
+
 import logging
 logger = logging.getLogger('mrs')
 del logging
+
+# Set up the default random seed.  Inspired by how the random module works.
+# Note that we keep the seed at 32 bits to make it manageable.
+try:
+    DEFAULT_SEED = int(binascii.hexlify(os.urandom(4)), 16)
+except NotImplementedError:
+    import time
+    DEFAULT_SEED = hash(time.time())
 
 
 class Implementation(ParamObj):
@@ -41,6 +54,7 @@ class Implementation(ParamObj):
     _params = dict(
         verbose=Param(type='bool', doc='Verbose mode (set log level to INFO)'),
         debug=Param(type='bool', doc='Debug mode (set log level to DEBUG)'),
+        seed=Param(default=DEFAULT_SEED, type='int', doc='Random seed'),
         )
 
     def __init__(self):
