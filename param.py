@@ -364,18 +364,29 @@ class _Option(optparse.Option):
     ATTRS = optparse.Option.ATTRS + ['search']
 
     subgroup = None
+    action_taken = False
 
-    def take_action(self, action, dest, *args):
+    def take_action(self, action, dest, opt, value, values, parser):
         if action == 'extend':
-            self.extend(*args)
+            self.extend(opt, value, values, parser)
         else:
-            optparse.Option.take_action(self, action, dest, *args)
+            optparse.Option.take_action(self, action, dest, opt, value,
+                    values, parser)
+
+        # Once a suboption has been given, you shouldn't be able to change
+        # its superoption.
+        self.action_taken = True
 
     def remove_suboptions(self, parser):
-        """Remove any already existing suboptions."""
+        """Remove any already existing suboptions of this option."""
+        if self.action_taken:
+            raise optparse.OptionValueError('Option cannot be specified twice')
         if self.subgroup:
             suboptions = list(self.subgroup.option_list)
             for suboption in suboptions:
+                if suboption.action_taken:
+                    message = 'Option cannot be set after its suboptions'
+                    raise optparse.OptionValueError(message)
                 parser.remove_option(suboption.get_opt_string())
             parser.option_groups.remove(self.subgroup)
             self.subgroup = None
