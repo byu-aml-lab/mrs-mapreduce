@@ -204,7 +204,7 @@ def import_object(name):
     >>> x = import_object('zzzzz')
     Traceback (most recent call last):
         ...
-    ImportError: Could not import zzzzz from any module.
+    ImportError: No module named zzzzz
     >>>
     """
     # Note that we don't use fromlist.  As pointed out at
@@ -300,7 +300,7 @@ class OptionParser(optparse.OptionParser):
     >>> opts, args = parser.parse_args(['--obj', 'zzzzz'])
     Traceback (most recent call last):
         ...
-    TestFailed: option --obj: No module named zzzzz
+    TestFailed: option --obj: Could not find a class called "zzzzz"
     >>>
     """
 
