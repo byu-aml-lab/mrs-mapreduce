@@ -38,8 +38,10 @@ del logging
 
 # Set up the default random seed.  Inspired by how the random module works.
 # Note that we keep the seed at 32 bits to make it manageable.
+SEED_BITS = 32
 try:
-    DEFAULT_SEED = int(binascii.hexlify(os.urandom(4)), 16)
+    seed_bytes = int(SEED_BITS / 8)
+    DEFAULT_SEED = int(binascii.hexlify(os.urandom(seed_bytes)), 16)
 except NotImplementedError:
     import time
     DEFAULT_SEED = hash(time.time())
