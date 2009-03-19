@@ -54,7 +54,8 @@ class Implementation(ParamObj):
     _params = dict(
         verbose=Param(type='bool', doc='Verbose mode (set log level to INFO)'),
         debug=Param(type='bool', doc='Debug mode (set log level to DEBUG)'),
-        seed=Param(default=DEFAULT_SEED, type='int', doc='Random seed'),
+        seed=Param(default=DEFAULT_SEED, type='int',
+            doc='Random seed, default changes each run'),
         )
 
     def __init__(self):
