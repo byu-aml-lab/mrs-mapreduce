@@ -276,7 +276,7 @@ class MasterInterface(RequestXMLRPC):
         if slave is None:
             return -1, {}
         else:
-            raw_iter = self.opts.__dict__.iteritems()
+            raw_iter = vars(self.opts).iteritems()
             optdict = dict((k, v) for k, v in raw_iter if v is not None)
             return (slave.id, optdict, self.args)
 
