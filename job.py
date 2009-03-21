@@ -300,8 +300,11 @@ class Job(threading.Thread):
             from util import try_makedirs
             try_makedirs(outdir)
 
+        if not parter:
+            parter = self.program.partition
+
         from datasets import LocalData
-        ds = LocalData(itr, splits, dir=outdir, parter=None, format=format,
+        ds = LocalData(itr, splits, dir=outdir, parter=parter, format=format,
                 permanent=permanent)
         return ds
 
