@@ -201,7 +201,8 @@ class Master(Network):
             doc="Do not delete jobdir at completion"),
         reduce_tasks=Param(default=1, type='int',
             doc='Default number of reduce tasks'),
-        runfile=Param(doc="Server's RPC port will be written here"),
+        runfile=Param(default='',
+            doc="Server's RPC port will be written here"),
         )
 
     def _main(self, opts, args):
