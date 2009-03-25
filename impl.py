@@ -55,7 +55,8 @@ class Implementation(ParamObj):
     _params = dict(
         verbose=Param(type='bool', doc='Verbose mode (set log level to INFO)'),
         debug=Param(type='bool', doc='Debug mode (set log level to DEBUG)'),
-        seed=Param(default=DEFAULT_SEED, type='int',
+        # Seed needs to be a string to avoid triggering XMLRPC limits:
+        seed=Param(default=str(DEFAULT_SEED),
             doc='Random seed, default changes each run'),
         )
 

@@ -132,7 +132,7 @@ class MapReduce(object):
         """
         import random
         import sys
-        seed = self.opts.mrs__seed + sys.maxint * offset
+        seed = int(self.opts.mrs__seed) + sys.maxint * offset
         return random.Random(seed)
 
 
