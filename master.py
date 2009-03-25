@@ -259,8 +259,8 @@ class MasterInterface(RequestXMLRPC):
             program_hash):
         """Slave reporting for duty.
 
-        It returns the slave_id and option dictionary.  Returns (-1, {}) if
-        the signin is rejected.
+        It returns the slave_id and option dictionary.  Returns (-1, {}, [])
+        if the signin is rejected.
         """
         from version import VERSION
 
