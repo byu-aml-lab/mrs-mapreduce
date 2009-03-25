@@ -34,7 +34,6 @@ import sys
 
 import logging
 logger = logging.getLogger('mrs')
-del logging
 
 # Set up the default random seed.  Inspired by how the random module works.
 # Note that we keep the seed at 32 bits to make it manageable.
