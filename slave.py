@@ -53,7 +53,8 @@ QUIT_DELAY = 0.5
 
 import threading
 from twisted.internet import reactor, defer
-from twist import TwistedThread, GrimReaper, PingTask, ErrbackException
+from twist import TwistedThread, GrimReaper, PingTask, PingRejected, \
+        ErrbackException
 from twistrpc import RequestXMLRPC, TimeoutProxy
 
 from logging import getLogger
@@ -221,6 +222,9 @@ class SlaveState(object):
                 give_up = True
             else:
                 logger.error('Ping timeout.  Trying again.')
+        elif err.check(PingRejected):
+            logger.critical(err.getErrorMessage())
+            give_up = True
         else:
             logger.critical('Lost master due to network error: %s' % err)
             give_up = True

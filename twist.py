@@ -71,6 +71,11 @@ class TwistedThread(threading.Thread):
         reactor.callFromThread(reactor.stop)
 
 
+class PingRejected(Exception):
+    def __str__(self):
+        return 'Master rejected a ping request.'
+
+
 class PingTask(object):
     """Periodically make an XML RPC call to the ping procedure.
     
@@ -179,11 +184,17 @@ class PingTask(object):
 
     def _callback(self, value):
         """Called when the slave responds to a ping."""
-        logger.debug('Ping reply received %s.' % str(self.ping_args))
-        self._update_timestamp()
-        self._schedule_next()
-        # Call the user's callback:
-        self.success()
+        if value:
+            logger.debug('Ping reply received %s.' % str(self.ping_args))
+            self._update_timestamp()
+            self._schedule_next()
+            # Call the user's callback:
+            self.success()
+        else:
+            from twisted.python.failure import Failure
+            failure = Failure(exc_type=PingRejected)
+            self.failure(failure)
+            return
 
     def _errback(self, err):
         """Called when the slave fails to respond to a ping."""
