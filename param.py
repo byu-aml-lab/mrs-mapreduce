@@ -41,6 +41,10 @@ class ParamError(Exception):
         return 'Class %s has no parameter "%s"' % (self.clsname, self.paramname)
 
 
+# People need to be able to override inherited values with None, so we need a
+# NotSpecified to do this.
+NotSpecified = object()
+
 class Param(object):
     """A Parameter with name, default value, and documentation.
 
@@ -56,12 +60,12 @@ class Param(object):
         shortopt: A short form of the option, used for commonly-used options.
                 Use this sparingly since conflicts are dangerous.
     """
-    def __init__(self, default=None, type='string', doc=None, shortopt=None):
+    def __init__(self, default=NotSpecified, type=NotSpecified, doc=NotSpecified,
+            shortopt=NotSpecified):
         self.default = default
         self.doc = doc
         self.type = type
         self.shortopt = shortopt
-        self.check()
 
     def check(self):
         """Check for validity."""
@@ -71,17 +75,15 @@ class Param(object):
             assert self.default is False
 
     def inherit(self, base):
-        """Replace any None elements with replacements from a base instance."""
-        if param.doc is None:
-            self.doc = baseparam.doc
-        if param.type is None:
-            self.type = baseparam.type
-        if param.default is None:
-            self.default = baseparam.default
-        if param.shortopt is None:
-            self.shortopt = baseparam.shortopt
-        # Make sure that we didn't inherit an invalid default.
-        self.check()
+        """Replace any NotSpecified elements with replacements from a base instance."""
+        if self.doc is NotSpecified:
+            self.doc = base.doc
+        if self.type is NotSpecified:
+            self.type = base.type
+        if self.default is NotSpecified:
+            self.default = base.default
+        if self.shortopt is NotSpecified:
+            self.shortopt = base.shortopt
 
     def copy(self):
         p = Param()
@@ -90,6 +92,17 @@ class Param(object):
         p.doc = self.doc
         p.shortopt = self.shortopt
         return p
+
+    def set_defaults(self):
+        """Switch any NotSpecified things to the correct defaults."""
+        if self.doc is NotSpecified:
+            self.doc = None
+        if self.type is NotSpecified:
+            self.type = 'string'
+        if self.default is NotSpecified:
+            self.default = None
+        if self.shortopt is NotSpecified:
+            self.shortopt = None
 
 
 class _ParamMeta(type):
@@ -121,11 +134,17 @@ class _ParamMeta(type):
                 # This base class doesn't have a params list.
                 continue
 
+            # Inherit any possible values.
             for name, baseparam in baseparams.iteritems():
                 if name in params:
                     params[name].inherit(baseparam)
                 else:
                     params[name] = baseparam.copy()
+
+            # Get rid of any leftover NotSpecified values.
+            for param in params.itervalues():
+                param.set_defaults()
+                param.check()
 
         # Update documentation based on our parameters
         if '__doc__' not in classdict:
