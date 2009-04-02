@@ -141,10 +141,11 @@ class _ParamMeta(type):
                 else:
                     params[name] = baseparam.copy()
 
-            # Get rid of any leftover NotSpecified values.
-            for param in params.itervalues():
-                param.set_defaults()
-                param.check()
+        # Get rid of any leftover NotSpecified values.
+        #for param in params.itervalues():
+        for name, param in params.iteritems():
+            param.set_defaults()
+            param.check()
 
         # Update documentation based on our parameters
         if '__doc__' not in classdict:
@@ -444,6 +445,9 @@ class _Option(optparse.Option):
             params = paramobj._params
         except AttributeError:
             params = None
+        if paramobj.__metaclass__ is not _ParamMeta:
+            err = '%s sets _params without inheriting from ParamObj' % paramobj
+            raise RuntimeError(err)
         if params:
             if self._long_opts:
                 prefix = self._long_opts[0][2:]
