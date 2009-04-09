@@ -2,7 +2,6 @@
 - the done call should have some identifier of which job is being finished
   in order to reduce possible confusion; once this is done, the slave can
   retry calling done
-- logging
 - add an input splitter; use the "Range:" header in HTTP requests as part of
   the split implementation.  See also the "urlgrabber" module.  To implement
   this in the HTTP server, you will have to implement do_GET on its own (see
@@ -10,6 +9,8 @@
 - show current status by creating an HTTP server on the master (with an
   option)
 - have reducers start collecting data before all of the input files are ready
+- find something more sane than Twisted (something generator based would be
+  really nice)
 
 
 ########################################################################

@@ -37,11 +37,27 @@ from twisted.web import server, xmlrpc
 from twisted.internet import reactor, defer
 from twist import reactor_call, block
 
+
 class TimeoutQueryFactory(xmlrpc._QueryFactory):
     """XMLRPC Query Factory that supports timeouts.
 
-    We extend Twisted's QueryFactory to allow connections to timeout.
-    When a timeout occurs, we'll errback to the normal deferred.
+    We extend Twisted's QueryFactory to allow connections to timeout.  When a
+    timeout occurs, we'll errback to the normal deferred.
+
+    Twisted has this strange notion of a "factory" that isn't at all obvious
+    (I think Twisted secretly wishes it was written in Java).  Anyway, a
+    Twisted "factory" is what any normal person would call a "server".  They
+    kind of make sense for a server, where you're spawning off multiple
+    connections.  However, they're unfortunately used for clients, too, hence
+    the meaningless name for a meaningless abstraction.
+
+    Bitter feelings aside, let me try to explain what a "factory" is for a
+    client.  In the normal case, it's just a meaningless layer that's only
+    used for its buildProtocol method.  However, it can also be used to do
+    fancy stuff like automatically reconnecting, in which case it creates a
+    new protocol object for each connection.  However, automatically
+    reconnecting is not a general feature, so the factory abstraction really
+    is quite useless for clients.
     """
     def __init__(self, *args, **kwds):
         if 'timeout' in kwds:
@@ -182,6 +198,7 @@ class RequestXMLRPC(xmlrpc.XMLRPC):
                 self._cbRender, request
             )
         return server.NOT_DONE_YET
+
 
 def uses_request(f):
     """Decorate f with the attribute `uses_request`.
