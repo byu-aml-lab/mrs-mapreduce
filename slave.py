@@ -47,6 +47,7 @@ threads complete.
 PING_ATTEMPTS = 50
 WATCHDOG_INTERVAL = 5
 WATCHDOG_TIMEOUT = 2
+BACKLOG = 1000
 
 COOKIE_LEN = 8
 QUIT_DELAY = 0.5
@@ -126,7 +127,7 @@ class SlaveState(object):
 
         resource = SlaveInterface(self)
         site = server.Site(resource)
-        tcpport = reactor.listenTCP(0, site)
+        tcpport = reactor.listenTCP(0, site, BACKLOG)
         address = tcpport.getHost()
 
         # Initiate signin to master

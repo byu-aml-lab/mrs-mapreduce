@@ -25,6 +25,8 @@
 More information coming soon.
 """
 
+BACKLOG = 1000
+
 import logging
 import threading
 from twisted.internet import reactor, defer
@@ -96,7 +98,7 @@ class MasterState(object):
                 self.args)
         site = server.Site(resource)
         try:
-            self.server_port = reactor.listenTCP(self.port, site)
+            self.server_port = reactor.listenTCP(self.port, site, BACKLOG)
         except error.CannotListenError:
             logger.error('Port already in use.')
             self.reaper.reap()
