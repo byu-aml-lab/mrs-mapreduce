@@ -47,7 +47,7 @@ def remove_recursive(path):
         return
     else:
         message = 'Failed to delete some of %s (probably due to NFS).' % path
-        logging.warning(messsage)
+        logger.warning(message)
 
 def delta_seconds(delta):
     """Find the total number of seconds in a timedelta object.
