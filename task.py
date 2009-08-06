@@ -107,10 +107,17 @@ class MapTask(Task):
         else:
             all_input = self.input.itersplit(self.split)
 
+        if self.storage and (self.splits > 1):
+            import tempfile
+            prefix = 'source_%s_' % self.source
+            subdir = tempfile.mkdtemp(prefix=prefix, dir=self.storage)
+        else:
+            subdir = self.storage
+
         # MAP PHASE
         itr = self.map(all_input)
         self.output = datasets.LocalData(itr, self.splits, source=self.source,
-                parter=self.partition, dir=self.storage, format=self.format)
+                parter=self.partition, dir=subdir, format=self.format)
 
     def map(self, input):
         """Yields map output iterating over the entries in input."""
@@ -139,6 +146,13 @@ class ReduceTask(Task):
             all_input = self.input.itersplit(self.split)
         sorted_input = sorted(all_input)
 
+        if self.storage and (self.splits > 1):
+            import tempfile
+            prefix = 'source_%s_' % self.source
+            subdir = tempfile.mkdtemp(prefix=prefix, dir=self.storage)
+        else:
+            subdir = self.storage
+
         # Do the following if external sort is necessary (i.e., the input
         # files are too big to fit in memory):
         #fd, sorted_name = tempfile.mkstemp(prefix='mrs.sorted_')
@@ -148,7 +162,7 @@ class ReduceTask(Task):
         # REDUCE PHASE
         itr = self.reduce(sorted_input)
         self.output = datasets.LocalData(itr, self.splits, source=self.source,
-                parter=self.partition, dir=self.storage, format=self.format)
+                parter=self.partition, dir=subdir, format=self.format)
 
     def reduce(self, input):
         """Yields reduce output iterating over the entries in input.
