@@ -100,7 +100,7 @@ class RecursiveRemover(object):
         self.path = path
 
     def run(self):
-        from util import remove_recursive
+        from mrs.util import remove_recursive
         remove_recursive(self.path)
 
 # vim: et sw=4 sts=4
