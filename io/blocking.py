@@ -78,4 +78,18 @@ class BlockingThread(threading.Thread):
             producer = self.queue.get()
             producer.run()
 
+
+class RecursiveRemover(object):
+    """A "producer" that recursively removes a tree.
+
+    Since this can block, it needs to run within BlockingThread, so it has
+    been made a "producer".
+    """
+    def __init__(self, path):
+        self.path = path
+
+    def run(self):
+        from util import remove_recursive
+        remove_recursive(self.path)
+
 # vim: et sw=4 sts=4

@@ -306,6 +306,7 @@ class Job(threading.Thread):
         from datasets import LocalData
         ds = LocalData(itr, splits, dir=outdir, parter=parter, format=format,
                 permanent=permanent)
+        ds.blockingthread = self.blockingthread
         return ds
 
     def map_data(self, input, mapper, splits=None, outdir=None, parter=None,

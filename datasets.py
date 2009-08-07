@@ -76,11 +76,16 @@ class BaseDataSet(object):
         the system to free resources.  Don't close a DataSet unless you really
         mean it.
         """
-        if self.dir and not self.permanent:
-            from util import remove_recursive
-            remove_recursive(self.dir)
-        self._data = None
         self.closed = True
+        if not self.permanent:
+            from bucket import BucketRemover
+            for bucket in self:
+                self.blockingthread.register(BucketRemover(bucket))
+            if self.dir:
+                # Just to make sure it's all gone:
+                from io.blocking import RecursiveRemover
+                self.blockingthread.register(RecursiveRemover(self.dir))
+        self._data = None
 
     def ready(self):
         """Report whether DataSet is ready.
@@ -152,6 +157,9 @@ class BaseDataSet(object):
 
         else:
             return self._data[part1][part2]
+
+    def __del__(self):
+        self.close()
 
 
 class DataSet(BaseDataSet):
@@ -568,7 +576,7 @@ class ComputedData(RemoteData):
         input, the data cannot be regenerated, and no further reads will be
         allowed.
         """
-        self.closed = True
+        super(ComputedData, self).close()
         self.input = None
 
     def _use_output(self, output):

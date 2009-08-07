@@ -120,6 +120,19 @@ class Bucket(object):
     def sort(self):
         self._data.sort()
 
+    def clean(self):
+        """Removes any temporary files created and empties cached data.
+
+        Since this can block, it should be called from another thread.
+        """
+        self._data = None
+        if self.dir:
+            parsed_url = urlparse.urlsplit(self.url, 'file')
+            if parsed_url.scheme == 'file':
+                os.remove(parsed_url.path)
+            else:
+                logger.warning('Cannot remove %s' % self.url)
+
     def __len__(self):
         return len(self._data)
 
@@ -130,5 +143,18 @@ class Bucket(object):
     def __iter__(self):
         return iter(self._data)
 
+
+class BucketRemover(object):
+    """A "producer" that removes the given Bucket when run.
+
+    This normally gets run in the BlockingThread, which avoids disruption to
+    the flow of Mrs.
+    """
+
+    def __init__(self, bucket):
+        self.bucket = bucket
+
+    def run(self):
+        self.bucket.clean()
 
 # vim: et sw=4 sts=4
