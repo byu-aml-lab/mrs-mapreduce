@@ -41,7 +41,7 @@ import threading
 
 
 def read():
-    import urlparse, urllib2
+    import urlparse
     parsed_url = urlparse.urlsplit(url, 'file')
     if parsed_url.scheme == 'file':
         f = open(parsed_url.path)

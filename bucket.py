@@ -127,6 +127,7 @@ class Bucket(object):
         """
         self._data = None
         if self.dir:
+            import urlparse
             parsed_url = urlparse.urlsplit(self.url, 'file')
             if parsed_url.scheme == 'file':
                 os.remove(parsed_url.path)
