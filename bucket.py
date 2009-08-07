@@ -126,7 +126,7 @@ class Bucket(object):
         Since this can block, it should be called from another thread.
         """
         self._data = None
-        if self.dir:
+        if self.dir and self.url:
             import urlparse
             parsed_url = urlparse.urlsplit(self.url, 'file')
             if parsed_url.scheme == 'file':
