@@ -133,8 +133,6 @@ def urlconsume(url, consumer, blockingthread):
     else:
         producer = URLProducer(u.path, consumer, blockingthread)
         blockingthread.register(producer)
-        if not blockingthread.isAlive():
-            blockingthread.start()
         deferred = producer.deferred
 
     return deferred

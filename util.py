@@ -24,6 +24,10 @@
 
 from __future__ import division
 
+from logging import getLogger
+logger = getLogger('mrs')
+
+
 def try_makedirs(path):
     """Do the equivalent of mkdir -p."""
     import os
@@ -42,7 +46,8 @@ def remove_recursive(path):
     if retcode == 0:
         return
     else:
-        raise OSError("Couldn't rm -rf \"%s\"" % path)
+        message = 'Failed to delete some of %s (probably due to NFS).' % path
+        logger.warning(message)
 
 def delta_seconds(delta):
     """Find the total number of seconds in a timedelta object.

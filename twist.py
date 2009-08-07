@@ -183,7 +183,7 @@ class PingTask(object):
             deferred.addErrback(self._errback)
 
     def _callback(self, value):
-        """Called when the slave responds to a ping."""
+        """Called when the remote host responds to a ping."""
         if value:
             logger.debug('Ping reply received %s.' % str(self.ping_args))
             self._update_timestamp()
@@ -192,7 +192,7 @@ class PingTask(object):
             self.success()
         else:
             from twisted.python.failure import Failure
-            failure = Failure(exc_type=PingRejected)
+            failure = Failure(PingRejected())
             self.failure(failure)
             return
 
