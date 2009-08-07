@@ -55,35 +55,45 @@ def read():
 class BlockingThread(threading.Thread):
     """Loads files and urls with blocking reads.
     
-    This thread deals with IO that cannot be handled natively in Twisted.
+    This thread deals with IO that cannot be handled natively in Twisted.  A
+    task or producer is an object which has a `run` method.  Note that the
+    BlockingThread starts lazily (once something has been registered).
     """
     def __init__(self, *args, **kwds):
         threading.Thread.__init__(self, *args, **kwds)
         self.setName('BlockingThread')
         # Set this thread to die when the main thread quits.
         self.setDaemon(True)
+        self.started = False
+        self.started_lock = threading.Lock()
 
         import Queue
         self.queue = Queue.Queue()
 
-    def register(self, producer):
-        """Registers a blocking producer.
+    def register(self, task):
+        """Registers a blocking producer or task.
         
         Called from other threads.
         """
-        self.queue.put(producer)
+        self.queue.put(task)
+        if not self.started:
+            self.started_lock.acquire()
+            try:
+                if not self.started:
+                    self.start()
+            finally:
+                self.started_lock.release()
 
     def run(self):
         while True:
-            producer = self.queue.get()
-            producer.run()
+            task = self.queue.get()
+            task.run()
 
 
 class RecursiveRemover(object):
-    """A "producer" that recursively removes a tree.
+    """A task that recursively removes a tree.
 
-    Since this can block, it needs to run within BlockingThread, so it has
-    been made a "producer".
+    Since this can block, it needs to run within BlockingThread.
     """
     def __init__(self, path):
         self.path = path
