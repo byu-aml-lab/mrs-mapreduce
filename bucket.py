@@ -21,6 +21,7 @@
 # (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
 
 
+import os
 from logging import getLogger
 logger = getLogger('mrs')
 
@@ -64,7 +65,6 @@ class Bucket(object):
 
     def open_writer(self):
         if self.dir and not self._writer:
-            import os
             # Note that Python 2.6 has NamedTemporaryFile(delete=False), which
             # would make this easier.
             import tempfile
