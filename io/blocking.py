@@ -81,6 +81,7 @@ class BlockingThread(threading.Thread):
             try:
                 if not self.started:
                     self.start()
+                    self.started = True
             finally:
                 self.started_lock.release()
 
