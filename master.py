@@ -25,6 +25,8 @@
 More information coming soon.
 """
 
+# Note that the actual backlog may be limited by the OS--in Linux see:
+# /proc/sys/net/core/somaxconn (which seems to be 128 by default)
 BACKLOG = 1000
 
 import logging
@@ -399,6 +401,7 @@ class RemoteSlave(object):
         from datetime import datetime
         if not self.alive():
             logger.warning('Updating the timestamp of a slave that was dead.')
+            self.resurrect()
         self.timestamp = datetime.utcnow()
 
     def get_timestamp(self):
@@ -437,9 +440,10 @@ class RemoteSlave(object):
         return self._alive
 
     def resurrect(self):
-        self._alive = True
-        # Restart the ping_task
-        self.ping_task.start()
+        if not self.alive():
+            self._alive = True
+            # Restart the ping_task
+            self.ping_task.start()
 
     def disconnect(self):
         """Disconnect the slave.
