@@ -64,7 +64,9 @@ class Bucket(object):
         self._writer = None
 
     def open_writer(self):
-        if self.dir and not self._writer:
+        # Don't open if 1) there's no place to put it; 2) it's already saved
+        # some place; or 3) it's already open.
+        if self.dir and not self.url and not self._writer:
             # Note that Python 2.6 has NamedTemporaryFile(delete=False), which
             # would make this easier.
             import tempfile
