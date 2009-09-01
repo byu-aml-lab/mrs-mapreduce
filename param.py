@@ -115,7 +115,7 @@ class _ParamMeta(type):
     default to the default value in the Param object, but it can be
     overridden by name in __init__.
 
-    Rather than using ParamMeta directly, we recommend that you subclass
+    Rather than using _ParamMeta directly, we recommend that you subclass
     ParamObj, which will allow you to override __init__ as long as you
     call super's __init__.
     """
@@ -441,13 +441,10 @@ class _Option(optparse.Option):
 
         self.remove_suboptions(parser)
 
-        try:
-            params = paramobj._params
-        except AttributeError:
-            params = None
         if paramobj.__metaclass__ is not _ParamMeta:
             err = '%s sets _params without inheriting from ParamObj' % paramobj
             raise RuntimeError(err)
+        params = paramobj._params
         if params:
             if self._long_opts:
                 prefix = self._long_opts[0][2:]
