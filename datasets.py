@@ -198,9 +198,11 @@ class DataSet(BaseDataSet):
     def __init__(self, **kwds):
         BaseDataSet.__init__(self, **kwds)
 
-        # For now assume that all sources have the same # of splits.
+        # For now assume that all sources have the same # of splits.  Also,
+        # don't send the directory on to the Buckets because they shouldn't
+        # be writing out to disk.
         from bucket import Bucket
-        self._data = [[Bucket(i, j, self.dir, self.format)
+        self._data = [[Bucket(i, j, format=self.format)
                 for j in xrange(self.splits)]
                 for i in xrange(self.sources)]
 
