@@ -97,6 +97,7 @@ class SerialProducer(object):
         data = f.read()
         self.consumer.write(data)
         self.consumer.unregisterProducer()
+        f.close()
 
 
 class HTTPClientProducerProtocol(HTTPPageDownloader):
