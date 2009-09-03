@@ -32,9 +32,8 @@ from zope.interface import implements
 import twisttest
 
 
-# TODO: Either make self.consumer.write() happen within the BlockingThread
-# (and make sure that write() doesn't do any "twisted" stuff) or split the
-# writes into chunks.
+# TODO: consider reading chunks of data instead of reading and writing all of
+# it at once (which can take a long time).
 class URLProducer(object):
     """A Blocking Producer which reads data from any URL.
 
@@ -60,6 +59,7 @@ class URLProducer(object):
         from load import open_url
         f = open_url(self.url)
         data = f.read()
+        f.close()
         reactor.callFromThread(self._write, data)
 
     def _write(self, data):
@@ -95,9 +95,9 @@ class SerialProducer(object):
         from load import open_url
         f = open_url(self.url)
         data = f.read()
+        f.close()
         self.consumer.write(data)
         self.consumer.unregisterProducer()
-        f.close()
 
 
 class HTTPClientProducerProtocol(HTTPPageDownloader):
