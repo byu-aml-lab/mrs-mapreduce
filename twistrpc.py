@@ -30,12 +30,17 @@ receive the client object.
 Most Mrs code uses FromThreadProxy and RequestXMLRPC.
 """
 
+DEFAULT_RETRIES = 3
 DEFAULT_TIMEOUT = 30.0
+RETRY_DELAY = 0.1
 
 import xmlrpclib
 from twisted.web import server, xmlrpc
-from twisted.internet import reactor, defer
+from twisted.internet import reactor, defer, error
 from twist import reactor_call, block
+
+from logging import getLogger
+logger = getLogger('mrs')
 
 
 class TimeoutQueryFactory(xmlrpc._QueryFactory):
@@ -55,18 +60,47 @@ class TimeoutQueryFactory(xmlrpc._QueryFactory):
     client.  In the normal case, it's just a meaningless layer that's only
     used for its buildProtocol method.  However, it can also be used to do
     fancy stuff like automatically reconnecting, in which case it creates a
-    new protocol object for each connection.  However, automatically
-    reconnecting is not a general feature, so the factory abstraction really
-    is quite useless for clients.
+    new protocol object for each connection.  However, even automatic
+    reconnection isn't designed properly, so the factory abstraction really is
+    quite broken for clients.
     """
     def __init__(self, *args, **kwds):
+        self.failures = 0
         if 'timeout' in kwds:
             self.timeout = kwds['timeout']
             del kwds['timeout']
         else:
             self.timeout = None
+
+        self.port = kwds['port']
+        del kwds['port']
+
+        self.secure = kwds['secure']
+        del kwds['secure']
+
+        self.retries = kwds['retries']
+        del kwds['retries']
+
+        self.connector = None
+        self.canceled = False
         self.timed_out = False
         xmlrpc._QueryFactory.__init__(self, *args, **kwds)
+
+    def connect(self):
+        if self.secure:
+            from twisted.internet import ssl
+            self.connector = reactor.connectSSL(self.host, self.port or 443,
+                    self, ssl.ClientContextFactory())
+        else:
+            self.connector = reactor.connectTCP(self.host, self.port or 80,
+                    self)
+
+    def cancel(self):
+        if self.connector:
+            self.canceled = True
+            self.connector.disconnect()
+        else:
+            raise RuntimeError('Cancel called on a factory with no connector.')
 
     def buildProtocol(self, addr):
         p = xmlrpc._QueryFactory.buildProtocol(self, addr)
@@ -80,8 +114,8 @@ class TimeoutQueryFactory(xmlrpc._QueryFactory):
         """Called when a timeout occurs."""
         self.timed_out = True
         p.transport.loseConnection()
-        error = defer.TimeoutError()
-        self.deferred.errback(error)
+        err = defer.TimeoutError()
+        self.deferred.errback(err)
 
     def _cancel_timeout(self, result):
         """Called when the deferred is done (either succeeded or failed)"""
@@ -90,9 +124,18 @@ class TimeoutQueryFactory(xmlrpc._QueryFactory):
         return result
 
     # We override this so the deferred doesn't get 2 errbacks calls:
-    def clientConnectionLost(self, *args):
-        if not self.timed_out:
-            xmlrpc._QueryFactory.clientConnectionLost(self, *args)
+    def clientConnectionLost(self, connector, err):
+        if self.canceled:
+            pass
+        elif self.timed_out:
+            pass
+        elif (self.failures < self.retries and
+                err.check(error.DNSLookupError, error.ConnectError)):
+            logger.info('Retrying an RPC call.')
+            self.failures += 1
+            self.connect()
+        else:
+            xmlrpc._QueryFactory.clientConnectionLost(self, connector, err)
 
     clientConnectionFailed = clientConnectionLost
 
@@ -105,15 +148,18 @@ class TimeoutProxy(xmlrpc.Proxy):
     """
     queryFactory = TimeoutQueryFactory
 
-    def __init__(self, url, timeout=DEFAULT_TIMEOUT, **kwds):
+    def __init__(self, url, timeout=DEFAULT_TIMEOUT, retries=DEFAULT_RETRIES,
+            **kwds):
         self.timeout = timeout
+        self.retries = retries
 
         cleaned_url = rpc_url(url)
         xmlrpc.Proxy.__init__(self, cleaned_url, **kwds)
 
     def callRemote(self, *args):
-        deferred, connector = self.powerful_call(*args)
-        return deferred
+        """Overrides callRemote to always go through powerful_call."""
+        factory = self.powerful_call(*args)
+        return factory.deferred
 
     # ripped almost exactly from twisted.web.xmlrpc:
     def powerful_call(self, method, *args):
@@ -125,14 +171,10 @@ class TimeoutProxy(xmlrpc.Proxy):
         """
         factory = self.queryFactory(
             self.path, self.host, method, self.user,
-            self.password, self.allowNone, args, timeout=self.timeout)
-        if self.secure:
-            from twisted.internet import ssl
-            connector = reactor.connectSSL(self.host, self.port or 443,
-                               factory, ssl.ClientContextFactory())
-        else:
-            connector = reactor.connectTCP(self.host, self.port or 80, factory)
-        return factory.deferred, connector
+            self.password, self.allowNone, args, timeout=self.timeout,
+            port=self.port, secure=self.secure, retries=self.retries)
+        factory.connect()
+        return factory
 
     def blocking_call(self, *args):
         """Make a blocking XML RPC call to a remote server.

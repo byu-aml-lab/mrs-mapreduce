@@ -101,7 +101,9 @@ class PingTask(object):
 
         self.running = False
         self._callid = None
-        self._connector = None
+        # Factory is an annoying Twistedism--we just need it to be able to
+        # cancel requests.
+        self._factory = None
 
     def start(self):
         """Start or restart the ping task."""
@@ -156,8 +158,8 @@ class PingTask(object):
         if self._callid:
             self._callid.cancel()
             self._callid = None
-        if self._connector:
-            self._connector.disconnect()
+        if self._factory:
+            self._factory.cancel()
 
     def _task(self):
         """The PingTask's repeatedly called function.
@@ -178,7 +180,8 @@ class PingTask(object):
             self._schedule_next()
         else:
             logger.debug('Pinging %s.' % str(self.ping_args))
-            deferred, self._connector = self.rpc.powerful_call(*self.ping_args)
+            self._factory = self.rpc.powerful_call(*self.ping_args)
+            deferred = self._factory.deferred
             deferred.addCallback(self._callback)
             deferred.addErrback(self._errback)
 
@@ -199,14 +202,9 @@ class PingTask(object):
     def _errback(self, err):
         """Called when the slave fails to respond to a ping."""
         logger.debug('Ping failed for "%s".' % self.ping_args[1])
-        if err.check(error.ConnectionDone):
-            # We'll assume that this means that the user requested a cancel
-            # and that it's gone through.
-            pass
-        else:
-            self._schedule_next()
-            # Call the user's callback:
-            self.failure(err)
+        self._schedule_next()
+        # Call the user's callback:
+        self.failure(err)
 
 
 class GrimReaper(object):
