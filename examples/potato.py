@@ -4,7 +4,7 @@
 
 import getpass, os, socket, subprocess, sys, time
 
-SCRATCH_DIR = '/'.join(('/aml/scratch', getpass.getuser()))
+DEFAULT_SCRATCH_DIR = '/'.join(('/aml/scratch', getpass.getuser()))
 PYTHON = 'python'
 HOSTFILES = ['/admin/potatoes/all4']
 
@@ -16,6 +16,10 @@ DEFAULT_JOBNAME = 'mrspotato'
 JOBNAME = os.getenv('JOBNAME')
 if not JOBNAME:
     JOBNAME = DEFAULT_JOBNAME
+
+SCRATCH_DIR = os.getenv('SCRATCH_DIR')
+if not SCRATCH_DIR:
+    SCRATCH_DIR = DEFAULT_SCRATCH_DIR
 
 OUTDIR = os.path.join(SCRATCH_DIR, JOBNAME)
 RUNFILE = os.path.join(OUTDIR, 'master.run')
