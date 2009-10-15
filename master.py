@@ -369,6 +369,7 @@ class RemoteSlave(object):
         func_name = assignment.func_name
         part_name = assignment.part_name
         # TODO: convert these RPC calls to be asynchronous!
+        logger.info('Assigning a task to slave %s.' % self.id)
         if assignment.map:
             deferred = self.rpc.callRemote('start_map', task.source,
                     task.inurls(), func_name, part_name, task.splits,
