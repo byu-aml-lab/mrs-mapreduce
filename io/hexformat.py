@@ -85,9 +85,6 @@ class HexWriter(TextWriter):
         encoded_value, length = hex_encoder(value)
         print >>self.file, encoded_key, encoded_value
 
-    def close(self):
-        self.file.close()
-
 
 def hexformat_sort(in_filenames, out_filename):
     """Sort one or more HexFormats into a new HexFormat.

@@ -44,6 +44,9 @@ class TextWriter(object):
         print >>self.file, key, value
 
     def close(self):
+        # TODO: find out whether flushing and fsyncing is necessary.
+        #self.file.flush()
+        #os.fsync(self.file.fileno())
         self.file.close()
 
 
