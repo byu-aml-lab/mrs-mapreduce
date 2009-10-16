@@ -24,6 +24,7 @@
 # TODO: add a DataSet for resplitting input (right now we assume that input
 # files are pre-split).
 
+import os
 from itertools import chain, izip
 
 from logging import getLogger
@@ -354,6 +355,10 @@ class LocalData(BaseDataSet):
                 bucket.addpair(kvpair)
         for bucket in buckets:
             bucket.close_writer()
+        # Sync the containing dir to make sure the files are really written.
+        fd = os.open(self.dir, os.O_RDONLY)
+        os.fsync(fd)
+        os.close(fd)
 
 
 class RemoteData(DataSet):
