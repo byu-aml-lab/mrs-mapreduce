@@ -310,7 +310,7 @@ class SlaveInterface(RequestXMLRPC):
             output, extension, cookie):
         self.slave.check_cookie(cookie)
         self.slave.update_timestamp()
-        logger.debug('Received a Map assignment from the master.')
+        logger.info('Received a Map assignment from the master.')
         return self.slave.worker.start_map(source, inputs, func_name,
                 part_name, splits, output, extension)
 
@@ -318,7 +318,7 @@ class SlaveInterface(RequestXMLRPC):
             splits, output, extension, cookie):
         self.slave.check_cookie(cookie)
         self.slave.update_timestamp()
-        logger.debug('Received a Reduce assignment from the master.')
+        logger.info('Received a Reduce assignment from the master.')
         return self.slave.worker.start_reduce(source, inputs, func_name,
                 part_name, splits, output, extension)
 
@@ -464,7 +464,7 @@ class Worker(threading.Thread):
             task = self._task
             self._cond.release()
 
-            logger.debug('Starting to run a new task.')
+            logger.info('Starting to run a new task.')
             try:
                 task.run()
             except Exception, e:
@@ -479,7 +479,7 @@ class Worker(threading.Thread):
             self._task = None
             self._cond.release()
 
-            logger.debug('Reporting task completion to the master.')
+            logger.info('Reporting task completion to the master.')
             try:
                 self.slave.master_rpc.blocking_call('done', self.slave.id,
                         task.outurls(), self.slave.cookie)

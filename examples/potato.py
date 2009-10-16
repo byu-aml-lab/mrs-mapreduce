@@ -38,7 +38,7 @@ def run(*args):
 
 MASTER_COMMAND = ' '.join((PYTHON, mrs_program,
     ' '.join(mrs_argv),
-    '-I Master --mrs-debug',
+    '-I Master --mrs-verbose',
     '--mrs-runfile', RUNFILE,
     '--mrs-shared', OUTDIR,
     '2>%s/master.err' % OUTDIR,

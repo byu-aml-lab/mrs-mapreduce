@@ -304,7 +304,7 @@ class MasterInterface(RequestXMLRPC):
         """
         slave = self.master.get_slave(slave_id, cookie)
         if slave is not None:
-            logger.debug('Slave %s reported completion.' % slave_id)
+            logger.info('Slave %s reported completion.' % slave_id)
             self.master.slave_result(slave, files)
             self.master.slave_ready(slave)
             slave.update_timestamp()
@@ -369,7 +369,7 @@ class RemoteSlave(object):
         func_name = assignment.func_name
         part_name = assignment.part_name
         # TODO: convert these RPC calls to be asynchronous!
-        logger.debug('Assigning a task to slave %s.' % self.id)
+        logger.info('Assigning a task to slave %s.' % self.id)
         if assignment.map:
             deferred = self.rpc.callRemote('start_map', task.source,
                     task.inurls(), func_name, part_name, task.splits,
