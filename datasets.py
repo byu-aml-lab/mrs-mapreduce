@@ -36,6 +36,12 @@ class BaseDataSet(object):
 
     A DataSet is naturally a two-dimensional list.  There are some number of
     sources, and for each source, there are one or more splits.
+
+    Attributes:
+        sources: number of input sources (e.g., tasks); to get all of the
+            data from a particular source, use itersource()
+        splits: number of outputs per source; to get all data for a particular
+            split from all sources, use itersplit()
     """
     def __init__(self, sources=0, splits=0, dir=None, format=None,
             permanent=True):
