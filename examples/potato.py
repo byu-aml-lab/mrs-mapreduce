@@ -2,30 +2,34 @@
 
 """Runs a Mrs program using screen and pssh."""
 
-import getpass, os, socket, subprocess, sys, time
+import getpass, optparse, os, socket, subprocess, sys, time
 
 DEFAULT_SCRATCH_DIR = '/'.join(('/aml/scratch', getpass.getuser()))
+DEFAULT_JOBNAME = 'mrspotato'
 PYTHON = 'python'
-HOSTFILES = ['/admin/potatoes/all4']
 
 
 ##############################################################################
 # Setup
 
-DEFAULT_JOBNAME = 'mrspotato'
-JOBNAME = os.getenv('JOBNAME')
-if not JOBNAME:
-    JOBNAME = DEFAULT_JOBNAME
+parser = optparse.OptionParser(conflict_handler='resolve')
+parser.disable_interspersed_args()
+parser.add_option('-h', '--hosts', dest='hostfiles', action='append',
+        help='hosts file (each line "host[:port] [user]")', default=[])
+parser.add_option('-n', '--jobname', dest='jobname', action='store',
+        help='job name', default=DEFAULT_JOBNAME)
+parser.add_option('-s', '--scratch', dest='scratch_dir', action='store',
+        help='scratch directory', default=DEFAULT_SCRATCH_DIR)
+opts, args = parser.parse_args()
 
-SCRATCH_DIR = os.getenv('SCRATCH_DIR')
-if not SCRATCH_DIR:
-    SCRATCH_DIR = DEFAULT_SCRATCH_DIR
+if not opts.hostfiles:
+    parser.error('No hosts file specified!')
 
-OUTDIR = os.path.join(SCRATCH_DIR, JOBNAME)
-RUNFILE = os.path.join(OUTDIR, 'master.run')
+outdir = os.path.join(opts.scratch_dir, opts.jobname)
+runfilename = os.path.join(outdir, 'master.run')
 
-mrs_program = sys.argv[1]
-mrs_argv = sys.argv[2:]
+mrs_program = args[0]
+mrs_argv = args[1:]
 
 def run(*args):
     returncode = subprocess.call(args)
@@ -39,31 +43,31 @@ def run(*args):
 MASTER_COMMAND = ' '.join((PYTHON, mrs_program,
     ' '.join(mrs_argv),
     '-I Master --mrs-verbose',
-    '--mrs-runfile', RUNFILE,
-    '--mrs-shared', OUTDIR,
-    '2>%s/master.err' % OUTDIR,
-    '|tee %s/master.out' % OUTDIR))
+    '--mrs-runfile', runfilename,
+    '--mrs-shared', outdir,
+    '2>%s/master.err' % outdir,
+    '|tee %s/master.out' % outdir))
 
-STDERR_COMMAND = 'tail -F %s/master.err' % OUTDIR
+STDERR_COMMAND = 'tail -F %s/master.err' % outdir
 
 
 # Make the job directory (note that this will fail if it already exists).
-os.mkdir(OUTDIR)
+os.mkdir(outdir)
 
-# Create a screen session named after the JOBNAME.
-run('screen', '-dmS', JOBNAME)
+# Create a screen session named after the job name.
+run('screen', '-dmS', opts.jobname)
 # Add a second and third window in the screen session.
-run('screen', '-S', JOBNAME, '-X', 'screen')
-run('screen', '-S', JOBNAME, '-X', 'screen')
+run('screen', '-S', opts.jobname, '-X', 'screen')
+run('screen', '-S', opts.jobname, '-X', 'screen')
 
 print 'Starting the master.'
 # Paste the commands into separate windows (use "^a n" and "^a p" to switch).
-run('screen', '-S', JOBNAME, '-p0', '-X', 'stuff', MASTER_COMMAND + '\n')
+run('screen', '-S', opts.jobname, '-p0', '-X', 'stuff', MASTER_COMMAND + '\n')
 print 'Waiting for the master to start up.'
 
 while True:
     try:
-        runfile = open(RUNFILE)
+        runfile = open(runfilename)
         break
     except IOError:
         time.sleep(0.1)
@@ -71,13 +75,13 @@ while True:
 master_port = runfile.read().strip()
 runfile.close()
 
-run('screen', '-S', JOBNAME, '-p1', '-X', 'stuff', STDERR_COMMAND + '\n')
+run('screen', '-S', opts.jobname, '-p1', '-X', 'stuff', STDERR_COMMAND + '\n')
 
 
 ##############################################################################
 # Slave
 
-host_options = ' '.join('-h %s' % hostfile for hostfile in HOSTFILES)
+host_options = ' '.join('-h %s' % hostfile for hostfile in opts.hostfiles)
 pwd = os.getcwd()
 hostname = socket.gethostname()
 SLAVE_COMMAND = ' '.join(('cd %s;' % pwd,
@@ -85,13 +89,13 @@ SLAVE_COMMAND = ' '.join(('cd %s;' % pwd,
     '-I Slave --mrs-verbose',
     '-M', '%s:%s' % (hostname, master_port)))
 PSSH_COMMAND = ' '.join(('pssh', host_options,
-    '-o', '%s/slaves.out' % OUTDIR, '-e', '%s/slaves.err' % OUTDIR,
+    '-o', '%s/slaves.out' % outdir, '-e', '%s/slaves.err' % outdir,
     '-t -1 -p 1000',
     '"%s"' % SLAVE_COMMAND))
 
 print 'Starting the slaves.'
-run('screen', '-S', JOBNAME, '-p2', '-X', 'stuff', PSSH_COMMAND + '\n')
+run('screen', '-S', opts.jobname, '-p2', '-X', 'stuff', PSSH_COMMAND + '\n')
 
 # Load the screen session.
 print 'Connecting.'
-run('screen', '-r', JOBNAME, '-p0')
+run('screen', '-r', opts.jobname, '-p0')
