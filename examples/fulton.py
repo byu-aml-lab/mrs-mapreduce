@@ -24,8 +24,8 @@
 
 from __future__ import division
 
-#PYTHON="/fslapps/Python-2.5.2/bin/python2.5"
-PYTHON = "python2.5"
+PYTHON="/fslapps/Python-2.6.2/bin/python2.6"
+#PYTHON = "python2.6"
 INTERFACE = "eth1"
 RUN_DIRECTORY = "$HOME/compute/run"
 
