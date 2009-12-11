@@ -362,9 +362,10 @@ class LocalData(BaseDataSet):
         for bucket in buckets:
             bucket.close_writer()
         # Sync the containing dir to make sure the files are really written.
-        fd = os.open(self.dir, os.O_RDONLY)
-        os.fsync(fd)
-        os.close(fd)
+        if self.dir:
+            fd = os.open(self.dir, os.O_RDONLY)
+            os.fsync(fd)
+            os.close(fd)
 
 
 class RemoteData(DataSet):
