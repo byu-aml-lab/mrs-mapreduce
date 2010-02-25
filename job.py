@@ -87,6 +87,7 @@ class Job(threading.Thread):
             logger.critical('Exception while instantiating the program: %s'
                     % traceback.format_exc())
             self.end()
+            return
 
         import registry
         self.registry = registry.Registry(self.program)
@@ -98,6 +99,7 @@ class Job(threading.Thread):
             logger.critical('Exception raised in the run function: %s'
                     % traceback.format_exc())
             self.end()
+            return
 
         self.end()
 
