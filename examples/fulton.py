@@ -26,7 +26,7 @@ from __future__ import division
 
 PYTHON="/fslapps/Python-2.6.2/bin/python2.6"
 #PYTHON = "python2.6"
-INTERFACE = "eth1"
+INTERFACE = "eth0"
 RUN_DIRECTORY = "$HOME/compute/run"
 
 QSUB_NAME_DEFAULT = "mrs_fulton"
