@@ -82,7 +82,7 @@ def main():
     quoted_args = ['"%s"' % arg.replace('"', r'\"') for arg in mrs_args]
     arg_array = "(%s)" % " ".join(quoted_args)
     script_vars = dict(python=PYTHON, program=mrs_program,
-            arg_array=arg_array, interface=INTERFACE, jobdir=jobdir,
+            arg_array=arg_array, interfaces=INTERFACES, jobdir=jobdir,
             current_dir=current_dir, output=options.output,
             timeout=options.timeout)
 
@@ -114,7 +114,7 @@ def submit_master(name, script_vars, cmdline, jobdir):
         PYTHON="%(python)s"
         MRS_PROGRAM="%(program)s"
         ARGS=%(arg_array)s
-        INTERFACE="%(interface)s"
+        INTERFACES="%(interfaces)s"
         OUTPUT="%(output)s"
         TIMEOUT="%(timeout)s"
 
