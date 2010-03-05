@@ -26,7 +26,7 @@ from __future__ import division
 
 PYTHON="/fslapps/Python-2.6.2/bin/python2.6"
 #PYTHON = "python2.6"
-INTERFACE = "eth0"
+INTERFACES = "ib0 eth1 eth0"
 RUN_DIRECTORY = "$HOME/compute/run"
 
 QSUB_NAME_DEFAULT = "mrs_fulton"
@@ -124,9 +124,18 @@ def submit_master(name, script_vars, cmdline, jobdir):
         # Run /sbin/ip and extract everything between "inet " and "/" (i.e.
         # the IP address but not the netmask).  Note that we use a semi-colon
         # instead of / in the sed expression to make it easier on the eyes.
-        IP_ADDRESS=$(/sbin/ip -o -4 addr list "$INTERFACE" \
-                |sed -e 's;^.*inet \(.*\)/.*$;\1;')
-        echo $IP_ADDRESS >$HOST_FILE
+        for iface in $INTERFACES; do
+            if /sbin/ip -o -4 addr list |grep -q "^$iface"; then
+                IP_ADDRESS=$(/sbin/ip -o -4 addr list "$INTERFACE" \
+                        |sed -e 's;^.*inet \(.*\)/.*$;\1;')
+                echo $IP_ADDRESS >$HOST_FILE
+                break
+            fi
+        done
+        if [[ -z $IP_ADDRESS ]]; then
+            echo "No valid IP address found!"
+            exit 1
+        fi
 
         # Master
         $PYTHON $MRS_PROGRAM --mrs=Master --mrs-shared="$JOBDIR" \
