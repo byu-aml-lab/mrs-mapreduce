@@ -126,7 +126,7 @@ def submit_master(name, script_vars, cmdline, jobdir):
         # instead of / in the sed expression to make it easier on the eyes.
         for iface in $INTERFACES; do
             if /sbin/ip -o -4 addr list |grep -q "^$iface"; then
-                IP_ADDRESS=$(/sbin/ip -o -4 addr list "$INTERFACE" \
+                IP_ADDRESS=$(/sbin/ip -o -4 addr list "$iface" \
                         |sed -e 's;^.*inet \(.*\)/.*$;\1;')
                 echo $IP_ADDRESS >$HOST_FILE
                 break
