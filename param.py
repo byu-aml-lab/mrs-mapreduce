@@ -429,8 +429,8 @@ class _Option(optparse.Option):
             try:
                 paramobj = import_object(value)
             except ImportError, e:
-                message = ('option %s: Could not find a class called "%s"' %
-                        (opt_str, value))
+                message = ('option %s: Error while importing class "%s": %s' %
+                        (opt_str, value, e.args[0]))
                 raise optparse.OptionValueError(message)
 
         try:
