@@ -65,8 +65,11 @@ class Job(threading.Thread):
         import tempfile
         try:
             shared_dir = self.opts.mrs__shared
-            self.jobdir = tempfile.mkdtemp(prefix='mrs.job_', dir=shared_dir)
         except AttributeError:
+            shared_dir = None
+        if shared_dir:
+            self.jobdir = tempfile.mkdtemp(prefix='mrs.job_', dir=shared_dir)
+        else:
             self.jobdir = None
 
         # Still waiting for work to do:
@@ -294,11 +297,11 @@ class Job(threading.Thread):
             splits = self.default_reduce_tasks
 
         permanent = True
-        if outdir or self.jobdir:
-            if outdir is None:
-                import tempfile
-                outdir = tempfile.mkdtemp(prefix='output_', dir=self.jobdir)
-                permanent = self.opts.mrs__keep_jobdir
+        if self.jobdir and not outdir:
+            import tempfile
+            outdir = tempfile.mkdtemp(prefix='output_', dir=self.jobdir)
+            permanent = self.opts.mrs__keep_jobdir
+        if outdir:
             from util import try_makedirs
             try_makedirs(outdir)
 

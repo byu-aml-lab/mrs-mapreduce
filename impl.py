@@ -197,7 +197,7 @@ class Master(Network):
     default_shared = os.getcwd()
     _params = dict(
         shared=Param(default=default_shared,
-            doc='Shared area for temporary storage'),
+            doc='Global shared area for temporary storage'),
         keep_jobdir=Param(type='bool',
             doc="Do not delete jobdir at completion"),
         reduce_tasks=Param(default=1, type='int',
@@ -255,6 +255,8 @@ class Master(Network):
 class Slave(Network):
     _params = dict(
         master=Param(shortopt='-M', doc='URL of the Master RPC server'),
+        local_shared=Param(default=None,
+            doc='Local shared area for temporary storage'),
         )
 
     def _main(self, opts, args):
@@ -289,7 +291,6 @@ class Slave(Network):
 
         if slave.reaper.traceback:
             logger.error('Exception: %s' % slave.reaper.traceback)
-
 
 
 # vim: et sw=4 sts=4
