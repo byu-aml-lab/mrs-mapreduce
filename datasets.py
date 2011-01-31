@@ -583,6 +583,8 @@ class ComputedData(RemoteData):
                 logger.warning('An inactive task was finished.')
             return
 
+    # TODO: this needs to contact each of the slaves to have them delete
+    # data (if non-permanent)
     def close(self):
         """Close DataSet for future use.
 

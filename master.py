@@ -279,11 +279,12 @@ class MasterInterface(RequestXMLRPC):
         slave = self.master.new_slave(host, slave_port, cookie)
         if slave is None:
             logger.error('Could not create new Slave object.')
-            return -1, {}, []
+            return -1, '', '', {}, []
         else:
+            jobdir = self.master.job.jobdir
             raw_iter = vars(self.opts).iteritems()
             optdict = dict((k, v) for k, v in raw_iter if v is not None)
-            return (slave.id, optdict, self.args)
+            return (slave.id, jobdir, optdict, self.args)
 
     def xmlrpc_ready(self, slave_id, cookie):
         """Slave is ready for work."""

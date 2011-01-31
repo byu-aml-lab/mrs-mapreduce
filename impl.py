@@ -268,8 +268,8 @@ class Slave(Network):
         from slave import SlaveState, SlaveEventThread, Worker
         import registry
         program_hash = registry.object_hash(self.program_class)
-        slave = SlaveState(program_hash, self.master, self.pingdelay,
-                self.timeout)
+        slave = SlaveState(program_hash, self.master, self.local_shared,
+                self.pingdelay, self.timeout)
 
         # Create the other threads:
         worker = Worker(slave, self.program_class)

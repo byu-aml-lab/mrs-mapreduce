@@ -69,8 +69,10 @@ class Job(threading.Thread):
             shared_dir = None
         if shared_dir:
             self.jobdir = tempfile.mkdtemp(prefix='mrs.job_', dir=shared_dir)
+            self.default_dir = os.mkdir(os.path.join(self.jobdir, 'master'))
         else:
             self.jobdir = None
+            self.default_dir = None
 
         # Still waiting for work to do:
         self._end = False
@@ -297,10 +299,12 @@ class Job(threading.Thread):
             splits = self.default_reduce_tasks
 
         permanent = True
-        if self.jobdir and not outdir:
-            import tempfile
-            outdir = tempfile.mkdtemp(prefix='output_', dir=self.jobdir)
-            permanent = self.opts.mrs__keep_jobdir
+        if not outdir:
+            if self.default_dir:
+                import tempfile
+                outdir = tempfile.mkdtemp(prefix='output_',
+                        dir=self.default_dir)
+                permanent = self.opts.mrs__keep_jobdir
         if outdir:
             from util import try_makedirs
             try_makedirs(outdir)
@@ -326,14 +330,10 @@ class Job(threading.Thread):
         if splits is None:
             splits = self.default_reduce_tasks
 
-        permanent = True
-        if outdir or self.jobdir:
-            if outdir is None:
-                import tempfile
-                outdir = tempfile.mkdtemp(prefix='map_', dir=self.jobdir)
-                permanent = self.opts.mrs__keep_jobdir
-            from util import try_makedirs
-            try_makedirs(outdir)
+        if outdir:
+            permanent = True
+        else:
+            permanent = False
 
         if not parter:
             parter = self.program.partition
@@ -357,14 +357,10 @@ class Job(threading.Thread):
         if splits is None:
             splits = self.default_reduce_parts
 
-        permanent = True
-        if outdir or self.jobdir:
-            if outdir is None:
-                import tempfile
-                outdir = tempfile.mkdtemp(prefix='reduce_', dir=self.jobdir)
-                permanent = self.opts.mrs__keep_jobdir
-            from util import try_makedirs
-            try_makedirs(outdir)
+        if outdir:
+            permanent = True
+        else:
+            permanent = False
 
         if not parter:
             parter = self.program.partition

@@ -5,6 +5,7 @@
 import getpass, optparse, os, socket, subprocess, sys, time
 
 DEFAULT_SCRATCH_DIR = '/'.join(('/aml/scratch', getpass.getuser()))
+DEFAULT_LOCAL_SCRATCH = getpass.getuser()
 DEFAULT_JOBNAME = 'mrspotato'
 PYTHON = 'python'
 
@@ -20,12 +21,16 @@ parser.add_option('-n', '--jobname', dest='jobname', action='store',
         help='job name', default=DEFAULT_JOBNAME)
 parser.add_option('-s', '--scratch', dest='scratch_dir', action='store',
         help='scratch directory', default=DEFAULT_SCRATCH_DIR)
+parser.add_option('-l', '--local-scratch', dest='local_scratch', action='store',
+        help='local scratch (subdir of /net/$hostname, empty string to skip)',
+        default=DEFAULT_LOCAL_SCRATCH)
 opts, args = parser.parse_args()
 
 if not opts.hostfiles:
     parser.error('No hosts file specified!')
 
 outdir = os.path.join(opts.scratch_dir, opts.jobname)
+local_shared = os.path.join(opts.local_scratch, opts.jobname)
 runfilename = os.path.join(outdir, 'master.run')
 
 mrs_program = args[0]
@@ -87,6 +92,7 @@ hostname = socket.gethostname()
 SLAVE_COMMAND = ' '.join(('cd %s;' % pwd,
     PYTHON, mrs_program,
     '-I Slave --mrs-verbose',
+    '--mrs-local-shared', local_shared,
     '-M', '%s:%s' % (hostname, master_port)))
 PSSH_COMMAND = ' '.join(('pssh', host_options,
     '-o', '%s/slaves.out' % outdir, '-e', '%s/slaves.err' % outdir,

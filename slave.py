@@ -101,9 +101,10 @@ class SlaveState(object):
     few minutes.
     """
 
-    def __init__(self, program_hash, master_url, pingdelay,
+    def __init__(self, program_hash, master_url, local_shared, pingdelay,
             timeout):
         self.program_hash = program_hash
+        self.local_shared = local_shared
         self.pingdelay = pingdelay
 
         self.reaper = GrimReaper()
@@ -150,7 +151,7 @@ class SlaveState(object):
         This is the callback after signin.  After saving the return values,
         schedule the user_setup function to be run in the Worker.
         """
-        slave_id, optdict, args = value
+        slave_id, jobdir, optdict, args = value
 
         if slave_id < 0:
             logger.error('Master rejected signin.')
@@ -158,6 +159,17 @@ class SlaveState(object):
 
         # Save the slave id given by the master.
         self.id = slave_id
+
+        if self.local_shared:
+            import tempfile
+            self.worker.default_dir = tempfile.mkdtemp(dir=self.local_shared,
+                    prefix='mrs_slave_')
+        else:
+            import socket
+            hostname, _, _ = socket.gethostname().partition('.')
+            import tempfile
+            self.worker.default_dir = tempfile.mkdtemp(dir='jobdir',
+                    prefix=hostname)
 
         self.run_watchdog()
 
@@ -307,20 +319,20 @@ class SlaveInterface(RequestXMLRPC):
         self.slave = slave
 
     def xmlrpc_start_map(self, source, inputs, func_name, part_name, splits,
-            output, extension, cookie):
+            outdir, extension, cookie):
         self.slave.check_cookie(cookie)
         self.slave.update_timestamp()
         logger.info('Received a Map assignment from the master.')
         return self.slave.worker.start_map(source, inputs, func_name,
-                part_name, splits, output, extension)
+                part_name, splits, outdir, extension)
 
     def xmlrpc_start_reduce(self, source, inputs, func_name, part_name,
-            splits, output, extension, cookie):
+            splits, outdir, extension, cookie):
         self.slave.check_cookie(cookie)
         self.slave.update_timestamp()
         logger.info('Received a Reduce assignment from the master.')
         return self.slave.worker.start_reduce(source, inputs, func_name,
-                part_name, splits, output, extension)
+                part_name, splits, outdir, extension)
 
     def xmlrpc_quit(self, cookie):
         self.slave.check_cookie(cookie)
@@ -360,6 +372,7 @@ class Worker(threading.Thread):
         # Die when all other non-daemon threads have exited:
         self.setDaemon(True)
 
+        self.default_dir = None
         self.slave = slave
         self.slave.register_worker(self)
 
@@ -387,7 +400,7 @@ class Worker(threading.Thread):
         self._setup_callback = callback
         self._setup_ready.set()
 
-    def start_map(self, source, inputs, map_name, part_name, splits, output,
+    def start_map(self, source, inputs, map_name, part_name, splits, outdir,
             extension):
         """Tell this worker to start working on a map task.
 
@@ -396,10 +409,14 @@ class Worker(threading.Thread):
         from task import MapTask
         from datasets import FileData
         from io.load import writerformat
+        import tempfile
 
         input_data = FileData(inputs, splits=1)
         input_data.blockingthread = self.blockingthread
         format = writerformat(extension)
+
+        if not outdir:
+            outdir = tempfile.mkdtemp(dir=self.default_dir, prefix='map_')
 
         success = False
         self._cond.acquire()
@@ -407,14 +424,14 @@ class Worker(threading.Thread):
             mapper = getattr(self.program, map_name)
             parter = getattr(self.program, part_name)
             self._task = MapTask(input_data, 0, source, mapper, parter,
-                    splits, output, format)
+                    splits, outdir, format)
             success = True
             self._cond.notify()
         self._cond.release()
         return success
 
     def start_reduce(self, source, inputs, reduce_name, part_name, splits,
-            output, extension):
+            outdir, extension):
         """Tell this worker to start working on a reduce task.
 
         This will ordinarily be called from some other thread.
@@ -427,13 +444,16 @@ class Worker(threading.Thread):
         input_data.blockingthread = self.blockingthread
         format = writerformat(extension)
 
+        if not outdir:
+            outdir = tempfile.mkdtemp(dir=self.default_dir, prefix='reduce_')
+
         success = False
         self._cond.acquire()
         if self._task is None:
             reducer = getattr(self.program, reduce_name)
             parter = getattr(self.program, part_name)
             self._task = ReduceTask(input_data, 0, source, reducer,
-                    parter, splits, output, format)
+                    parter, splits, outdir, format)
             success = True
             self._cond.notify()
         self._cond.release()
