@@ -20,6 +20,7 @@
 # Licensing Office, Brigham Young University, 3760 HBLL, Provo, UT 84602,
 # (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
 
+import os
 import threading
 
 from logging import getLogger
@@ -332,6 +333,8 @@ class Job(threading.Thread):
 
         if outdir:
             permanent = True
+            from util import try_makedirs
+            try_makedirs(outdir)
         else:
             permanent = False
 
@@ -359,6 +362,8 @@ class Job(threading.Thread):
 
         if outdir:
             permanent = True
+            from util import try_makedirs
+            try_makedirs(outdir)
         else:
             permanent = False
 

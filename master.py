@@ -371,14 +371,15 @@ class RemoteSlave(object):
         part_name = assignment.part_name
         # TODO: convert these RPC calls to be asynchronous!
         logger.info('Assigning a task to slave %s.' % self.id)
+        storage = task.storage if task.storage else ''
         if assignment.map:
             deferred = self.rpc.callRemote('start_map', task.source,
                     task.inurls(), func_name, part_name, task.splits,
-                    task.storage, extension, self.cookie)
+                    storage, extension, self.cookie)
         elif assignment.reduce:
             deferred = self.rpc.callRemote('start_reduce', task.source,
                     task.inurls(), func_name, part_name, task.splits,
-                    task.storage, extension, self.cookie)
+                    storage, extension, self.cookie)
         else:
             raise RuntimeError
 
