@@ -168,8 +168,8 @@ class SlaveState(object):
                     prefix='mrs_slave_')
         else:
             import socket
-            hostname, _, _ = socket.gethostname().partition('.')
             import tempfile
+            hostname, _, _ = socket.gethostname().partition('.')
             self.worker.default_dir = tempfile.mkdtemp(dir=jobdir,
                     prefix=hostname)
 
@@ -441,6 +441,7 @@ class Worker(threading.Thread):
         from task import ReduceTask
         from datasets import FileData
         from io.load import writerformat
+        import tempfile
 
         input_data = FileData(inputs, splits=1)
         input_data.blockingthread = self.blockingthread
