@@ -70,7 +70,8 @@ class Job(threading.Thread):
             shared_dir = None
         if shared_dir:
             self.jobdir = tempfile.mkdtemp(prefix='mrs.job_', dir=shared_dir)
-            self.default_dir = os.mkdir(os.path.join(self.jobdir, 'master'))
+            self.default_dir = os.path.join(self.jobdir, 'master')
+            os.mkdir(self.default_dir)
         else:
             self.jobdir = None
             self.default_dir = None
