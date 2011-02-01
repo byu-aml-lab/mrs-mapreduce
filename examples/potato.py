@@ -88,12 +88,12 @@ run('screen', '-S', opts.jobname, '-p1', '-X', 'stuff', STDERR_COMMAND + '\n')
 
 host_options = ' '.join('-h %s' % hostfile for hostfile in opts.hostfiles)
 pwd = os.getcwd()
-hostname = socket.gethostname()
+master_hostname = socket.gethostname()
 SLAVE_COMMAND = ' '.join(('cd %s;' % pwd,
     PYTHON, mrs_program,
     '-I Slave --mrs-verbose',
-    '--mrs-local-shared', local_shared,
-    '-M', '%s:%s' % (hostname, master_port)))
+    '--mrs-local-shared', ('/net/\\`hostname -s\\`/' + local_shared),
+    '-M', '%s:%s' % (master_hostname, master_port)))
 PSSH_COMMAND = ' '.join(('pssh', host_options,
     '-o', '%s/slaves.out' % outdir, '-e', '%s/slaves.err' % outdir,
     '-t -1 -p 1000',

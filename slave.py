@@ -162,13 +162,15 @@ class SlaveState(object):
 
         if self.local_shared:
             import tempfile
+            from util import try_makedirs
+            try_makedirs(self.local_shared)
             self.worker.default_dir = tempfile.mkdtemp(dir=self.local_shared,
                     prefix='mrs_slave_')
         else:
             import socket
             hostname, _, _ = socket.gethostname().partition('.')
             import tempfile
-            self.worker.default_dir = tempfile.mkdtemp(dir='jobdir',
+            self.worker.default_dir = tempfile.mkdtemp(dir=jobdir,
                     prefix=hostname)
 
         self.run_watchdog()
