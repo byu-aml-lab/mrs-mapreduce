@@ -117,6 +117,7 @@ class MasterState(object):
     def new_slave(self, host, slave_port, cookie):
         """Create and return a new slave."""
         slave = self.slaves.new_slave(host, slave_port, cookie, self)
+        logger.info('New slave %s on host %s' % (slave_id, host))
         return slave
 
     def get_slave(self, slave_id, cookie):
@@ -131,7 +132,8 @@ class MasterState(object):
             logger.warning('Slave resurrected.')
             slave.resurrect()
         if slave.assignment:
-            logger.error('Slave reported ready but still has an assignment.')
+            logger.error('Slave %s reported ready but still has an'
+                ' assignment.', slave.id)
             slave.assignment.remove_worker(slave)
         self.slaves.push_idle(slave)
 
@@ -142,7 +144,11 @@ class MasterState(object):
         # TODO: what if two slaves finish the same task?  Also, what if
         # one slave finishes and another is still trying?
         assignment = slave.assignment
-        assignment.finished(urls)
+        if assignment:
+            assignment.finished(urls)
+        else:
+            logger.error('Slave %s reported completion without having an'
+                ' assigned task.' % slave_id)
         self.job.check_done()
         slave.assignment = None
 

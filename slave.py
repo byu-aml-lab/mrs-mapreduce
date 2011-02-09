@@ -511,6 +511,8 @@ class Worker(threading.Thread):
                 # only be possible if done uses some unique id.  For now,
                 # retrying done can be very destructive.
                 logger.error('RPC error when reporting back.  Giving up.')
+                #logger.error(e.failure.getErrorMessage())
+                logger.error(str(e))
                 # TODO: Introduce a delay, and don't reconnect forever.
                 self.slave.reconnect()
 
