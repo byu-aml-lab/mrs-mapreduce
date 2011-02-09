@@ -84,7 +84,7 @@ class BaseDataSet(object):
         mean it.
         """
         self.closed = True
-        if not self.permanent:
+        if not self.permanent and self.blockingthread:
             from bucket import BucketRemover
             for bucket in self:
                 self.blockingthread.register(BucketRemover(bucket))
