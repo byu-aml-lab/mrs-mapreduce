@@ -117,7 +117,7 @@ class MasterState(object):
     def new_slave(self, host, slave_port, cookie):
         """Create and return a new slave."""
         slave = self.slaves.new_slave(host, slave_port, cookie, self)
-        logger.info('New slave %s on host %s' % (slave_id, host))
+        logger.info('New slave %s on host %s' % (slave.id, host))
         return slave
 
     def get_slave(self, slave_id, cookie):
