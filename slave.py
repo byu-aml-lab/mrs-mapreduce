@@ -37,21 +37,18 @@ process is terminated when the main process quits.
 
 # Number of ping timeouts before giving up:
 PING_ATTEMPTS = 50
-WATCHDOG_INTERVAL = 5
-WATCHDOG_TIMEOUT = 2
-BACKLOG = 1000
 
 COOKIE_LEN = 8
-QUIT_DELAY = 0.5
 
 import socket
 import threading
+import worker
 
 from logging import getLogger
 logger = getLogger('mrs')
 
 
-class SlaveState(object):
+class Slave(object):
     """State of a Mrs slave"""
 
     def __init__(self, program_hash, master_url, local_shared, pingdelay,
@@ -155,10 +152,10 @@ class SlaveState(object):
         self.update_timestamp()
 
     def worker_setup(self, opts, args, default_dir):
-        request = WorkerSetupRequest(opts, args, default_dir)
+        request = worker.WorkerSetupRequest(opts, args, default_dir)
         self.request_pipe_slave.send(request)
         response = self.request_pipe_slave.recv()
-        if isinstance(response, WorkerFailure):
+        if isinstance(response, worker.WorkerFailure):
             msg = 'Exception in Worker Setup: %s' % response.exception
             logger.critical(msg)
             msg = 'Traceback: %s' % response.traceback
@@ -191,9 +188,9 @@ class SlaveState(object):
         response = self.request_pipe_slave.recv()
         assert self.current_request is not None
         self.current_request = None
-        if isinstance(response, WorkerSuccess):
+        if isinstance(response, worker.WorkerSuccess):
             self.master_rpc.done(self.id, response.outurls, self.cookie)
-        elif isinstance(response, WorkerFailure):
+        elif isinstance(response, worker.WorkerFailure):
             msg = 'Exception in Worker: %s' % response.exception
             logger.critical(msg)
             msg = 'Traceback: %s' % response.traceback
@@ -259,7 +256,7 @@ class SlaveInterface(object):
         self.slave.check_cookie(cookie)
         self.slave.update_timestamp()
         logger.info('Received a Map assignment from the master.')
-        request = WorkerMapRequest(source, inputs, func_name, part_name,
+        request = worker.WorkerMapRequest(source, inputs, func_name, part_name,
                 splits, outdir, extension)
         return self.slave.submit_request(request)
 
@@ -268,8 +265,8 @@ class SlaveInterface(object):
         self.slave.check_cookie(cookie)
         self.slave.update_timestamp()
         logger.info('Received a Reduce assignment from the master.')
-        request = WorkerReduceRequest(source, inputs, func_name, part_name,
-                splits, outdir, extension)
+        request = worker.WorkerReduceRequest(source, inputs, func_name,
+                part_name, splits, outdir, extension)
         return self.slave.submit_request(request)
 
     def xmlrpc_quit(self, cookie):
@@ -292,121 +289,6 @@ class SlaveInterface(object):
 
 class CookieValidationError(Exception):
     pass
-
-
-class WorkerSetupRequest(object):
-    """Request to worker to run setup function."""
-
-    def __init__(self, opts, args, default_dir):
-        self.opts = opts
-        self.args = args
-        self.default_dir = default_dir
-
-
-class WorkerMapRequest(object):
-    """Request to worker to run a map task."""
-
-    def __init__(self, *args):
-        (self.source, self.inputs, self.map_name, self.part_name, self.splits,
-                self.outdir, self.extension) = args
-
-    def make_task(self, program, default_dir):
-        from task import MapTask
-        from datasets import FileData
-        from io.load import writerformat
-        import tempfile
-
-        input_data = FileData(self.inputs, splits=1)
-        format = writerformat(self.extension)
-
-        if not self.outdir:
-            self.outdir = tempfile.mkdtemp(dir=default_dir, prefix='map_')
-
-        mapper = getattr(program, self.map_name)
-        parter = getattr(program, self.part_name)
-        task = MapTask(input_data, 0, self.source, mapper, parter,
-                self.splits, self.outdir, format)
-        return task
-
-
-class WorkerReduceRequest(object):
-    """Request to worker to run a reduce task."""
-
-    def __init__(self, *args):
-        (self.source, self.inputs, self.reduce_name, self.part_name,
-                self.splits, self.outdir, self.extension) = args
-
-    def make_task(self, program, default_dir):
-        """Tell this worker to start working on a reduce task.
-
-        This will ordinarily be called from some other thread.
-        """
-        from task import ReduceTask
-        from datasets import FileData
-        from io.load import writerformat
-        import tempfile
-
-        input_data = FileData(self.inputs, splits=1)
-        format = writerformat(self.extension)
-
-        if not self.outdir:
-            self.outdir = tempfile.mkdtemp(dir=default_dir, prefix='reduce_')
-
-        reducer = getattr(program, self.reduce_name)
-        parter = getattr(program, self.part_name)
-        task = ReduceTask(input_data, 0, self.source, reducer,
-                parter, self.splits, self.outdir, format)
-        return task
-
-
-class WorkerFailure(object):
-    """Failure response from worker."""
-    def __init__(self, exception, traceback):
-        self.exception = exception
-        self.traceback = traceback
-
-
-class WorkerSuccess(object):
-    """Successful response from worker."""
-    def __init__(self, outurls=None):
-        self.outurls = outurls
-
-
-def run_worker(program_class, request_pipe):
-    """Execute map tasks and reduce tasks.
-
-    The worker waits for other threads to make assignments by calling
-    start_map and start_reduce.
-
-    This needs to run in a daemon thread rather than in the main thread so
-    that it can be killed by other threads.
-    """
-    default_dir = None
-    program = None
-
-    while True:
-        request = request_pipe.recv()
-        try:
-            if isinstance(request, WorkerSetupRequest):
-                assert program is None
-                opts = request.opts
-                args = request.args
-                logger.debug('Starting to run the user setup function.')
-                program = program_class(opts, args)
-                default_dir = request.default_dir
-                response = WorkerSuccess()
-            else:
-                assert program is not None
-                logger.info('Starting to run a new task.')
-                task = request.make_task(program, default_dir)
-                task.run()
-                response = WorkerSuccess(task.outurls())
-                logger.debug('Task complete.')
-        except Exception, e:
-            import traceback
-            tb = traceback.format_exc()
-            response = WorkerFailure(e, tb)
-        request_pipe.send(response)
 
 
 # vim: et sw=4 sts=4

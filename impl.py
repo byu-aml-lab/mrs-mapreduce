@@ -267,12 +267,13 @@ class Slave(Network):
         """
         from multiprocessing import Process, Pipe
         from threading import Thread
-        from slave import SlaveState, SlaveInterface, run_worker
+        from slave import Slave, SlaveInterface
+        from worker import run_worker
         import registry
         import rpc
         program_hash = registry.object_hash(self.program_class)
 
-        slave = SlaveState(program_hash, self.master, self.local_shared,
+        slave = Slave(program_hash, self.master, self.local_shared,
                 self.pingdelay, self.timeout)
 
         rpc_interface = SlaveInterface(slave)
