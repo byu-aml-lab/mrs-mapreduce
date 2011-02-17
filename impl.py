@@ -265,32 +265,45 @@ class Slave(Network):
         Slave Main is called directly from Mrs Main.  On exit, the process
         will return slave_main's return value.
         """
-        from slave import SlaveState, SlaveEventThread, Worker
+        from multiprocessing import Process, Pipe
+        from threading import Thread
+        from slave import SlaveState, SlaveInterface, run_worker
         import registry
+        import rpc
         program_hash = registry.object_hash(self.program_class)
+
         slave = SlaveState(program_hash, self.master, self.local_shared,
                 self.pingdelay, self.timeout)
 
-        # Create the other threads:
-        worker = Worker(slave, self.program_class)
-        event_thread = SlaveEventThread(slave)
+        rpc_interface = SlaveInterface(slave)
+        rpc_server = rpc.Server(('', 0), rpc_interface)
+        _, slave.port = rpc_server.socket.getsockname()
 
-        # Start the other threads:
-        event_thread.start()
+        # Create and start the other processes:
+        worker = Process(name='Worker', target=run_worker,
+                args=(self.program_class, slave.request_pipe_worker))
         worker.start()
 
+        # Create and start the other threads:
+        slave_thread = Thread(name='Slave', target=slave.run)
+        slave_thread.daemon = True
+        slave_thread.start()
+
+        rpc_thread = Thread(name='RPC Server', target=rpc_server.serve_forever)
+        rpc_thread.daemon = True
+        rpc_thread.start()
+
         try:
-            # Note: under normal circumstances, the reactor (in the event
-            # thread) will quit on its own.
-            slave.reaper.wait()
+            # KeyboardInterrupt can't interrupt waiting on a lock unless
+            # a timeout is given, so we do a loop:
+            while slave_thread.is_alive():
+                slave_thread.join(10)
         except KeyboardInterrupt:
-            pass
+            slave.quit()
+            while slave_thread.is_alive():
+                slave_thread.join(10)
 
-        event_thread.shutdown()
-        event_thread.join()
-
-        if slave.reaper.traceback:
-            logger.error('Exception: %s' % slave.reaper.traceback)
+        worker.terminate()
 
 
 # vim: et sw=4 sts=4

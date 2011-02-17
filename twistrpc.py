@@ -37,6 +37,7 @@ RETRY_DELAY = 0.1
 import xmlrpclib
 from twisted.web import server, xmlrpc
 from twisted.internet import reactor, defer, error
+from rpc import rpc_url
 from twist import reactor_call, block
 
 from logging import getLogger
@@ -194,29 +195,6 @@ class TimeoutProxy(xmlrpc.Proxy):
         deferred = reactor_call(self.callRemote, *args)
         return deferred
 
-
-def rpc_url(urlstring):
-    """Tidy a URL to be used to connect to an XML RPC server.
-
-    >>> rpc_url('http://localhost')
-    'http://localhost/RPC2'
-    >>> rpc_url('http://localhost/')
-    'http://localhost/RPC2'
-    >>> rpc_url('http://localhost/path/to/xmlrpc')
-    'http://localhost/path/to/xmlrpc'
-    >>> rpc_url('localhost/path/to/xmlrpc')
-    'http://localhost/path/to/xmlrpc'
-    >>>
-    """
-    from urlparse import urlsplit, urlunsplit
-
-    if '://' not in urlstring:
-        urlstring = 'http://' + urlstring
-
-    scheme, netloc, path, query, fragment = urlsplit(urlstring)
-    if not path and not query and not fragment:
-        path = '/RPC2'
-    return urlunsplit((scheme, netloc, path, query, fragment))
 
 
 class RequestXMLRPC(xmlrpc.XMLRPC):

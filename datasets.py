@@ -84,14 +84,22 @@ class BaseDataSet(object):
         mean it.
         """
         self.closed = True
-        if not self.permanent and self.blockingthread:
+        if not self.permanent:
             from bucket import BucketRemover
             for bucket in self:
-                self.blockingthread.register(BucketRemover(bucket))
+                task = BucketRemover(bucket)
+                if self.blockingthread:
+                    self.blockingthread.register(task)
+                else:
+                    task.run()
             if self.dir:
                 # Just to make sure it's all gone:
                 from io.blocking import RecursiveRemover
-                self.blockingthread.register(RecursiveRemover(self.dir))
+                task = RecursiveRemover(self.dir)
+                if self.blockingthread:
+                    self.blockingthread.register(task)
+                else:
+                    task.run()
         self._data = None
 
     def ready(self):
@@ -398,7 +406,7 @@ class RemoteData(DataSet):
         else:
             self._fetched = True
 
-        if serial:
+        if serial or not self.blockingthread:
             for bucket in self:
                 url = bucket.url
                 if url:
@@ -424,7 +432,6 @@ class RemoteData(DataSet):
             for bucket in self:
                 url = bucket.url
                 if url:
-
                     deferred = fillbucket(url, bucket, self.blockingthread)
                     reactor.callFromThread(deferred.addCallback,
                             self.callback, bucket)
