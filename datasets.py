@@ -174,7 +174,8 @@ class BaseDataSet(object):
             return self._data[part1][part2]
 
     def __del__(self):
-        self.close()
+        if not self.closed:
+            self.close()
 
 
 class DataSet(BaseDataSet):
