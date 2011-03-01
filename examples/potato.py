@@ -57,7 +57,7 @@ STDERR_COMMAND = 'tail -F %s/master.err' % outdir
 
 
 # Make the job directory (note that this will fail if it already exists).
-os.mkdir(outdir)
+os.makedirs(outdir)
 
 # Create a screen session named after the job name.
 run('screen', '-dmS', opts.jobname)
