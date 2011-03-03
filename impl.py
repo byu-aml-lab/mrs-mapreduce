@@ -30,6 +30,7 @@ from param import ParamObj, Param
 import binascii
 import random
 import os
+import signal
 import sys
 
 import logging
@@ -230,6 +231,9 @@ class Master(Network):
         # Start the other threads:
         event_thread.start()
         job.start()
+
+        # Install a signal handler for debugging.
+        signal.signal(signal.SIGUSR1, master.current_status)
 
         try:
             # Note: under normal circumstances, the reactor (in the event
