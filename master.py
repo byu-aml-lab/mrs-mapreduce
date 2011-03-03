@@ -179,7 +179,11 @@ class MasterState(object):
                     % (i, len(self.slaves._idle_slaves)))
         for slave in self.slaves.slave_list():
             if slave.assignment:
-                logger.info('Slave %s has an assignment:' % slave.id)
+                t = slave.assignment.task
+                urls = [bucket.url for bucket in t.input.itersplit(t.source)
+                        if bucket.url]
+                logger.info('Slave %s has an assignment--input urls: %s'
+                        % (slave.id, urls))
 
     def schedule(self):
         """Go through the slaves list and make any possible task assignments.
