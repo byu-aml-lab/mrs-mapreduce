@@ -168,11 +168,15 @@ class MasterState(object):
     def current_status(self, signum, stack_frame):
         logger.info('Determining current status.')
         logger.info('Current dataset count: %s' % len(self.job.active_data))
-        ds = self.job.schedule()
-        logger.info('Active task count: %s' % len(ds.tasks_active))
-        logger.info('Done task count: %s' % len(ds.tasks_done))
-        logger.info('Todo task count: %s' % len(ds.tasks_todo))
-        logger.info('Idle slave count: %s' % len(self.slaves._idle_slaves))
+        for i, ds in enumerate(self.job.active_data):
+            logger.info('DS %s active task count: %s'
+                    % (i, len(ds.tasks_active)))
+            logger.info('DS %s done task count: %s'
+                    % (i, len(ds.tasks_done)))
+            logger.info('DS %s todo task count: %s'
+                    % (i, len(ds.tasks_todo)))
+            logger.info('DS %s idle slave count: %s'
+                    % (i, len(self.slaves._idle_slaves)))
         for slave in self.slaves.slave_list():
             if slave.assignment:
                 logger.info('Slave %s has an assignment:' % slave.id)
