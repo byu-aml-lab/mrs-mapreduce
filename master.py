@@ -165,7 +165,7 @@ class MasterState(object):
         if assignment:
             assignment.remove_worker(slave)
 
-    def current_status(self):
+    def current_status(self, signum, stack_frame):
         logger.info('Determining current status.')
         logger.info('Current dataset count: %s' % len(self.job.active_data))
         ds = self.job.schedule()
