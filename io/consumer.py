@@ -20,10 +20,6 @@
 # Licensing Office, Brigham Young University, 3760 HBLL, Provo, UT 84602,
 # (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
 
-from twisted.internet import interfaces
-from zope.interface import implements
-import twisttest
-
 
 class LineConsumer(object):
     """Consume data (from a Producer) into a Bucket.
@@ -31,26 +27,7 @@ class LineConsumer(object):
     In this basic consumer, the key-value pair is composed of a line number
     and line contents.  Note that the most valuable method to override in this
     class is __iter__.
-
-
-    Create a consumer and producer.
-    >>> data = "First Line.\\nSecond Line.\\nText without newline."
-    >>> bucket = twisttest.TestBucket()
-    >>> consumer = LineConsumer(bucket)
-    >>> producer = twisttest.TestProducer(data, consumer)
-    >>>
-
-    >>> producer.push()
-    >>> len(bucket.data)
-    2
-    >>> bucket.data[0]
-    (0, 'First Line.\\n')
-    >>> bucket.data[1]
-    (1, 'Second Line.\\n')
-    >>>
     """
-
-    implements(interfaces.IConsumer)
 
     def __init__(self, bucket):
         self.bucket = bucket
@@ -74,7 +51,7 @@ class LineConsumer(object):
 
     def __iter__(self):
         """Iterate over key-value pairs.
-        
+
         Inheriting classes will almost certainly override this method.
         """
         for index, line in enumerate(self.lines()):
@@ -108,11 +85,6 @@ class LineConsumer(object):
 
 def test():
     import doctest
-    #twisttest.start_reactor()
     doctest.testmod()
-    #twisttest.cleanup_reactor()
-
-if __name__ == "__main__":
-    test()
 
 # vim: et sw=4 sts=4

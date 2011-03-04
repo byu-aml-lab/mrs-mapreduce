@@ -20,304 +20,78 @@
 # Licensing Office, Brigham Young University, 3760 HBLL, Provo, UT 84602,
 # (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
 
+from __future__ import division
+
 import os
+import tempfile
 import threading
+import traceback
+import weakref
+
+from . import datasets
+from . import registry
+from . import task
+from . import util
 
 from logging import getLogger
 logger = getLogger('mrs')
 
 
-# TODO: separate the thread execution into a separate RunThread.
-class Job(threading.Thread):
+class Job(object):
     """Keep track of all operations that need to be performed.
-    
+
     When run as a thread, call the user-specified run function, which will
     submit datasets to be computed.
     """
-    def __init__(self, program_class, opts, args):
-        threading.Thread.__init__(self)
-        self.setName('Job')
-        # Quit the whole program, even if this thread is still running:
-        self.setDaemon(True)
+    def __init__(self, manager, registry, opts, default_partition,
+            default_dir=None):
+        self._manager = manager
+        self._registry = registry
+        self._default_partition = default_partition
+        self._default_dir = default_dir
 
-        # The BlockingThread is only used in the parallel implementation.
-        self.blockingthread = None
-
-        self.program_class = program_class
-        self.program = None
-        self.registry = None
-        self.opts = opts
-        self.args = args
-
-        self.default_reduce_parts = 1
+        self._default_reduce_parts = 1
         try:
-            self.default_reduce_tasks = opts.mrs__reduce_tasks
+            self._default_reduce_tasks = opts.mrs__reduce_tasks
         except AttributeError:
-            self.default_reduce_tasks = 1
-
-        self._runwaitcv = threading.Condition()
-        self._runwaitlist = None
-        self._runwaitresult = []
-
-        self._lock = threading.Lock()
-        self.active_data = []
-        self.waiting_data = []
-
-        import tempfile
-        try:
-            shared_dir = self.opts.mrs__shared
-        except AttributeError:
-            shared_dir = None
-        if shared_dir:
-            self.jobdir = tempfile.mkdtemp(prefix='mrs.job_', dir=shared_dir)
-            self.default_dir = os.path.join(self.jobdir, 'master')
-            os.mkdir(self.default_dir)
-        else:
-            self.jobdir = None
-            self.default_dir = None
-
-        # Still waiting for work to do:
-        self._end = False
-        self.update_callback = None
-        self.end_callback = None
-
-    def run(self):
-        """Run the job creation thread
-
-        Call the user-specified run function, which will submit datasets to be
-        computed.
-        """
-        try:
-            self.program = self.program_class(self.opts, self.args)
-        except Exception, e:
-            import traceback
-            logger.critical('Exception while instantiating the program: %s'
-                    % traceback.format_exc())
-            self.end()
-            return
-
-        import registry
-        self.registry = registry.Registry(self.program)
-
-        try:
-            self.program.run(self)
-        except Exception, e:
-            import traceback
-            logger.critical('Exception raised in the run function: %s'
-                    % traceback.format_exc())
-            self.end()
-            return
-
-        self.end()
-
-    def submit(self, dataset):
-        """Submit a ComputedData dataset to be computed.
-
-        If it's ready to go, computation will begin promptly.  However, if
-        it depends on other DataSets to complete, it will be added to a
-        todo queue and will be run later.
-
-        Called from the user-specified run function.
-        """
-        assert(not self._end)
-        self._lock.acquire()
-        if dataset.ready():
-            self.active_data.append(dataset)
-        else:
-            self.waiting_data.append(dataset)
-        self._lock.release()
-
-        if self.update_callback:
-            self.update_callback()
-
-    def remove_dataset(self, dataset):
-        """Remove a completed or waiting DataSet.
-
-        Submit is usually called outside the Job thread.
-        """
-
-        if dataset in self.waiting_data:
-            self.waiting_data.remove(dataset)
-            return
-        elif dataset in self.active_data:
-            assert(dataset.done())
-            return
-        else:
-            raise ValueError("DataSet not in job.")
-
-    def check_done(self):
-        """Check to see if any DataSets are done."""
-        dataset_done = False
-        self._lock.acquire()
-        active_data_copy = list(self.active_data)
-        for dataset in active_data_copy:
-            if dataset.done():
-                dataset_done = True
-                self.active_data.remove(dataset)
-        self._lock.release()
-
-        if dataset_done:
-            # See if the Job thread is ready to be awakened:
-            self.wakeup()
-            # See if there are any datasets ready to be activated:
-            self.check_active()
-
-    def check_active(self):
-        """Activate any DataSets that are ready to be computed.
-
-        A waiting DataSet may become ready whenever another DataSet completes.
-
-        Activate_all is usually called outside the Job thread.
-        """
-        self._lock.acquire()
-        for dataset in self.waiting_data:
-            if dataset.ready():
-                self.waiting_data.remove(dataset)
-                self.active_data.append(dataset)
-        self._lock.release()
-
-    def schedule(self):
-        """Return the next task to be assigned.
-
-        Schedule is usually called outside the Job thread.
-        """
-        if self.done():
-            return None
-        else:
-            next_task = None
-
-            self._lock.acquire()
-            for dataset in self.active_data:
-                if not dataset.tasks_made:
-                    dataset.make_tasks()
-                next_task = dataset.get_task()
-                if next_task is not None:
-                    break
-            self._lock.release()
-
-            return next_task
-
-    def done(self):
-        """Report whether all computation is complete.
-
-        Done is usually called outside the Job thread.
-        """
-        if self._end and not self.active_data and not self.waiting_data:
-            return True
-        else:
-            return False
-
-    def wakeup(self):
-        """Wake up the Job thread if it is ready.
-        
-        The user-specified run function calls job.wait(*datasets) to wait.
-        Wakeup is called from outside the Job thread and checks to see if the
-        condition has been met.
-        """
-        self._runwaitcv.acquire()
-        if self._check_runwaitlist():
-            self._runwaitcv.notify()
-        self._runwaitcv.release()
-
-    def _check_runwaitlist(self):
-        """Finds whether any dataset in the runwaitlist is ready.
-        
-        Returns a list of all datasets that are ready or None if the
-        runwaitlist is not set.
-        """
-        runwaitlist = self._runwaitlist
-        if runwaitlist:
-            return [ds for ds in runwaitlist if ds.done()]
-        else:
-            return None
+            self._default_reduce_tasks = 1
 
     def wait(self, *datasets, **kwds):
-        """Wait for any of the given DataSets to complete.
-        
+        """Wait for any of the given Datasets to complete.
+
         The optional timeout parameter specifies a floating point number
         of seconds to wait before giving up.  The wait function returns a
         list of datasets that are ready.
         """
-        timeout = kwds.get('timeout', None)
-
-        self._runwaitcv.acquire()
-        self._runwaitlist = datasets
-
-        ready_list = self._check_runwaitlist()
-        if not ready_list:
-            self._runwaitcv.wait(timeout)
-            ready_list = self._check_runwaitlist()
-            self._runwaitlist = None
-
-        self._runwaitcv.release()
-        return ready_list
-
-    # TODO: give a useful message in the serial case.
-    def status(self):
-        """Report on the status of all active tasks.
-
-        Returns a string.  Note that waiting DataSets are ignored.  This is
-        necessary because a waiting DataSet might not have created its tasks
-        yet.
-        """
-        if self.done():
-            return 'Done'
-        else:
-            active = 0
-            done = 0
-            todo = 0
-
-            self._lock.acquire()
-            for dataset in self.active_data:
-                active += len(dataset.tasks_active)
-                done += len(dataset.tasks_done)
-                todo += len(dataset.tasks_todo)
-            self._lock.release()
-
-            total = active + done + todo
-            return 'Status: %s/%s done, %s active' % (done, total, active)
-
-    def end(self):
-        """Mark that all DataSets have already been submitted.
-
-        After this point, any submit() will fail.
-        """
-        if not self._end:
-            self._end = True
-            if self.end_callback:
-                self.end_callback()
+        return self._manager.wait(*datasets, **kwds)
 
     def file_data(self, filenames):
         """Defines a set of data from a list of urls."""
-        from datasets import FileData
-        ds = FileData(filenames)
-        ds.blockingthread = self.blockingthread
+        ds = datasets.FileData(filenames)
+        self._manager.submit(ds)
         return ds
 
     def local_data(self, itr, splits=None, outdir=None, parter=None,
             format=None):
         """Defines a set of data to be built locally from a given iterator."""
         if splits is None:
-            splits = self.default_reduce_tasks
+            splits = self._default_reduce_tasks
 
         permanent = True
         if not outdir:
-            if self.default_dir:
-                import tempfile
+            if self._default_dir:
                 outdir = tempfile.mkdtemp(prefix='output_',
-                        dir=self.default_dir)
+                        dir=self._default_dir)
                 permanent = self.opts.mrs__keep_jobdir
         if outdir:
-            from util import try_makedirs
-            try_makedirs(outdir)
+            util.try_makedirs(outdir)
 
         if not parter:
-            parter = self.program.partition
+            parter = self._default_partition
 
-        from datasets import LocalData
-        ds = LocalData(itr, splits, dir=outdir, parter=parter, format=format,
-                permanent=permanent)
-        ds.blockingthread = self.blockingthread
+        ds = datasets.LocalData(itr, splits, dir=outdir, parter=parter,
+                format=format, permanent=permanent)
+        self._manager.submit(ds)
         return ds
 
     def map_data(self, input, mapper, splits=None, outdir=None, parter=None,
@@ -330,23 +104,25 @@ class Job(threading.Thread):
         Called from the user-specified run function.
         """
         if splits is None:
-            splits = self.default_reduce_tasks
+            splits = self._default_reduce_tasks
 
         if outdir:
             permanent = True
-            from util import try_makedirs
-            try_makedirs(outdir)
+            util.try_makedirs(outdir)
         else:
             permanent = False
 
         if not parter:
-            parter = self.program.partition
+            parter = self._default_partition
 
-        from datasets import MapData
-        ds = MapData(input, mapper, splits, outdir, parter=parter,
-                format=format, permanent=permanent)
-        ds.blockingthread = self.blockingthread
-        self.submit(ds)
+        map_name = self._registry[mapper]
+        part_name = self._registry[parter]
+
+        ds = datasets.ComputedData(task.MapTask, input, map_name,
+                splits=splits, dir=outdir, part_name=part_name, format=format,
+                permanent=permanent)
+        self._manager.submit(ds)
+        ds._close_callback = self._manager.close_dataset
         return ds
 
     def reduce_data(self, input, reducer, splits=None, outdir=None,
@@ -359,24 +135,285 @@ class Job(threading.Thread):
         Called from the user-specified run function.
         """
         if splits is None:
-            splits = self.default_reduce_parts
+            splits = self._default_reduce_parts
 
         if outdir:
             permanent = True
-            from util import try_makedirs
-            try_makedirs(outdir)
+            util.try_makedirs(outdir)
         else:
             permanent = False
 
         if not parter:
-            parter = self.program.partition
+            parter = self._default_partition
 
-        from datasets import ReduceData
-        ds = ReduceData(input, reducer, splits, outdir, parter=parter,
-                format=format, permanent=permanent)
-        ds.blockingthread = self.blockingthread
-        self.submit(ds)
+        reduce_name = self._registry[reducer]
+        part_name = self._registry[parter]
+
+        ds = datasets.ComputedData(task.ReduceTask, input, reduce_name,
+                splits=splits, dir=outdir, part_name=part_name, format=format,
+                permanent=permanent)
+        self._manager.submit(ds)
         return ds
 
+    def progress(self, dataset):
+        """Reports the progress (portion complete) of the given dataset."""
+        return self._manager.progress(dataset)
+
+
+def job_process(program_class, opts, args, jobdir, pipe):
+    """Runs user code to initialize and run a job.
+
+    Call the user-specified run function, which will submit datasets to be
+    computed.
+    """
+    manager = DataManager(pipe)
+    default_dir = make_default_dir(jobdir)
+
+    try:
+        program = program_class(opts, args)
+    except Exception, e:
+        logger.critical('Exception while instantiating the program: %s'
+                % traceback.format_exc())
+        manager.done(False)
+        return
+
+    reg = registry.Registry(program)
+    job = Job(manager, reg, opts, program.partition, default_dir)
+
+    manager_thread = threading.Thread(target=manager.run, name='DataManager')
+    manager_thread.start()
+
+    try:
+        program.run(job)
+    except Exception, e:
+        logger.critical('Exception raised in the run function: %s'
+                % traceback.format_exc())
+        manager.done(False)
+        return
+
+    manager.done()
+    manager_thread.join()
+
+
+class DataManager(object):
+    """Submits datasets to and receives urls from the MapReduce implementation.
+
+    The run method (which should be in a standalone DataManager thread)
+    receives urls from the MapReduce implementation.  Other methods may be
+    called from the main job thread (note that the implementation assumes that
+    only one other thread will call the submit, done, close_dataset and wait
+    method).
+    """
+
+    def __init__(self, pipe):
+        self._pipe = pipe
+        self._datasets = weakref.WeakValueDictionary()
+        self._status_dict = {}
+
+        self._runwaitlock = threading.Lock()
+        self._runwaitcv = threading.Condition(self._runwaitlock)
+        self._runwaitlist = None
+
+    def run(self):
+        """Repeatedly read from the pipe."""
+        while True:
+            try:
+                message = self._pipe.recv()
+            except EOFError:
+                return
+
+            if isinstance(message, BucketReady):
+                try:
+                    ds = self._datasets[message.dataset_id]
+                except KeyError:
+                    ds = None
+
+                bucket = message.bucket
+                self._status_dict[message.dataset_id].source_seen(bucket.source)
+
+                if ds is not None:
+                    ds[bucket.source, bucket.split] = bucket
+            elif isinstance(message, DatasetComputed):
+                try:
+                    ds = self._datasets[message.dataset_id]
+                except KeyError:
+                    ds = None
+
+                if message.fetched:
+                    ds._fetched = True
+                del self._status_dict[message.dataset_id]
+
+                if ds is not None:
+                    with self._runwaitcv:
+                        ds.computed = True
+                        self._runwaitcv.notify()
+            elif isinstance(message, JobDoneAck):
+                return
+            else:
+                assert False, 'Unknown message type.'
+
+    def submit(self, dataset):
+        """Sends the given dataset to the implementation."""
+        self._datasets[dataset.id] = dataset
+        if isinstance(dataset, datasets.ComputedData):
+            self._status_dict[dataset.id] = DatasetStatus(dataset)
+        # TODO: if we're running parallel PSO and the dataset is a LocalData,
+        # then convert it to FileData to avoid serializing unnecessary data.
+        message = DatasetSubmission(dataset)
+        self._pipe.send(message)
+
+    def done(self, success=True):
+        """Signals that the job is done (and the program should quit).
+
+        The boolean value indicates whether execution was successful.
+        """
+        self._pipe.send(JobDone(success))
+
+    def close_dataset(self, dataset):
+        """Called when a dataset is closed.  Reports this to the impl."""
+        self._pipe.send(CloseDataset(dataset.id))
+
+    def wait(self, *datasets, **kwds):
+        """Wait for any of the given Datasets to complete.
+
+        The optional timeout parameter specifies a floating point number
+        of seconds to wait before giving up.  The wait function returns a
+        list of datasets that are ready.
+        """
+        timeout = kwds.get('timeout', None)
+
+        with self._runwaitcv:
+            self._runwaitlist = datasets
+
+            ready_list = self._check_runwaitlist()
+            if not ready_list:
+                self._runwaitcv.wait(timeout)
+                ready_list = self._check_runwaitlist()
+                self._runwaitlist = None
+        return ready_list
+
+    def progress(self, dataset):
+        """Reports on the progress (portion complete) of the specified dataset.
+        """
+        try:
+            stat = self._status_dict[dataset.id]
+        except KeyError:
+            stat = None
+
+        if stat:
+            return stat.progress()
+        else:
+            return 1
+
+    def _check_runwaitlist(self):
+        """Finds whether any dataset in the runwaitlist is ready.
+
+        Returns a list of all datasets that are ready or None if the
+        runwaitlist is not set.  This should only be called when the
+        _runwaitcv lock is held.
+        """
+        assert self._runwaitlock.locked()
+        runwaitlist = self._runwaitlist
+        if runwaitlist:
+            return [ds for ds in runwaitlist if ds.computed]
+        else:
+            return None
+
+
+class DatasetStatus(object):
+    """Keeps track of the status of current datasets."""
+    def __init__(self, dataset):
+        self.id = dataset.id
+        self.total_sources = dataset.sources
+        self.sources_seen = set()
+
+    def source_seen(self, source):
+        """Called each time a bucket is received."""
+        self.sources_seen.add(source)
+
+    def progress(self):
+        """Reports the progress (portion complete) of the dataset."""
+        return len(self.sources_seen) / self.total_sources
+
+
+def make_jobdir(opts):
+    """Creates a job directory using opts.mrs__shared (if provided)."""
+
+    try:
+        shared_dir = opts.mrs__shared
+    except AttributeError:
+        shared_dir = None
+
+    if shared_dir:
+        jobdir = tempfile.mkdtemp(prefix='mrs.job_', dir=shared_dir)
+    else:
+        jobdir = None
+    return jobdir
+
+
+def make_default_dir(jobdir):
+    """Creates a default output directory for locally written data."""
+
+    if jobdir:
+        default_dir = os.path.join(jobdir, 'master')
+        os.mkdir(default_dir)
+    else:
+        default_dir = None
+    return default_dir
+
+
+class JobToImpl(object):
+    """Message from the job to the MapReduce implementation."""
+
+
+class ImplToJob(object):
+    """Message from the MapReduce implementation to the job."""
+
+
+class DatasetSubmission(JobToImpl):
+    """Submission of a new non-computed dataset."""
+    def __init__(self, ds):
+        self.dataset = ds
+
+
+class CloseDataset(JobToImpl):
+    """Close the specified dataset, deleting all associated data."""
+    def __init__(self, dataset_id):
+        self.dataset_id = dataset_id
+
+
+class JobDone(JobToImpl):
+    """No further datasets will be submitted and the run method is done.
+
+    The success attribute indicates whether execution succeeded.
+    """
+    def __init__(self, success):
+        self.success = success
+
+
+class BucketReady(ImplToJob):
+    """The given Bucket is ready."""
+    def __init__(self, dataset_id, bucket):
+        self.dataset_id = dataset_id
+        # TODO: right now, the Serial impl sends the whole bucket with all
+        # data, even if the user program doesn't need it.  Instead, there
+        # should be a separate mechanism for requesting the data in the
+        # serial case.
+        self.bucket = bucket
+
+
+class DatasetComputed(ImplToJob):
+    """The given ComputedData set has finished being computed.
+
+    The fetched attribute indicates whether the previously sent buckets (in
+    BucketReady messages) contained data or just urls.
+    """
+    def __init__(self, dataset_id, fetched):
+        self.dataset_id = dataset_id
+        self.fetched = fetched
+
+
+class JobDoneAck(ImplToJob):
+    """The implementation has received the JobDone message and is quitting."""
 
 # vim: et sw=4 sts=4

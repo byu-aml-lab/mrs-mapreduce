@@ -338,7 +338,7 @@ class OptionParser(optparse.OptionParser):
 
     def add_param_object(self, param_obj, prefix='', values=None):
         """Adds a option group for the parameters in a ParamObj.
-        
+
         The given prefix will be prepended to each long option.
 
         Returns the OptionGroup object associated with this ParamObj.

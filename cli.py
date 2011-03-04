@@ -41,7 +41,7 @@ def main(program_class, update_parser=None):
 
     Requires a program class (which inherits from mrs.MapReduce) and an
     optional update_parser function.
-    
+
     If you want to modify the basic Mrs Parser, provide an update_parser
     function that takes a parser and either modifies it or returns a new one.
     Note that no option should ever have the value None.

@@ -21,20 +21,28 @@
 # (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
 
 
-# TODO: add a DataSet for resplitting input (right now we assume that input
+# TODO: add a Dataset for resplitting input (right now we assume that input
 # files are pre-split).
 
 import os
+import threading
+
 from itertools import chain, izip
+
+from . import bucket
+from . import util
+from .io import load
 
 from logging import getLogger
 logger = getLogger('mrs')
 
+DATASET_ID_LENGTH = 10
 
-class BaseDataSet(object):
+
+class BaseDataset(object):
     """Manage input to or output from a map or reduce operation.
 
-    A DataSet is naturally a two-dimensional list.  There are some number of
+    A Dataset is naturally a two-dimensional list.  There are some number of
     sources, and for each source, there are one or more splits.
 
     Attributes:
@@ -44,7 +52,8 @@ class BaseDataSet(object):
             split from all sources, use itersplit()
     """
     def __init__(self, sources=0, splits=0, dir=None, format=None,
-            permanent=True):
+            permanent=True, **kwds):
+        self.id = util.random_string(DATASET_ID_LENGTH)
         self.sources = sources
         self.splits = splits
         self.dir = dir
@@ -54,7 +63,7 @@ class BaseDataSet(object):
         self._data = None
 
     def __len__(self):
-        """Number of buckets in this DataSet."""
+        """Number of buckets in this Dataset."""
         raise NotImplementedError
 
     def __iter__(self):
@@ -75,53 +84,46 @@ class BaseDataSet(object):
         buckets = self[source, :]
         return chain(*buckets)
 
-    def close(self):
-        """Close DataSet for future use.
+    def _set_close_callback(self, callback):
+        self._close_callback = callback
 
-        No additional DataSets will be able to depend on this DataSet for
+    def close(self):
+        """Close Dataset for future use.
+
+        No additional Datasets will be able to depend on this Dataset for
         input, and no further reads will be allowed.  Calling close() allows
-        the system to free resources.  Don't close a DataSet unless you really
+        the system to free resources.  Don't close a Dataset unless you really
         mean it.
         """
         self.closed = True
+
+    def _delete(self):
+        """Delete current data and temporary files from the dataset."""
+        # TODO: deletion of remote datasets needs to be delegated to the
+        # slave that created them.
+        if self._data is None:
+            return
         if not self.permanent:
-            from bucket import BucketRemover
-            for bucket in self:
-                task = BucketRemover(bucket)
-                if self.blockingthread:
-                    self.blockingthread.register(task)
-                else:
-                    task.run()
+            for b in self:
+                b.clean()
             if self.dir:
                 # Just to make sure it's all gone:
-                from io.blocking import RecursiveRemover
-                task = RecursiveRemover(self.dir)
-                if self.blockingthread:
-                    self.blockingthread.register(task)
-                else:
-                    task.run()
+                util.remove_recursive(self.dir)
         self._data = None
 
     def ready(self):
-        """Report whether DataSet is ready.
+        """Report whether Dataset is ready.
 
-        Ready means that the input DataSet is done(), so this DataSet can be
-        computed without waiting.  For most types of DataSets, this is
+        Ready means that the input Dataset is done(), so this Dataset can be
+        computed without waiting.  For most types of Datasets, this is
         automatically true.
-        """
-        return True
-
-    def done(self):
-        """Report whether all data are accessible/computed.
-
-        For most types of DataSets, this is automatically true.
         """
         return True
 
     def fetchall(self, *args, **kwds):
         """Download all of the files.
 
-        For most types of DataSets, this is a no-op.
+        For most types of Datasets, this is a no-op.
         """
         return
 
@@ -143,7 +145,7 @@ class BaseDataSet(object):
 
     def __getitem__(self, item):
         """Retrieve an item or split.
-        
+
         At the moment, we're not very consistent about whether what we return
         is a view or a [shallow] copy.  Write at your own risk.
         """
@@ -174,20 +176,20 @@ class BaseDataSet(object):
             return self._data[part1][part2]
 
     def __del__(self):
-        if not self.closed:
-            self.close()
+        if self._data:
+            self._delete()
 
 
-class DataSet(BaseDataSet):
+class Dataset(BaseDataset):
     """Manage input to or output from a map or reduce operation.
 
-    A DataSet is naturally a two-dimensional list.  There are some number of
+    A Dataset is naturally a two-dimensional list.  There are some number of
     sources, and for each source, there are one or more splits.
 
-    Low-level Testing.  Normally a DataSet holds Buckets, but for now we'll be
+    Low-level Testing.  Normally a Dataset holds Buckets, but for now we'll be
     loose for testing purposes.  This also makes it clear how slicing works,
     so it's not a waste of space.
-    >>> ds = DataSet(sources=3, splits=3)
+    >>> ds = Dataset(sources=3, splits=3)
     >>> len(ds)
     9
     >>> ds[0, 0] = 'zero'
@@ -212,18 +214,15 @@ class DataSet(BaseDataSet):
     >>>
     """
     def __init__(self, **kwds):
-        BaseDataSet.__init__(self, **kwds)
+        super(Dataset, self).__init__(**kwds)
 
-        # For now assume that all sources have the same # of splits.  Also,
-        # don't send the directory on to the Buckets because they shouldn't
-        # be writing out to disk.
-        from bucket import Bucket
-        self._data = [[Bucket(i, j, format=self.format)
+        # For now assume that all sources have the same # of splits.
+        self._data = [[bucket.Bucket(i, j)
                 for j in xrange(self.splits)]
                 for i in xrange(self.sources)]
 
     def __len__(self):
-        """Number of buckets in this DataSet."""
+        """Number of buckets in this Dataset."""
         return sum(len(source) for source in self._data)
 
     def __iter__(self):
@@ -248,7 +247,7 @@ class DataSet(BaseDataSet):
 
     def __getitem__(self, item):
         """Retrieve an item or split.
-        
+
         At the moment, we're not very consistent about whether what we return
         is a view or a [shallow] copy.  Write at your own risk.
         """
@@ -279,9 +278,9 @@ class DataSet(BaseDataSet):
             return self._data[part1][part2]
 
 
-class LocalData(BaseDataSet):
+class LocalData(BaseDataset):
     """Collect output from a map or reduce task.
-    
+
     This is only used on the slave side.  It takes a partition function and a
     number of splits to use.  Note that the `source`, which is just used for
     naming files, represents which output source is being created.
@@ -295,19 +294,18 @@ class LocalData(BaseDataSet):
     >>>
     """
     def __init__(self, itr, splits, source=0, parter=None, **kwds):
-        BaseDataSet.__init__(self, splits=splits, **kwds)
+        super(LocalData, self).__init__(splits=splits, **kwds)
         self.fixed_source = source
-        self.parter = parter
 
         # One source and splits splits
-        from bucket import Bucket
-        self._data = [Bucket(source, j, self.dir, self.format)
+        self._data = [bucket.WriteBucket(source, j, self.dir, self.format)
                 for j in xrange(splits)]
 
-        self._collect(itr)
+        self._collect(itr, parter)
+        self._data = [b.readonly_copy() for b in self._data]
 
     def __len__(self):
-        """Number of buckets in this DataSet."""
+        """Number of buckets in this Dataset."""
         return self.splits
 
     def __iter__(self):
@@ -329,7 +327,7 @@ class LocalData(BaseDataSet):
 
     def __getitem__(self, item):
         """Retrieve an item or split.
-        
+
         At the moment, we're not very consistent about whether what we return
         is a view or a [shallow] copy.  Write at your own risk.
         """
@@ -354,7 +352,7 @@ class LocalData(BaseDataSet):
         else:
             return self._data[part2]
 
-    def _collect(self, itr):
+    def _collect(self, itr, parter):
         """Collect all of the key-value pairs from the given iterator."""
         buckets = list(self)
         n = self.splits
@@ -362,7 +360,6 @@ class LocalData(BaseDataSet):
             bucket = buckets[0]
             bucket.collect(itr)
         else:
-            parter = self.parter
             for kvpair in itr:
                 key, value = kvpair
                 split = parter(key, n)
@@ -377,87 +374,96 @@ class LocalData(BaseDataSet):
             os.close(fd)
 
 
-class RemoteData(DataSet):
-    """A DataSet whose contents can be downloaded and read.
-    
+class RemoteData(Dataset):
+    """A Dataset whose contents can be downloaded and read.
+
     Subclasses need to set the url for each bucket.
     """
     def __init__(self, **kwds):
-        DataSet.__init__(self, **kwds)
+        super(RemoteData, self).__init__(**kwds)
 
-        self.blockingthread = None
         self._fetched = False
-        # TODO: instead of needed_buckets and ready_buckets, just do a
-        # defer.deferredList.
-        self._needed_buckets = set()
-        self._ready_buckets = set()
+        self._fetchlist_active = True
+        self._init_fetchlist()
+        self._close_callback = None
 
-    def fetchall(self, serial=False):
-        """Download all of the files.
+    def __getstate__(self):
+        """Pickle without getting certain forbidden/unnecessary elements."""
+        state = self.__dict__.copy()
+        del state['_fetchlist']
+        del state['_fetchlist_cv']
+        state['_close_callback'] = None
+        if self.closed:
+            state['_data'] = None
+        return state
 
-        By default, fetchall assumes that it's being run in a thread other
-        than the main thread because that's how it usually appears in Mrs.
-        However, if it is in the main thread, it needs to know, so it can tell
-        Twisted to catch SIGTERM.
-        """
-        from io.load import fillbucket, blocking_fill
+    def __setstate__(self, state):
+        self.__dict__ = state
+        self._init_fetchlist()
+
+    def _init_fetchlist(self):
+        """Create the list of bucket ids (i.e., (source, split) pairs) that
+        have newly available urls."""
+        self._fetchlist = None
+        self._fetchlist_cv = threading.Condition()
+
+    def close(self):
+        super(RemoteData, self).close()
+        if self._close_callback:
+            self._close_callback(self)
+
+    # TODO: consider parallelizing this to use multiple downloading threads.
+    def fetchall(self):
+        """Download all of the files."""
+        assert not self.closed, (
+                'Invalid attempt to call fetchall on a closed dataset.')
+
         # Don't call fetchall twice:
         if self._fetched:
             return
-        else:
-            self._fetched = True
 
-        if serial or not self.blockingthread:
+        if not self._fetchlist_active:
             for bucket in self:
                 url = bucket.url
                 if url:
-                    blocking_fill(url, bucket)
+                    load.blocking_fill(url, bucket)
         else:
-            # TODO: set a maximum number of files to read at the same time (do
-            # we really want to have 500 sockets open at once?)
+            more = True
+            while more:
+                with self._fetchlist_cv:
+                    if self._fetchlist_active and not self._fetchlist:
+                        self._fetchlist_cv.wait()
+                    bucket_ids = self._fetchlist
+                    self._fetchlist = []
+                    more = self._fetchlist_active
 
-            import threading
-            from twisted.internet import reactor
+                for key in bucket_ids:
+                    bucket = self[key]
+                    url = bucket.url
+                    if url:
+                        load.blocking_fill(url, bucket)
 
-            assert(not self.closed)
+        self._fetched = True
 
-            self._download_done = threading.Condition()
-            self._download_done.acquire()
+    def notify_new_url(self, keylist):
+        """Notify any fetchall method that new urls are available.
 
-            # TODO: It might be a good idea to make it so fetchall only tries
-            # to load a particular split.  The reason is that mockparallel's
-            # status report looks very confusing since the input for all
-            # reduce tasks is being loaded at the beginning of the first
-            # reduce task.
-            # TODO: It might also make sense to use a DeferredList here.
-            for bucket in self:
-                url = bucket.url
-                if url:
-                    deferred = fillbucket(url, bucket, self.blockingthread)
-                    reactor.callFromThread(deferred.addCallback,
-                            self.callback, bucket)
-                    self._needed_buckets.add(bucket)
+        The keylist parameter is an iterable of (source, split) pairs.
+        """
+        with self._fetchlist_cv:
+            assert self._fetchlist_active
+            self._fetchlist.extend(keylist)
+            self._fetchlist_cv.notify_all()
 
-            if self._needed_buckets:
-                # block until all downloads finished
-                self._download_done.wait()
+    def notify_urls_known(self):
+        """Signify that all buckets have been assigned urls.
 
-            self._download_done.release()
-
-    def callback(self, eof, bucket):
-        """Called by Twisted when data are available for reading."""
-        self._download_done.acquire()
-        self._ready_buckets.add(bucket)
-        if len(self._ready_buckets) == len(self._needed_buckets):
-            self._download_done.notify()
-            #from twisted.internet import reactor
-            # Note that we can't do reactor.run() twice, so we cheat.
-            #reactor.running = False
-        self._download_done.release()
-
-    def errback(self, value):
-        # TODO: write me
-        pass
+        Notifies any fetchall method that all urls are known.
+        """
+        with self._fetchlist_cv:
+            assert self._fetchlist_active
+            self._fetchlist_active = False
+            self._fetchlist_cv.notify_all()
 
 
 class FileData(RemoteData):
@@ -470,7 +476,7 @@ class FileData(RemoteData):
     >>> data = FileData(urls)
     >>> len(data)
     2
-    >>> data.fetchall(serial=True)
+    >>> data.fetchall()
     >>> data[0, 0][0]
     (0, '<html>\\n')
     >>> data[0, 0][1]
@@ -487,67 +493,90 @@ class FileData(RemoteData):
             sources = 1
             splits = n
         elif sources is None:
-            sources = n / splits
+            sources = n // splits
         elif splits is None:
-            splits = n / sources
+            splits = n // sources
 
         # TODO: relax this requirement
         assert(sources * splits == n)
 
-        RemoteData.__init__(self, sources=sources, splits=splits, **kwds)
+        super(FileData, self).__init__(sources=sources, splits=splits, **kwds)
 
         for bucket, url in izip(self, urls):
             bucket.url = url
 
+        # Since all urls are pre-known, the fetchlist is unneeded.
+        self._fetchlist_active = False
+
 
 class ComputedData(RemoteData):
     """Manage input to or output from a map or reduce operation.
-    
-    The data are evaluated lazily.  A DataSet knows how to generate or
+
+    The data are evaluated lazily.  A Dataset knows how to generate or
     regenerate its contents.  It can also decide whether to save the data to
     permanent storage or to leave them in memory on the slaves.
+
+    Attributes:
+        task_class: the class used to carry out computation
+        func: name of the computing function (see registry for more info)
+        parter: name of the partition function (see registry for more info)
     """
-    def __init__(self, input, func, splits, dir=None, parter=None,
-            format=None, permanent=True):
+    def __init__(self, task_class, input, func_name, part_name=None, **kwds):
         # At least for now, we create 1 task for each split in the input
         ntasks = input.splits
-        RemoteData.__init__(self, sources=ntasks, splits=splits, dir=dir,
-                permanent=permanent)
+        super(ComputedData, self).__init__(sources=ntasks, **kwds)
 
-        self.func = func
-        self.parter = parter
+        self.task_class = task_class
+        self.func_name = func_name
+        self.part_name = part_name
 
-        self.tasks_made = False
-        self.tasks_todo = []
-        self.tasks_done = []
-        self.tasks_active = []
+        self.computed = False
 
         assert(not input.closed)
-        self.input = input
-        self.format = format
+        self.input_id = input.id
 
-        # TODO: store a mapping from tasks to hosts and a map from hosts to
-        # tasks.  This way you can know where to find data.  You also know
-        # which hosts to restart in case of failure.
+    def run_serial(self, program, datasets):
+        input_data = datasets[self.input_id]
+        self.splits = 1
+        func = getattr(program, self.func_name)
+        parter = getattr(program, self.part_name)
+        task = self.task_class(input_data, 0, 0, func, parter, self.splits,
+                self.dir, self.format)
+        task.run(serial=True)
 
-    def ready(self):
-        """Report whether DataSet is ready to be computed.
+        self._use_output(task.output)
 
-        Ready means that the input DataSet is done(), so this DataSet can
-        be computed without waiting.
-        """
-        if self.input:
-            return self.input.done()
-        else:
-            return True
+        self.computed = True
 
-    def done(self):
-        """Report whether everything has been computed.
-        """
-        if self.tasks_made and not self.tasks_todo and not self.tasks_active:
-            return True
-        else:
-            return False
+    def fetchall(self):
+        assert self.computed, (
+                'Invalid attempt to call fetchall on a non-ready dataset.')
+        super(ComputedData, self).fetchall()
+
+    def _use_output(self, output):
+        """Uses the contents of the given LocalData."""
+        # Note that this assumes there's only one source and one output set.
+        self._data = [output._data]
+        self.sources = 1
+        self.splits = len(output._data)
+        self._fetched = True
+
+
+def test():
+    import doctest
+    doctest.testmod()
+
+
+class JunkToMoveSomewhereElse:
+    def make_tasks(self):
+        from task import MapTask
+        for i in xrange(self.sources):
+            # FIXME: self.input now refers to the dataset_id, not the dataset.
+            map_task = MapTask(self.input, i, i, self.func,
+                    self.parter, self.splits, self.dir, self.format)
+            map_task.dataset = self
+            self.tasks_todo.append(map_task)
+        self.tasks_made = True
 
     def get_task(self):
         """Return the next available task"""
@@ -556,13 +585,6 @@ class ComputedData(RemoteData):
             return task
         else:
             return
-
-    def status(self):
-        active = len(self.tasks_active)
-        todo = len(self.tasks_todo)
-        done = len(self.tasks_done)
-        total = active + todo + done
-        return 'Completed: %s/%s, Active: %s' % (done, total, active)
 
     def task_started(self, task):
         self.tasks_active.append(task)
@@ -590,79 +612,5 @@ class ComputedData(RemoteData):
                 # someone else already did it
                 logger.warning('An inactive task was finished.')
             return
-
-    # TODO: this needs to contact each of the slaves to have them delete
-    # data (if non-permanent)
-    def close(self):
-        """Close DataSet for future use.
-
-        No additional DataSets will be able to depend on this DataSet for
-        input, the data cannot be regenerated, and no further reads will be
-        allowed.
-        """
-        super(ComputedData, self).close()
-        self.input = None
-
-    def _use_output(self, output):
-        """Uses the contents of the given LocalData."""
-        # Note that this assumes there's only one source and one output set.
-        self._data = [output._data]
-        self.sources = 1
-        self.splits = len(output._data)
-        self._fetched = True
-
-
-class MapData(ComputedData):
-    def make_tasks(self):
-        from task import MapTask
-        for i in xrange(self.sources):
-            task = MapTask(self.input, i, i, self.func,
-                    self.parter, self.splits, self.dir, self.format)
-            task.dataset = self
-            self.tasks_todo.append(task)
-        self.tasks_made = True
-
-    def run_serial(self):
-        from task import MapTask
-        self.splits = 1
-        task = MapTask(self.input, 0, 0, self.func, self.parter,
-                self.splits, self.dir, self.format)
-        # TODO: make this less hackish (this makes sure that done() works).
-        self.tasks_todo = [None]
-        self.tasks_made = True
-        task.run(serial=True)
-        self._use_output(task.output)
-        self.tasks_todo = []
-
-
-class ReduceData(ComputedData):
-    def make_tasks(self):
-        from task import ReduceTask
-        for i in xrange(self.sources):
-            task = ReduceTask(self.input, i, i, self.func,
-                    self.parter, self.splits, self.dir, self.format)
-            task.dataset = self
-            self.tasks_todo.append(task)
-        self.tasks_made = True
-
-    def run_serial(self):
-        from task import ReduceTask
-        self.splits = 1
-        task = ReduceTask(self.input, 0, 0, self.func, self.parter,
-                self.splits, self.dir, self.format)
-        # TODO: make this less hackish (this makes sure that done() works).
-        self.tasks_todo = [None]
-        self.tasks_made = True
-        task.run(serial=True)
-        self._use_output(task.output)
-        self.tasks_todo = []
-
-
-def test():
-    import doctest
-    doctest.testmod()
-
-if __name__ == "__main__":
-    test()
 
 # vim: et sw=4 sts=4

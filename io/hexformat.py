@@ -25,7 +25,6 @@ import codecs
 from consumer import LineConsumer
 from textformat import TextWriter
 from itertools import islice
-import twisttest
 
 # TODO: sort should just sort on the first field
 
@@ -39,20 +38,6 @@ class HexConsumer(LineConsumer):
 
     TODO: we might as well base64-encode the value, rather than hex-encoding
     it, since it doesn't need to be sortable.
-
-    Create a consumer and producer.
-    >>> data = "4b6579 56616c7565\\n"
-    >>> bucket = twisttest.TestBucket()
-    >>> consumer = HexConsumer(bucket)
-    >>> producer = twisttest.TestProducer(data, consumer)
-    >>>
-
-    >>> producer.push()
-    >>> len(bucket.data)
-    1
-    >>> bucket.data[0]
-    ('Key', 'Value')
-    >>>
     """
 
     def __iter__(self):
@@ -88,7 +73,7 @@ class HexWriter(TextWriter):
 
 def hexformat_sort(in_filenames, out_filename):
     """Sort one or more HexFormats into a new HexFormat.
-    
+
     The ASCII hexadecimal encoding of keys has the property that sorting the
     file (with Unix sort) will preserve the sort order.
 
@@ -112,9 +97,5 @@ def hexformat_sort(in_filenames, out_filename):
 def test():
     import doctest
     doctest.testmod()
-
-if __name__ == "__main__":
-    test()
-
 
 # vim: et sw=4 sts=4

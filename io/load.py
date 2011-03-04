@@ -20,7 +20,6 @@
 # Licensing Office, Brigham Young University, 3760 HBLL, Provo, UT 84602,
 # (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
 
-import twisttest
 from consumer import LineConsumer
 from textformat import TextWriter
 from hexformat import HexConsumer, HexWriter, hexformat_sort
@@ -70,81 +69,8 @@ def blocking_fill(url, bucket):
     producer.run()
 
 
-def fillbucket(url, bucket, blockingthread):
-    """Open a url or file and start writing it to a bucket.
-
-    This will return a deferred that will be called back when the writing
-    is completed.  The blockingthread is an instance of BlockingThread that
-    will be used if IO cannot be handled natively in Twisted.
-    """
-    consumer_cls = fileformat(url)
-    consumer = consumer_cls(bucket)
-    deferred = urlconsume(url, consumer, blockingthread)
-    return deferred
-
-
-def urlconsume(url, consumer, blockingthread):
-    """Open a url and start streaming its contents to a consumer.
-
-    The url is assumed to be a file if no scheme is given.  We return a
-    deferred that will be called back when streaming is complete.  The
-    blockingthread is an instance of BlockingThread that will be used if IO
-    cannot be handled natively in Twisted.  The blockingthread does not need
-    to be started before calling urlconsume.
-
-
-    We'll be downloading the New Testament as a test (this will definitely
-    download in more than one chunck).
-    >>> url = 'http://www.gutenberg.org/dirs/etext05/bib4010h.htm'
-    >>> consumer = twisttest.TestConsumer()
-    >>> deferred = urlconsume(url, consumer)
-    >>> d = deferred.addBoth(twisttest.pause_reactor)
-    >>> twisttest.resume_reactor()
-    >>>
-
-    Make sure that the data were read correctly:
-    >>> lines = consumer.buffer.splitlines()
-    >>> print lines[16]
-    <a href="#begin">THE PROJECT GUTENBERG BIBLE, King James,
-    >>> print lines[17]
-    <br>Book 40: Matthew</a>
-    >>>
-    """
-    from producers import URLProducer, HTTPClientProducerFactory
-    import urlparse, urllib2
-
-    u = urlparse.urlsplit(url, 'file')
-    if u.scheme in ('http', 'https'):
-        from twisted.internet import reactor
-        factory = HTTPClientProducerFactory(url, consumer)
-        port = u.port
-
-        if u.scheme == 'http':
-            if not port:
-                port = 80
-            reactor.connectTCP(u.hostname, port, factory)
-        else:
-            if not port:
-                port = 443
-            from twisted.internet import ssl
-            contextFactory = ssl.ClientContextFactory()
-            reactor.connectSSL(u.hostname, port, factory, contextFactory)
-        deferred = factory.deferred
-    else:
-        producer = URLProducer(u.path, consumer, blockingthread)
-        blockingthread.register(producer)
-        deferred = producer.deferred
-
-    return deferred
-
-
 def test():
     import doctest
-    twisttest.start_reactor()
     doctest.testmod()
-    twisttest.cleanup_reactor()
-
-if __name__ == "__main__":
-    test()
 
 # vim: et sw=4 sts=4

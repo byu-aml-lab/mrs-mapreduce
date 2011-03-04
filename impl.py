@@ -22,12 +22,13 @@
 
 """Mrs Implementations
 
-An Implementation defines the implementation function that will be run and 
+An Implementation defines the implementation function that will be run and
 specifies its command-line options.
 """
 
 from param import ParamObj, Param
 import binascii
+import multiprocessing
 import random
 import os
 import signal
@@ -96,58 +97,28 @@ class Serial(Implementation):
     def __init__(self):
         Implementation.__init__(self)
 
-        import threading
-        self.cv = threading.Condition()
-
     def _main(self, opts, args):
-        from job import Job
+        import job
+        import serial
 
-        self.job = Job(self.program_class, opts, args)
-        self.job.update_callback = self.job.end_callback = self.job_updated
-        self.job.start()
+        job_conn, child_job_conn = multiprocessing.Pipe()
+        job_proc = multiprocessing.Process(target=job.job_process,
+                name='Job',
+                args=(self.program_class, opts, args, None, child_job_conn))
+        job_proc.start()
 
-        while self.ready():
-            dataset = self.job.active_data[0]
-            dataset.run_serial()
-            self.job.check_done()
-
-        self.job.join()
-
-    def ready(self):
-        """Waits for a dataset to become ready.
-
-        Returns True when a dataset is ready and False when the job is
-        finished.
-        """
-        # A quick optimization for jobs with lots of datasets:
-        if self.job.active_data:
-            return True
-
-        self.cv.acquire()
+        runner = serial.SerialRunner(self.program_class, opts, args, job_conn)
         try:
-            while True:
-                if self.job.active_data:
-                    return True
-                elif self.job.done():
-                    return False
-                else:
-                    self.cv.wait()
-        finally:
-            self.cv.release()
+            runner.run()
+        except KeyboardInterrupt:
+            job_proc.terminate()
 
-    def job_updated(self):
-        """Called when the job is updated or completed.
-        
-        Called from another thread.
-        """
-        self.cv.acquire()
-        self.cv.notify()
-        self.cv.release()
+        job_proc.join()
 
 
 class MockParallel(Implementation):
     """MapReduce execution on POSIX shared storage, such as NFS.
-    
+
     This creates all of the tasks that are used in the normal parallel
     implementation, but it executes them in serial.  This can make debugging a
     little easier.

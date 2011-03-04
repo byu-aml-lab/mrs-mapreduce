@@ -24,13 +24,17 @@
 
 from __future__ import division
 
+import os
+import random
+import string
+import subprocess
+
 from logging import getLogger
 logger = getLogger('mrs')
 
 
 def try_makedirs(path):
     """Do the equivalent of mkdir -p."""
-    import os
     try:
         os.makedirs(path)
     except OSError, e:
@@ -40,7 +44,6 @@ def try_makedirs(path):
 
 def remove_recursive(path):
     """Do the equivalent of rm -r."""
-    import subprocess
     p = subprocess.Popen(['/bin/rm', '-rf', path])
     retcode = p.wait()
     if retcode == 0:
@@ -59,8 +62,8 @@ def delta_seconds(delta):
     total = day_seconds + delta.seconds + ms_seconds
     return total
 
-if __name__ == '__main__':
-    import doctest
-    doctest.testmod()
+def random_string(length):
+    possible = string.letters + string.digits
+    return ''.join(random.choice(possible) for i in xrange(length))
 
 # vim: et sw=4 sts=4

@@ -26,6 +26,10 @@ A Task represents a unit of work.  A Task is created on the master,
 serialized, sent to the slave, and then created on the slave.
 """
 
+from itertools import chain
+
+from . import datasets
+
 
 class Task(object):
     """Manage input and output for a piece of a map or reduce operation.
@@ -97,11 +101,8 @@ class MapTask(Task):
         self.splits = splits
 
     def run(self, serial=False):
-        import datasets
-        from itertools import chain
-
         # SETUP INPUT
-        self.input.fetchall(serial)
+        self.input.fetchall()
         if serial:
             all_input = self.input.iterdata()
         else:
@@ -135,11 +136,8 @@ class ReduceTask(Task):
         self.splits = splits
 
     def run(self, serial=False):
-        import datasets
-        from itertools import chain
-
         # SORT PHASE
-        self.input.fetchall(serial)
+        self.input.fetchall()
         if serial:
             all_input = self.input.iterdata()
         else:
@@ -204,7 +202,6 @@ class ReduceTask(Task):
         while next_pair[0] is not None:
             yield next_pair[0], subiterator()
         raise StopIteration
-
 
 
 # vim: et sw=4 sts=4

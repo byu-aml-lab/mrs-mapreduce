@@ -20,15 +20,83 @@
 # Licensing Office, Brigham Young University, 3760 HBLL, Provo, UT 84602,
 # (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
 
-
+import cStringIO
 import os
+
+from .io import consumer, hexformat
+
 from logging import getLogger
 logger = getLogger('mrs')
 
 
-# TODO: cache data to disk when memory usage is high
 class Bucket(object):
-    """Hold data from a source or for a split.
+    """Hold data from a source.
+
+    Attributes:
+        source: An integer showing which source the data come from.
+        split: An integer showing which split the data is directed to.
+        url: A string showing a URL that can be used to read the data.
+    """
+    def __init__(self, source, split):
+        self._data = []
+        self.source = source
+        self.split = split
+        self.url = None
+
+    def addpair(self, kvpair):
+        """Collect a single key-value pair."""
+        self._data.append(kvpair)
+
+    def collect(self, pairiter):
+        """Collect all key-value pairs from the given iterable
+
+        The collection can be a generator or a Mrs format.  This will block if
+        the iterator blocks.
+        """
+        data = self._data
+        for kvpair in pairiter:
+            data.append(kvpair)
+
+    def sort(self):
+        self._data.sort()
+
+    def clean(self):
+        """Removes any temporary files created and empties cached data."""
+        self._data = None
+
+    def __getstate__(self):
+        """Pickle (serialize) the bucket."""
+        state = self.__dict__.copy()
+        stringio = cStringIO.StringIO()
+        writer = hexformat.HexWriter(stringio)
+        for pair in self._data:
+            writer.writepair(pair)
+        state['_data'] = stringio.getvalue()
+        stringio.close()
+        return state
+
+    def __setstate__(self, state):
+        """Unpickle (deserialize) the bucket."""
+        self.__dict__ = state
+        input_data = self._data
+        self._data = []
+        c = hexformat.HexConsumer(self)
+        c.registerProducer(None, True)
+        c.write(input_data)
+
+    def __len__(self):
+        return len(self._data)
+
+    def __getitem__(self, item):
+        """Get a particular item, mainly for debugging purposes"""
+        return self._data[item]
+
+    def __iter__(self):
+        return iter(self._data)
+
+
+class WriteBucket(Bucket):
+    """Hold data for a split.
 
     Data can be manually dumped to disk, in which case the data will be saved
     to the given filename with the specified format.
@@ -39,8 +107,9 @@ class Bucket(object):
         dir: A string specifying the directory for writes.
         format: The class to be used for formatting writes.
         url: A string showing a URL that can be used to read the data.
+        path: The local path of the written file (may be different from url).
 
-    >>> b = Bucket(0, 0)
+    >>> b = WriteBucket(0, 0)
     >>> b.addpair((4, 'test'))
     >>> b.collect([(3, 'a'), (1, 'This'), (2, 'is')])
     >>> ' '.join(value for key, value in b)
@@ -51,17 +120,23 @@ class Bucket(object):
     >>>
     """
     def __init__(self, source, split, dir=None, format=None):
-        self._data = []
-        self.source = source
-        self.split = split
+        super(WriteBucket, self).__init__(source, split)
         self.dir = dir
         if format is None:
-            from io.hexformat import HexWriter
-            format = HexWriter
+            format = hexformat.HexWriter
         self.format = format
 
+        self.path = None
         self.url = None
         self._writer = None
+
+    def __setstate__(self, state):
+        raise NotImplementedError
+
+    def readonly_copy(self):
+        b = Bucket(self.source, self.split)
+        b._data = self._data
+        return b
 
     def open_writer(self):
         # Don't open if 1) there's no place to put it; 2) it's already saved
@@ -70,14 +145,14 @@ class Bucket(object):
             # Note that Python 2.6 has NamedTemporaryFile(delete=False), which
             # would make this easier.
             import tempfile
-            fd, filename = tempfile.mkstemp(dir=self.dir, prefix=self.prefix(),
-                    suffix='.' + self.format.ext)
+            fd, self.path = tempfile.mkstemp(dir=self.dir,
+                    prefix=self.prefix(), suffix='.' + self.format.ext)
             output_file = os.fdopen(fd, 'a')
             self._writer = self.format(output_file)
 
             # For now, the externally visible url is just the filename on the
             # local or networked filesystem.
-            self.url = filename
+            self.url = self.path
 
     def close_writer(self):
         if self._writer:
@@ -111,7 +186,7 @@ class Bucket(object):
 
     def prefix(self):
         """Return the filename for the output split for the given index.
-        
+
         >>> b = Bucket(2, 4)
         >>> b.prefix()
         'source_2_split_4_'
@@ -119,45 +194,11 @@ class Bucket(object):
         """
         return 'source_%s_split_%s_' % (self.source, self.split)
 
-    def sort(self):
-        self._data.sort()
-
     def clean(self):
-        """Removes any temporary files created and empties cached data.
-
-        Since this can block, it should be called from another thread.
-        """
+        """Removes any temporary files created and empties cached data."""
+        super(WriteBucket, self).clean()
         self._data = None
-        if self.dir and self.url:
-            import urlparse
-            parsed_url = urlparse.urlsplit(self.url, 'file')
-            if parsed_url.scheme == 'file':
-                os.remove(parsed_url.path)
-            else:
-                logger.warning('Cannot remove %s' % self.url)
-
-    def __len__(self):
-        return len(self._data)
-
-    def __getitem__(self, item):
-        """Get a particular item, mainly for debugging purposes"""
-        return self._data[item]
-
-    def __iter__(self):
-        return iter(self._data)
-
-
-class BucketRemover(object):
-    """A "producer" that removes the given Bucket when run.
-
-    This normally gets run in the BlockingThread, which avoids disruption to
-    the flow of Mrs.
-    """
-
-    def __init__(self, bucket):
-        self.bucket = bucket
-
-    def run(self):
-        self.bucket.clean()
+        if self.path:
+            os.remove(parsed_url.path)
 
 # vim: et sw=4 sts=4
