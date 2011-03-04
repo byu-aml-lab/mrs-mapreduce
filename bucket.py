@@ -23,7 +23,7 @@
 import cStringIO
 import os
 
-from .io import consumer, hexformat
+from . import io
 
 from logging import getLogger
 logger = getLogger('mrs')
@@ -68,7 +68,7 @@ class Bucket(object):
         """Pickle (serialize) the bucket."""
         state = self.__dict__.copy()
         stringio = cStringIO.StringIO()
-        writer = hexformat.HexWriter(stringio)
+        writer = io.HexWriter(stringio)
         for pair in self._data:
             writer.writepair(pair)
         state['_data'] = stringio.getvalue()
@@ -80,7 +80,7 @@ class Bucket(object):
         self.__dict__ = state
         input_data = self._data
         self._data = []
-        c = hexformat.HexConsumer(self)
+        c = io.HexConsumer(self)
         c.registerProducer(None, True)
         c.write(input_data)
 
@@ -123,7 +123,7 @@ class WriteBucket(Bucket):
         super(WriteBucket, self).__init__(source, split)
         self.dir = dir
         if format is None:
-            format = hexformat.HexWriter
+            format = io.HexWriter
         self.format = format
 
         self.path = None

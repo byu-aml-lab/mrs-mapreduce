@@ -49,10 +49,11 @@ logger.addHandler(handler)
 
 # rather than importing all submodules, we just import the ones that are
 # expected to be useful outside of Mrs internals.
-import cli, registry, version
-from io.hexformat import HexWriter
-from io.textformat import TextWriter
-from mapreduce import MapReduce
+from . import cli
+from . import registry
+from . import version
+from .io import HexWriter, TextWriter
+from .mapreduce import MapReduce
 
 VERSION = version.VERSION
 main = cli.main

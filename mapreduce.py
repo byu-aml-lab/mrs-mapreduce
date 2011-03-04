@@ -27,6 +27,8 @@ implementation for a standard MapReduce program.  However, the MapReduce class
 can be extended to create much more complex programs.
 """
 
+from . import io
+
 
 class MapReduce(object):
     """MapReduce program definition.
@@ -76,7 +78,6 @@ class MapReduce(object):
 
     def run(self, job):
         """Default run which creates a map stage and a reduce stage."""
-        from io.textformat import TextWriter
 
         if len(self.args) < 2:
             import sys
@@ -89,7 +90,7 @@ class MapReduce(object):
         intermediate = job.map_data(source, self.map)
         source.close()
         output = job.reduce_data(intermediate, self.reduce, outdir=outdir,
-                format=TextWriter)
+                format=io.TextWriter)
         intermediate.close()
         output.close()
 

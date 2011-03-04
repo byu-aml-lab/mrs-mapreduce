@@ -27,6 +27,12 @@ That's it.  It just does what the main slave process tells it to.  The worker
 process is terminated when the main process quits.
 """
 
+import tempfile
+
+from . import datasets
+from . import io
+from . import task
+
 from logging import getLogger
 logger = getLogger('mrs')
 
@@ -48,21 +54,14 @@ class WorkerMapRequest(object):
                 self.outdir, self.extension) = args
 
     def make_task(self, program, default_dir):
-        from task import MapTask
-        from datasets import FileData
-        from io.load import writerformat
-        import tempfile
-
-        input_data = FileData(self.inputs, splits=1)
-        format = writerformat(self.extension)
+        input_data = datasets.FileData(self.inputs, splits=1)
+        format = io.writerformat(self.extension)
 
         if not self.outdir:
             self.outdir = tempfile.mkdtemp(dir=default_dir, prefix='map_')
 
-        mapper = getattr(program, self.map_name)
-        parter = getattr(program, self.part_name)
-        task = MapTask(input_data, 0, self.source, mapper, parter,
-                self.splits, self.outdir, format)
+        t = task.MapTask(input_data, 0, self.source, self.map_name,
+                self.part_name, self.splits, self.outdir, format)
         return task
 
 
@@ -78,22 +77,15 @@ class WorkerReduceRequest(object):
 
         This will ordinarily be called from some other thread.
         """
-        from task import ReduceTask
-        from datasets import FileData
-        from io.load import writerformat
-        import tempfile
-
-        input_data = FileData(self.inputs, splits=1)
-        format = writerformat(self.extension)
+        input_data = datasets.FileData(self.inputs, splits=1)
+        format = io.writerformat(self.extension)
 
         if not self.outdir:
             self.outdir = tempfile.mkdtemp(dir=default_dir, prefix='reduce_')
 
-        reducer = getattr(program, self.reduce_name)
-        parter = getattr(program, self.part_name)
-        task = ReduceTask(input_data, 0, self.source, reducer,
-                parter, self.splits, self.outdir, format)
-        return task
+        t = task.ReduceTask(input_data, 0, self.source, self.reduce_name,
+                self.part_name, self.splits, self.outdir, format)
+        return t
 
 
 class WorkerFailure(object):
@@ -135,9 +127,9 @@ def run_worker(program_class, request_pipe):
             else:
                 assert program is not None
                 logger.info('Starting to run a new task.')
-                task = request.make_task(program, default_dir)
-                task.run()
-                response = WorkerSuccess(task.outurls())
+                t = request.make_task(program, default_dir)
+                t.run()
+                response = WorkerSuccess(t.outurls())
                 logger.debug('Task complete.')
         except Exception, e:
             import traceback

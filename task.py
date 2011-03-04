@@ -29,6 +29,7 @@ serialized, sent to the slave, and then created on the slave.
 from itertools import chain
 
 from . import datasets
+from . import io
 
 
 class Task(object):
@@ -47,8 +48,7 @@ class Task(object):
         self.storage = storage
         self.dataset = None
         if format is None:
-            from io.hexformat import HexWriter
-            format = HexWriter
+            format = io.HexWriter
         self.format = format
 
         self.output = None

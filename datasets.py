@@ -30,8 +30,8 @@ import threading
 from itertools import chain, izip
 
 from . import bucket
+from . import io
 from . import util
-from .io import load
 
 from logging import getLogger
 logger = getLogger('mrs')
@@ -426,7 +426,7 @@ class RemoteData(Dataset):
             for bucket in self:
                 url = bucket.url
                 if url:
-                    load.blocking_fill(url, bucket)
+                    io.blocking_fill(url, bucket)
         else:
             more = True
             while more:
@@ -441,7 +441,7 @@ class RemoteData(Dataset):
                     bucket = self[key]
                     url = bucket.url
                     if url:
-                        load.blocking_fill(url, bucket)
+                        io.blocking_fill(url, bucket)
 
         self._fetched = True
 
