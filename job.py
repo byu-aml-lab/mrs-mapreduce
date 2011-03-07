@@ -239,11 +239,11 @@ class DataManager(object):
                 except KeyError:
                     ds = None
 
-                if message.fetched:
-                    ds._fetched = True
                 del self._status_dict[message.dataset_id]
 
                 if ds is not None:
+                    if message.fetched:
+                        ds._fetched = True
                     with self._runwaitcv:
                         ds.computed = True
                         self._runwaitcv.notify()

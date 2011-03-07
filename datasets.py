@@ -60,15 +60,19 @@ class BaseDataset(object):
         self.format = format
         self.permanent = permanent
         self.closed = False
-        self._data = None
+        self._data = {}
+
+    def _make_bucket(self, source, split):
+        """Overridable method for creating a new bucket."""
+        raise NotImplementedError
 
     def __len__(self):
         """Number of buckets in this Dataset."""
-        raise NotImplementedError
+        return len(self._data)
 
     def __iter__(self):
         """Iterate over all buckets."""
-        raise NotImplementedError
+        return self[:, :]
 
     def iterdata(self):
         """Iterate over data from all buckets."""
@@ -127,163 +131,55 @@ class BaseDataset(object):
         """
         return
 
-    def __setitem__(self, item, value):
-        """Set an item.
+    def __setitem__(self, key, bucket):
+        self._data[key] = bucket
 
-        For now, you can only set a split in the second dimension.
-        """
-        # Separate the two dimensions:
-        try:
-            part1, part2 = item
-        except (TypeError, ValueError):
-            raise TypeError("Requires a pair of items.")
-
-        if isinstance(part1, slice):
-            raise NotImplementedError
-
-        self._data[part1][part2] = value
-
-    def __getitem__(self, item):
-        """Retrieve an item or split.
+    def __getitem__(self, key):
+        """Retrieve a bucket or split.
 
         At the moment, we're not very consistent about whether what we return
         is a view or a [shallow] copy.  Write at your own risk.
         """
         # Separate the two dimensions:
         try:
-            part1, part2 = item
+            part1, part2 = key
         except (TypeError, ValueError):
-            raise TypeError("Requires a pair of items.")
+            raise TypeError("Requires a pair of keys.")
 
-        data = self._data
-        if isinstance(part1, slice):
-            lst = []
-            wild_goose_chase = True
-            for sourcelst in data[part1]:
-                try:
-                    lst.append(sourcelst[part2])
-                    wild_goose_chase = False
-                except IndexError:
-                    lst.append([])
-
-            if wild_goose_chase:
-                # every sourcelst[part2] raised an indexerror
-                raise IndexError("No items matching %s" % part2)
-
-            return lst
-
+        if not isinstance(part1, slice) and not isinstance(part2, slice):
+            try:
+                return self._data[key]
+            except KeyError:
+                bucket = self._make_bucket(part1, part2)
+                self._data[key] = bucket
+                return bucket
+        elif part1 == part2 == slice(None, None, None):
+            return self._data.itervalues()
         else:
-            return self._data[part1][part2]
+            if isinstance(part1, slice):
+                range1 = xrange(*part1.indices(self.sources))
+            else:
+                range1 = (part1,)
+            if isinstance(part2, slice):
+                range2 = xrange(*part2.indices(self.splits))
+            else:
+                range2 = (part2,)
+            data = self._data
+
+            return (data[x, y] for x in range1 for y in range2
+                    if (x, y) in data)
 
     def __del__(self):
         if self._data:
             self._delete()
 
 
-class Dataset(BaseDataset):
-    """Manage input to or output from a map or reduce operation.
-
-    A Dataset is naturally a two-dimensional list.  There are some number of
-    sources, and for each source, there are one or more splits.
-
-    Low-level Testing.  Normally a Dataset holds Buckets, but for now we'll be
-    loose for testing purposes.  This also makes it clear how slicing works,
-    so it's not a waste of space.
-    >>> ds = Dataset(sources=3, splits=3)
-    >>> len(ds)
-    9
-    >>> ds[0, 0] = 'zero'
-    >>> ds[0, 1] = 'one'
-    >>> ds[0, 2] = 'two'
-    >>> ds[1, 0] = None
-    >>> ds[1, 1] = 'hello'
-    >>> ds[1, 2] = None
-    >>> ds[2, 1] = None
-    >>> print ds[0, 1]
-    one
-    >>> print ds[1, 0]
-    None
-    >>> print ds[0, 1:]
-    ['one', 'two']
-    >>> print ds[0, :]
-    ['zero', 'one', 'two']
-    >>> print ds[0:2, 1:3]
-    [['one', 'two'], ['hello', None]]
-    >>> print ds[:, 1]
-    ['one', 'hello', None]
-    >>>
-    """
-    def __init__(self, **kwds):
-        super(Dataset, self).__init__(**kwds)
-
-        # For now assume that all sources have the same # of splits.
-        self._data = [[bucket.Bucket(i, j)
-                for j in xrange(self.splits)]
-                for i in xrange(self.sources)]
-
-    def __len__(self):
-        """Number of buckets in this Dataset."""
-        return sum(len(source) for source in self._data)
-
-    def __iter__(self):
-        """Iterate over all buckets."""
-        return chain(*self._data)
-
-    def __setitem__(self, item, value):
-        """Set an item.
-
-        For now, you can only set a split in the second dimension.
-        """
-        # Separate the two dimensions:
-        try:
-            part1, part2 = item
-        except (TypeError, ValueError):
-            raise TypeError("Requires a pair of items.")
-
-        if isinstance(part1, slice):
-            raise NotImplementedError
-
-        self._data[part1][part2] = value
-
-    def __getitem__(self, item):
-        """Retrieve an item or split.
-
-        At the moment, we're not very consistent about whether what we return
-        is a view or a [shallow] copy.  Write at your own risk.
-        """
-        # Separate the two dimensions:
-        try:
-            part1, part2 = item
-        except (TypeError, ValueError):
-            raise TypeError("Requires a pair of items.")
-
-        data = self._data
-        if isinstance(part1, slice):
-            lst = []
-            wild_goose_chase = True
-            for sourcelst in data[part1]:
-                try:
-                    lst.append(sourcelst[part2])
-                    wild_goose_chase = False
-                except IndexError:
-                    lst.append([])
-
-            if wild_goose_chase:
-                # every sourcelst[part2] raised an indexerror
-                raise IndexError("No items matching %s" % part2)
-
-            return lst
-
-        else:
-            return self._data[part1][part2]
-
-
 class LocalData(BaseDataset):
     """Collect output from a map or reduce task.
 
-    This is only used on the slave side.  It takes a partition function and a
-    number of splits to use.  Note that the `source`, which is just used for
-    naming files, represents which output source is being created.
+    It takes a partition function and a number of splits to use.  Note that
+    the `source`, which is just used for naming files, represents which output
+    source is being created.
 
     >>> lst = [(4, 'to_0'), (5, 'to_1'), (7, 'to_3'), (9, 'to_1')]
     >>> o = LocalData(lst, splits=4, parter=(lambda x, n: x%n))
@@ -294,78 +190,34 @@ class LocalData(BaseDataset):
     >>>
     """
     def __init__(self, itr, splits, source=0, parter=None, **kwds):
-        super(LocalData, self).__init__(splits=splits, **kwds)
+        super(LocalData, self).__init__(sources=1, splits=splits, **kwds)
         self.fixed_source = source
 
-        # One source and splits splits
-        self._data = [bucket.WriteBucket(source, j, self.dir, self.format)
-                for j in xrange(splits)]
-
+        self.collected = False
         self._collect(itr, parter)
-        self._data = [b.readonly_copy() for b in self._data]
+        for key, bucket in self._data.iteritems():
+            self._data[key] = bucket.readonly_copy()
+        self.collected = True
 
-    def __len__(self):
-        """Number of buckets in this Dataset."""
-        return self.splits
-
-    def __iter__(self):
-        """Iterate over all buckets."""
-        return iter(self._data)
-
-    def __setitem__(self, item, value):
-        """Set an item."""
-        # Separate the two dimensions:
-        try:
-            part1, part2 = item
-        except (TypeError, ValueError):
-            raise TypeError("Requires a pair of items.")
-
-        if part1 != self.fixed_source:
-            raise ValueError('Source %s does not exist.' % part1)
-
-        self._data[part2] = value
-
-    def __getitem__(self, item):
-        """Retrieve an item or split.
-
-        At the moment, we're not very consistent about whether what we return
-        is a view or a [shallow] copy.  Write at your own risk.
-        """
-        # Separate the two dimensions:
-        try:
-            part1, part2 = item
-        except (TypeError, ValueError):
-            raise TypeError("Requires a pair of items.")
-
-        if isinstance(part1, slice):
-            start, stop, step = part1.indices(self.fixed_source + 1)
-            if self.fixed_source in xrange(start, stop, step):
-                # Since the first part is a slice, we have to return a list.
-                if isinstance(part2, slice):
-                    return self._data[part2]
-                else:
-                    return [self._data[part2]]
-            else:
-                raise ValueError('Source not covered by the given range.')
-        elif part1 != self.fixed_source:
-            raise ValueError('Source %s does not exist.' % part1)
-        else:
-            return self._data[part2]
+    def _make_bucket(self, source, split):
+        assert not self.collected
+        assert source == self.fixed_source
+        return bucket.WriteBucket(source, split, self.dir, self.format)
 
     def _collect(self, itr, parter):
         """Collect all of the key-value pairs from the given iterator."""
-        buckets = list(self)
         n = self.splits
+        source = self.fixed_source
         if n == 1:
-            bucket = buckets[0]
+            bucket = self[source, 0]
             bucket.collect(itr)
         else:
             for kvpair in itr:
                 key, value = kvpair
                 split = parter(key, n)
-                bucket = buckets[split]
+                bucket = self[source, split]
                 bucket.addpair(kvpair)
-        for bucket in buckets:
+        for bucket in self:
             bucket.close_writer()
         # Sync the containing dir to make sure the files are really written.
         if self.dir:
@@ -374,7 +226,7 @@ class LocalData(BaseDataset):
             os.close(fd)
 
 
-class RemoteData(Dataset):
+class RemoteData(BaseDataset):
     """A Dataset whose contents can be downloaded and read.
 
     Subclasses need to set the url for each bucket.
@@ -386,6 +238,9 @@ class RemoteData(Dataset):
         self._fetchlist_active = True
         self._init_fetchlist()
         self._close_callback = None
+
+    def _make_bucket(self, source, split):
+        return bucket.Bucket(source, split)
 
     def __getstate__(self):
         """Pickle without getting certain forbidden/unnecessary elements."""
@@ -497,13 +352,11 @@ class FileData(RemoteData):
         elif splits is None:
             splits = n // sources
 
-        # TODO: relax this requirement
-        assert(sources * splits == n)
-
         super(FileData, self).__init__(sources=sources, splits=splits, **kwds)
-
-        for bucket, url in izip(self, urls):
-            bucket.url = url
+        for i, url in enumerate(urls):
+            if url:
+                bucket = self[i // splits, i % splits]
+                bucket.url = url
 
         # Since all urls are pre-known, the fetchlist is unneeded.
         self._fetchlist_active = False
@@ -555,8 +408,7 @@ class ComputedData(RemoteData):
 
     def _use_output(self, output):
         """Uses the contents of the given LocalData."""
-        # Note that this assumes there's only one source and one output set.
-        self._data = [output._data]
+        self._data = output._data
         self.sources = 1
         self.splits = len(output._data)
         self._fetched = True
