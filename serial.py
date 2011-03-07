@@ -100,7 +100,7 @@ class SerialRunner(object):
         elif isinstance(message, job.CloseDataset):
             self.close_requests.add(message.dataset_id)
             self.try_to_close_dataset(message.dataset_id)
-            self.try_to_remove_datasets(message.dataset_id)
+            self.try_to_remove_dataset(message.dataset_id)
         elif isinstance(message, job.JobDone):
             if not message.success:
                 logger.critical('Job execution failed.')
@@ -122,9 +122,9 @@ class SerialRunner(object):
 
         # Check whether any datasets can be closed as a result of the newly
         # completed computation.
-        self.try_to_close_dataset(dataset_id)
         if ds.input_id:
             self.try_to_close_dataset(ds.input_id)
+        self.try_to_close_dataset(dataset_id)
 
         if not ds.closed:
             for bucket in ds:
@@ -133,10 +133,12 @@ class SerialRunner(object):
                     self.job_conn.send(response)
         response = job.DatasetComputed(ds.id, not ds.closed)
         self.job_conn.send(response)
-        self.try_to_remove_datasets(ds.id)
+        self.try_to_remove_dataset(ds.id)
 
     def try_to_close_dataset(self, dataset_id):
-        """Try to close the given dataset."""
+        """Try to close the given dataset and remove its parent."""
+        if dataset_id not in self.close_requests:
+            return
         # Bail out if any dependent dataset still needs to be computed.
         depset = self.data_dependents[dataset_id]
         for dependent_id in depset:
@@ -144,31 +146,31 @@ class SerialRunner(object):
             if not getattr(dependent_ds, 'computed', True):
                 return
 
-        if dataset_id in self.close_requests:
-            ds = self.datasets[dataset_id]
-            ds.close()
-            self.close_requests.remove(dataset_id)
-
-    def try_to_remove_datasets(self, dataset_id):
-        """Try to remove the given dataset and any of its parents.
-
-        If a dataset is not closed or if any of its direct dependents are not
-        closed, then it will not be removed.
-        """
         ds = self.datasets[dataset_id]
-        if not ds.closed:
-            return
+        ds.close()
+        self.close_requests.remove(dataset_id)
 
         input_id = getattr(ds, 'input_id', None)
         if input_id:
             self.data_dependents[input_id].discard(dataset_id)
+            self.try_to_remove_dataset(input_id)
+
+    def try_to_remove_dataset(self, dataset_id):
+        """Try to remove the given dataset.
+
+        If a dataset is not closed or if any of its direct dependents are not
+        closed, then it will not be removed.
+        """
+        ds = self.datasets.get(dataset_id, None)
+        if ds is None:
+            return
+        if not ds.closed:
+            return
 
         depset = self.data_dependents[dataset_id]
         if not depset:
             del self.datasets[dataset_id]
             del self.data_dependents[dataset_id]
-            if input_id:
-                self.try_to_remove_datasets(input_id)
 
 
 class SerialWorker(object):

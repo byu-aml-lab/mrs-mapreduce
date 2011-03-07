@@ -60,6 +60,7 @@ class BaseDataset(object):
         self.format = format
         self.permanent = permanent
         self.closed = False
+        self._close_callback = None
         self._data = {}
 
     def _make_bucket(self, source, split):
@@ -69,6 +70,9 @@ class BaseDataset(object):
     def __len__(self):
         """Number of buckets in this Dataset."""
         return len(self._data)
+
+    def __nonzero__():
+        return True
 
     def __iter__(self):
         """Iterate over all buckets."""
@@ -99,7 +103,10 @@ class BaseDataset(object):
         the system to free resources.  Don't close a Dataset unless you really
         mean it.
         """
+        assert not self.closed
         self.closed = True
+        if self._close_callback:
+            self._close_callback(self)
 
     def _delete(self):
         """Delete current data and temporary files from the dataset."""
@@ -170,6 +177,8 @@ class BaseDataset(object):
                     if (x, y) in data)
 
     def __del__(self):
+        if not self.closed:
+            self.close()
         if self._data:
             self._delete()
 
@@ -237,7 +246,6 @@ class RemoteData(BaseDataset):
         self._fetched = False
         self._fetchlist_active = True
         self._init_fetchlist()
-        self._close_callback = None
 
     def _make_bucket(self, source, split):
         return bucket.Bucket(source, split)
@@ -261,11 +269,6 @@ class RemoteData(BaseDataset):
         have newly available urls."""
         self._fetchlist = None
         self._fetchlist_cv = threading.Condition()
-
-    def close(self):
-        super(RemoteData, self).close()
-        if self._close_callback:
-            self._close_callback(self)
 
     # TODO: consider parallelizing this to use multiple downloading threads.
     def fetchall(self):
@@ -398,6 +401,7 @@ class ComputedData(RemoteData):
         task.run(serial=True)
 
         self._use_output(task.output)
+        task.output.close()
 
         self.computed = True
 

@@ -69,6 +69,7 @@ class Job(object):
         """Defines a set of data from a list of urls."""
         ds = datasets.FileData(filenames)
         self._manager.submit(ds)
+        ds._close_callback = self._manager.close_dataset
         return ds
 
     def local_data(self, itr, splits=None, outdir=None, parter=None,
@@ -92,6 +93,7 @@ class Job(object):
         ds = datasets.LocalData(itr, splits, dir=outdir, parter=parter,
                 format=format, permanent=permanent)
         self._manager.submit(ds)
+        ds._close_callback = self._manager.close_dataset
         return ds
 
     def map_data(self, input, mapper, splits=None, outdir=None, parter=None,
@@ -153,6 +155,7 @@ class Job(object):
                 splits=splits, dir=outdir, part_name=part_name, format=format,
                 permanent=permanent)
         self._manager.submit(ds)
+        ds._close_callback = self._manager.close_dataset
         return ds
 
     def progress(self, dataset):
