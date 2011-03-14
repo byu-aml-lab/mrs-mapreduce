@@ -33,10 +33,9 @@ logger = logging.getLogger('mrs')
 
 
 class SerialRunner(runner.BaseRunner):
-    def __init__(self, program_class, opts, args, job_conn):
-        super(SerialRunner, self).__init__(program_class, opts, args, job_conn)
+    def __init__(self, *args):
+        super(SerialRunner, self).__init__(*args)
 
-        self.running = True
         self.program = None
         self.worker_conn = None
 
@@ -51,18 +50,8 @@ class SerialRunner(runner.BaseRunner):
 
         self.start_worker()
 
-        poll = select.poll()
-        poll.register(self.job_conn, select.POLLIN)
-        poll.register(self.worker_conn, select.POLLIN)
-
-        while self.running:
-            for fd, event in poll.poll():
-                if fd == self.job_conn.fileno():
-                    self.read_job_conn()
-                elif fd == self.worker_conn.fileno():
-                    self.read_worker_conn()
-                else:
-                    assert False
+        self.register_fd(self.worker_conn.fileno(), self.read_worker_conn)
+        self.eventloop()
 
     def start_worker(self):
         self.worker_conn, remote_worker_conn = multiprocessing.Pipe()

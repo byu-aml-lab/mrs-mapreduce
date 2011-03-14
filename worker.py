@@ -50,27 +50,35 @@ class WorkerMapRequest(object):
     """Request to worker to run a map task."""
 
     def __init__(self, *args):
-        (self.source, self.inputs, self.map_name, self.part_name, self.splits,
-                self.outdir, self.extension) = args
+        (self.dataset_id, self.source, self.inputs, self.map_name,
+                self.part_name, self.splits, self.outdir, self.extension
+                ) = args
 
     def make_task(self, program, default_dir):
         input_data = datasets.FileData(self.inputs, splits=1)
-        format = io.writerformat(self.extension)
+        if self.extension:
+            format = io.writerformat(self.extension)
+        else:
+            format = io.default_write_format
 
         if not self.outdir:
             self.outdir = tempfile.mkdtemp(dir=default_dir, prefix='map_')
 
-        t = task.MapTask(input_data, 0, self.source, self.map_name,
-                self.part_name, self.splits, self.outdir, format)
-        return task
+        mapper = getattr(program, self.map_name)
+        parter = getattr(program, self.part_name)
+
+        t = task.MapTask(input_data, 0, self.source, mapper, parter,
+                self.splits, self.outdir, format)
+        return t
 
 
 class WorkerReduceRequest(object):
     """Request to worker to run a reduce task."""
 
     def __init__(self, *args):
-        (self.source, self.inputs, self.reduce_name, self.part_name,
-                self.splits, self.outdir, self.extension) = args
+        (self.dataset_id, self.source, self.inputs, self.reduce_name,
+                self.part_name, self.splits, self.outdir, self.extension
+                ) = args
 
     def make_task(self, program, default_dir):
         """Tell this worker to start working on a reduce task.
@@ -83,8 +91,11 @@ class WorkerReduceRequest(object):
         if not self.outdir:
             self.outdir = tempfile.mkdtemp(dir=default_dir, prefix='reduce_')
 
-        t = task.ReduceTask(input_data, 0, self.source, self.reduce_name,
-                self.part_name, self.splits, self.outdir, format)
+        reducer = getattr(program, self.reduce_name)
+        parter = getattr(program, self.part_name)
+
+        t = task.ReduceTask(input_data, 0, self.source, reducer, parter,
+                self.splits, self.outdir, format)
         return t
 
 
@@ -95,9 +106,15 @@ class WorkerFailure(object):
         self.traceback = traceback
 
 
+class WorkerSetupSuccess(object):
+    """Successful worker setup."""
+
+
 class WorkerSuccess(object):
     """Successful response from worker."""
-    def __init__(self, outurls=None):
+    def __init__(self, dataset_id, source, outurls=None):
+        self.dataset_id = dataset_id
+        self.source = source
         self.outurls = outurls
 
 
@@ -123,13 +140,14 @@ def run_worker(program_class, request_pipe):
                 logger.debug('Starting to run the user setup function.')
                 program = program_class(opts, args)
                 default_dir = request.default_dir
-                response = WorkerSuccess()
+                response = WorkerSetupSuccess()
             else:
                 assert program is not None
                 logger.info('Starting to run a new task.')
                 t = request.make_task(program, default_dir)
                 t.run()
-                response = WorkerSuccess(t.outurls())
+                response = WorkerSuccess(request.dataset_id, request.source,
+                        t.outurls())
                 logger.debug('Task complete.')
         except Exception, e:
             import traceback

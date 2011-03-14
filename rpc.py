@@ -25,9 +25,13 @@
 RPC mechanisms built on Python's xmlrpc library.
 """
 
+# Socket backlog (argument to socket.listen)
+BACKLOG = 100
+
 import httplib
 import SimpleXMLRPCServer
 import socket
+import SocketServer
 import sys
 import xmlrpclib
 
@@ -54,14 +58,15 @@ class TimeoutTransport(xmlrpclib.Transport):
         chost, self._extra_headers, x509 = self.get_host_info(host)
         #store the host argument along with the connection object
         if self.timeout:
-            self._connection = host, httplib.HTTPConnection(chost,
+            self._connection = host, NoDelayHTTPConnection(chost,
                     timeout=self.timeout)
         else:
-            self._connection = host, httplib.HTTPConnection(chost)
+            self._connection = host, NoDelayHTTPConnection(chost)
         return self._connection[1]
 
     # Python 2.6 has an old implementation of Transport that doesn't play well
     # with the above function.  Fall back on an alternate version if needed.
+    # Not actually threadsafe, but this is just a fallback anyway.
     if sys.version_info[0] == 2 and sys.version_info[1] < 7:
         def make_connection(self, host):
             prev = socket.getdefaulttimeout()
@@ -69,6 +74,15 @@ class TimeoutTransport(xmlrpclib.Transport):
             value = xmlrpclib.Transport.make_connection(self, host)
             socket.setdefaulttimeout(prev)
             return value
+
+
+# TODO: check to make sure that we really have high latency without NO_DELAY.
+class NoDelayHTTPConnection(httplib.HTTPConnection):
+    """HTTPConnection with Nagle's algorithm disabled (TCP_NODELAY enabled)."""
+    def connect(self):
+        httplib.HTTPConnection.connect(self)
+        self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+
 
 
 class ServerProxy(xmlrpclib.ServerProxy):
@@ -102,9 +116,14 @@ class Server(SimpleXMLRPCServer.SimpleXMLRPCServer):
     attribute is set on the method, then the host is passed as a keyword
     argument.
     """
+    request_queue_size = BACKLOG
+    #timeout = something
+
     def __init__(self, addr, instance):
         SimpleXMLRPCServer.SimpleXMLRPCServer.__init__(self, addr,
                 requestHandler=RequestHandler, logRequests=False)
+        # Disable Nagle's algorithm to avoid [hypothetical] high latency.
+        self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         self.instance = instance
 
     def _dispatch(self, method, params, host):
@@ -126,6 +145,10 @@ class Server(SimpleXMLRPCServer.SimpleXMLRPCServer):
             msg = 'Traceback: %s' % tb
             logger.error(msg)
             raise
+
+
+class ThreadedServer(SocketServer.ThreadingMixIn, Server):
+    daemon_threads = True
 
 
 def uses_host(f):

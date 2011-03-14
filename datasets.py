@@ -25,6 +25,7 @@
 # files are pre-split).
 
 import os
+import tempfile
 import threading
 
 from itertools import chain, izip
@@ -200,6 +201,7 @@ class LocalData(BaseDataset):
     """
     def __init__(self, itr, splits, source=0, parter=None, **kwds):
         super(LocalData, self).__init__(sources=1, splits=splits, **kwds)
+        self.id = 'local_' + self.id
         self.fixed_source = source
 
         self.collected = False
@@ -284,7 +286,7 @@ class RemoteData(BaseDataset):
             for bucket in self:
                 url = bucket.url
                 if url:
-                    io.blocking_fill(url, bucket)
+                    io.fill(url, bucket)
         else:
             more = True
             while more:
@@ -299,7 +301,7 @@ class RemoteData(BaseDataset):
                     bucket = self[key]
                     url = bucket.url
                     if url:
-                        io.blocking_fill(url, bucket)
+                        io.fill(url, bucket)
 
         self._fetched = True
 
@@ -381,15 +383,23 @@ class ComputedData(RemoteData):
         # At least for now, we create 1 task for each split in the input
         ntasks = input.splits
         super(ComputedData, self).__init__(sources=ntasks, **kwds)
+        self.id = '%s_%s' % (func_name, self.id)
 
         self.task_class = task_class
         self.func_name = func_name
         self.part_name = part_name
 
-        self.computed = False
+        self._computing = True
 
         assert(not input.closed)
         self.input_id = input.id
+
+    def computation_done(self):
+        """Signify that computation of the dataset is done."""
+        self._computing = False
+        with self._fetchlist_cv:
+            self._fetchlist_active = False
+            self._fetchlist_cv.notify_all()
 
     def run_serial(self, program, datasets):
         input_data = datasets[self.input_id]
@@ -398,15 +408,31 @@ class ComputedData(RemoteData):
         parter = getattr(program, self.part_name)
         task = self.task_class(input_data, 0, 0, func, parter, self.splits,
                 self.dir, self.format)
-        task.run(serial=True)
 
+        task.run(serial=True)
         self._use_output(task.output)
         task.output.close()
+        self.computation_done()
 
-        self.computed = True
+    def get_task(self, source, program, datasets, jobdir):
+        """Creates a task for the given source id.
+
+        The program and datasets parameters are required for finding the
+        function and inputs.  The jobdir parameter is used to create an output
+        directory if one was not explicitly specified.
+        """
+        input_data = datasets[self.input_id]
+        func = getattr(program, self.func_name)
+        parter = getattr(program, self.part_name)
+        if jobdir and not self.dir:
+            self.dir = os.path.join(jobdir, self.id)
+            os.mkdir(self.dir)
+        task = self.task_class(input_data, source, source, func, parter,
+                self.splits, self.dir, self.format)
+        return task
 
     def fetchall(self):
-        assert self.computed, (
+        assert not self.computing, (
                 'Invalid attempt to call fetchall on a non-ready dataset.')
         super(ComputedData, self).fetchall()
 
@@ -417,56 +443,14 @@ class ComputedData(RemoteData):
         self.splits = len(output._data)
         self._fetched = True
 
+    @property
+    def computing(self):
+        return self._computing
+
 
 def test():
     import doctest
     doctest.testmod()
 
-
-class JunkToMoveSomewhereElse:
-    def make_tasks(self):
-        from task import MapTask
-        for i in xrange(self.sources):
-            # FIXME: self.input now refers to the dataset_id, not the dataset.
-            map_task = MapTask(self.input, i, i, self.func,
-                    self.parter, self.splits, self.dir, self.format)
-            map_task.dataset = self
-            self.tasks_todo.append(map_task)
-        self.tasks_made = True
-
-    def get_task(self):
-        """Return the next available task"""
-        if self.tasks_todo:
-            task = self.tasks_todo.pop()
-            return task
-        else:
-            return
-
-    def task_started(self, task):
-        self.tasks_active.append(task)
-
-    def task_canceled(self, task):
-        if task in self.tasks_active:
-            self.tasks_active.remove(task)
-            self.tasks_todo.append(task)
-        elif task not in self.tasks_todo and task not in self.tasks_done:
-            logger.warning('A task must be either todo, or active, or done.')
-
-    def task_finished(self, task):
-        if task in self.tasks_active:
-            assert task not in self.tasks_done
-
-            for bucket, url in izip(self[task.source, :], task.outurls()):
-                bucket.url = url
-            self.tasks_active.remove(task)
-            self.tasks_done.append(task)
-        else:
-            if task in self.tasks_done:
-                # someone else already did it
-                logger.warning('Two slaves completed the same task.')
-            else:
-                # someone else already did it
-                logger.warning('An inactive task was finished.')
-            return
 
 # vim: et sw=4 sts=4

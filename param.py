@@ -27,6 +27,7 @@ a special directory of Param objects.
 """
 
 import optparse
+import sys
 
 #TODO: make it so that you can put None in your dictionary to cancel out
 # a parameter defined in one of your superclasses.
@@ -230,25 +231,26 @@ def import_object(name):
     # Note that we don't use fromlist.  As pointed out at
     # http://bugs.python.org/issue2090 and elsewhere, fromlist often does
     # the wrong thing.
-    parts = name.split('.')
+    parts = name.rsplit('.', 1)
+    module = None
     try:
         module = __import__(name)
     except ImportError:
-        # Check whether name represents an attribute in a module rather than
-        # the module itself.
-        if len(parts) > 1:
-            parent, last = name.rsplit('.', 1)
-            module = __import__(parent)
-        else:
+        if len(parts) < 2:
             raise
+    if module is not None:
+        return module
 
-    obj = module
-    for part in parts[1:]:
-        try:
-            obj = getattr(obj, part)
-        except AttributeError:
-            raise ImportError
-    return obj
+    # Assume that the name represents an attribute in a module rather than
+    # the module itself.
+    module_name, attr_name = parts
+    __import__(module_name)
+    module = sys.modules[module_name]
+    try:
+        attr = getattr(module, attr_name)
+    except AttributeError:
+        raise ImportError('No attribute named %s' % attr_name)
+    return attr
 
 
 def instantiate(opts, name):
@@ -423,7 +425,21 @@ class _Option(optparse.Option):
                 paramobj = import_object(module)
                 break
             except ImportError, e:
-                pass
+                msg = e.args[0]
+                if msg.startswith('No module named '):
+                    prefix, part, errname = msg.partition('No module named ')
+                    if errname in (base, value):
+                        # Could not find the name.  Keep trying elsewhere.
+                        pass
+                    else:
+                        raise
+                elif msg.startswith('No attribute named '):
+                    # Could not find the name.  Keep trying elsewhere.
+                    pass
+                else:
+                    # Unexpected message in ImportError.
+                    raise
+
         else:
             # Since nothing else succeeded, try importing the value directly.
             try:

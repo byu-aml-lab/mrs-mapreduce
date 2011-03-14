@@ -86,21 +86,24 @@ class MapReduce(object):
         inputs = self.args[:-1]
         outdir = self.args[-1]
 
-        source = job.file_data(inputs)
-        intermediate = job.map_data(source, self.map)
-        source.close()
-        output = job.reduce_data(intermediate, self.reduce, outdir=outdir,
-                format=io.TextWriter)
-        intermediate.close()
-        output.close()
+        try:
+            source = job.file_data(inputs)
+            intermediate = job.map_data(source, self.map)
+            source.close()
+            output = job.reduce_data(intermediate, self.reduce, outdir=outdir,
+                    format=io.TextWriter)
+            intermediate.close()
+            output.close()
 
-        ready = []
-        while not ready:
-            ready = job.wait(output, timeout=2.0)
-            map_percent = 100 * job.progress(intermediate)
-            reduce_percent = 100 * job.progress(output)
-            print ('Map: %.1f%% complete. Reduce: %.1f%% complete.'
-                    % (map_percent, reduce_percent))
+            ready = []
+            while not ready:
+                ready = job.wait(output, timeout=2.0)
+                map_percent = 100 * job.progress(intermediate)
+                reduce_percent = 100 * job.progress(output)
+                print ('Map: %.1f%% complete. Reduce: %.1f%% complete.'
+                        % (map_percent, reduce_percent))
+        except KeyboardInterrupt:
+            print 'Interrupted.'
 
     def hash_partition(self, x, n):
         """A partition function that partitions by hashing the key.

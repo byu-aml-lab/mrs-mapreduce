@@ -248,7 +248,7 @@ class DataManager(object):
                     if message.fetched:
                         ds._fetched = True
                     with self._runwaitcv:
-                        ds.computed = True
+                        ds.computation_done()
                         self._runwaitcv.notify()
             elif isinstance(message, JobDoneAck):
                 return
@@ -318,7 +318,7 @@ class DataManager(object):
         assert self._runwaitlock.locked()
         runwaitlist = self._runwaitlist
         if runwaitlist:
-            return [ds for ds in runwaitlist if ds.computed]
+            return [ds for ds in runwaitlist if not ds.computing]
         else:
             return None
 
@@ -328,30 +328,15 @@ class DatasetStatus(object):
     def __init__(self, dataset):
         self.id = dataset.id
         self.total_sources = dataset.sources
-        self.sources_seen = set()
+        self.max_source_seen = -1
 
     def source_seen(self, source):
         """Called each time a bucket is received."""
-        self.sources_seen.add(source)
+        self.max_source_seen = max(self.max_source_seen, source)
 
     def progress(self):
         """Reports the progress (portion complete) of the dataset."""
-        return len(self.sources_seen) / self.total_sources
-
-
-def make_jobdir(opts):
-    """Creates a job directory using opts.mrs__shared (if provided)."""
-
-    try:
-        shared_dir = opts.mrs__shared
-    except AttributeError:
-        shared_dir = None
-
-    if shared_dir:
-        jobdir = tempfile.mkdtemp(prefix='mrs.job_', dir=shared_dir)
-    else:
-        jobdir = None
-    return jobdir
+        return (self.max_source_seen + 1) / self.total_sources
 
 
 def make_default_dir(jobdir):

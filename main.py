@@ -20,22 +20,34 @@
 # Licensing Office, Brigham Young University, 3760 HBLL, Provo, UT 84602,
 # (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
 
-"""Mrs Implementations
+"""Mrs main method and implementations.
 
 An Implementation defines the implementation function that will be run and
 specifies its command-line options.
 """
 
-from param import ParamObj, Param
+# In this file, we perform several imports inside of methods in order to
+# reduce the initial startup time (especially to make --help more pleasant).
 import binascii
-import multiprocessing
-import random
 import os
+import random
 import signal
-import sys
 
-import logging
-logger = logging.getLogger('mrs')
+from . import master
+from . import runner
+from . import serial
+from .param import ParamObj, Param
+from .version import VERSION
+
+
+USAGE = (""
+"""%prog [OPTIONS] [ARGS]
+
+Mrs Version """ + VERSION + """
+
+The default implementation is Serial.  Note that you can give --help
+separately for each implementation."""
+)
 
 # Set up the default random seed.  Inspired by how the random module works.
 # Note that we keep the seed at 32 bits to make it manageable.
@@ -47,8 +59,70 @@ except NotImplementedError:
     import time
     DEFAULT_SEED = hash(time.time())
 
+DEFAULT_SHARED = os.getcwd()
 
-class Implementation(ParamObj):
+import logging
+import sys
+logger = logging.getLogger('mrs')
+
+
+def main(program_class, update_parser=None):
+    """Run a MapReduce program.
+
+    Requires a program class (which inherits from mrs.MapReduce) and an
+    optional update_parser function.
+
+    If you want to modify the basic Mrs Parser, provide an update_parser
+    function that takes a parser and either modifies it or returns a new one.
+    Note that no option should ever have the value None.
+    """
+    import param
+
+    parser = option_parser()
+    if update_parser:
+        parser = update_parser(parser)
+    opts, args = parser.parse_args()
+
+    mrs_impl = param.instantiate(opts, 'mrs')
+    mrs_impl.program_class = program_class
+
+    try:
+        mrs_impl.main(opts, args)
+        sys.exit(0)
+    except KeyboardInterrupt:
+        logger.critical('Quitting due to keyboard interrupt.')
+        print >>sys.stderr, "Interrupted."
+        sys.exit(1)
+
+
+def option_parser():
+    """Create the default Mrs Parser
+
+    The parser is a param.OptionParser.  It is configured to use the
+    resolve conflict_handler, so any option can be overridden simply by
+    defining a new option with the same option string.  The remove_option and
+    get_option methods still work, too.  Note that overriding an option only
+    shadows it while still allowing its other option strings to work, but
+    remove_option completely removes the option with all of its option
+    strings.
+
+    The usage string can be specified with set_usage, thus overriding the
+    default.  However, often what you really want to set is the epilog.  The
+    usage shows up in the help before the option list; the epilog appears
+    after.
+    """
+    import param
+
+    parser = param.OptionParser(conflict_handler='resolve')
+    parser.usage = USAGE
+    parser.add_option('-I', '--mrs', dest='mrs', metavar='IMPLEMENTATION',
+            action='extend', search=['mrs.main'], default='Serial',
+            help='Mrs Implementation (Serial, Master, Slave, Bypass, etc.)')
+
+    return parser
+
+
+class BaseImplementation(ParamObj):
     """The base implementation.
 
     This needs to be extended to be useful.
@@ -82,8 +156,22 @@ class Implementation(ParamObj):
         """Method to be overridden by subclasses."""
         raise NotImplementedError('Implementation must be extended.')
 
+    def make_job_process(self, opts, args, jobdir=None):
+        """Creates a job process.
 
-class Bypass(Implementation):
+        Returns a (process, connection) pair.
+        """
+        import multiprocessing
+        from . import job
+
+        job_conn, child_job_conn = multiprocessing.Pipe()
+        job_proc = multiprocessing.Process(target=job.job_process,
+                name='Job',
+                args=(self.program_class, opts, args, None, child_job_conn))
+        return job_proc, job_conn
+
+
+class Bypass(BaseImplementation):
     """Runs a program, bypassing the MapReduce functions."""
 
     def _main(self, opts, args):
@@ -91,29 +179,64 @@ class Bypass(Implementation):
         program.bypass()
 
 
+class Implementation(BaseImplementation):
+    """A general implementation referring to an overridable runner class."""
+
+    runner_class = None
+    runner = None
+
+    def _main(self, opts, args):
+        from . import job
+        from . import runner
+
+        if self.runner_class is None:
+            raise NotImplementedError('Subclasses must set runner_class.')
+
+        jobdir = self.make_jobdir(opts)
+        job_proc, job_conn = self.make_job_process(opts, args, jobdir)
+        job_proc.daemon = True
+        job_proc.start()
+
+        # Install a signal handler for debugging.
+        signal.signal(signal.SIGUSR1, self.sigusr1_handler)
+        signal.siginterrupt(signal.SIGUSR1, False)
+
+        self.runner = self.runner_class(self.program_class, opts, args,
+                job_conn, jobdir)
+        try:
+            self.runner.run()
+        except KeyboardInterrupt:
+            logger.critical('Quitting due to keyboard interrupt.')
+            job_proc.terminate()
+
+        # Clean up jobdir
+        if jobdir and not self.keep_jobdir:
+            from util import remove_recursive
+            remove_recursive(jobdir)
+
+        job_proc.join()
+
+    def make_jobdir(self, opts):
+        """Make a temporary job directory, if appropriate."""
+        import tempfile
+        shared_dir = getattr(opts, 'mrs__shared', None)
+        if shared_dir:
+            jobdir = tempfile.mkdtemp(prefix='mrs.job_', dir=shared_dir)
+        else:
+            jobdir = None
+        return jobdir
+
+    def sigusr1_handler(self, signum, stack_frame):
+        # Apparently the setting siginterrupt can get reset on some platforms.
+        signal.siginterrupt(signal.SIGUSR1, False)
+        if self.runner is not None:
+            self.runner.debug_status()
+
+
 class Serial(Implementation):
     """Runs a MapReduce job in serial."""
 
-    def __init__(self):
-        Implementation.__init__(self)
-
-    def _main(self, opts, args):
-        import job
-        import serial
-
-        job_conn, child_job_conn = multiprocessing.Pipe()
-        job_proc = multiprocessing.Process(target=job.job_process,
-                name='Job',
-                args=(self.program_class, opts, args, None, child_job_conn))
-        job_proc.start()
-
-        runner = serial.SerialRunner(self.program_class, opts, args, job_conn)
-        try:
-            runner.run()
-        except KeyboardInterrupt:
-            job_proc.terminate()
-
-        job_proc.join()
+    runner_class = serial.SerialRunner
 
 
 class MockParallel(Implementation):
@@ -127,33 +250,19 @@ class MockParallel(Implementation):
     that most of the execution time is in I/O, and mockparallel tries to load
     the input for all reduce tasks before doing the first reduce task.
     """
-    def _main(self, opts, args):
-        raise NotImplementedError("The mockparallel implementation is"
-                "temporarily broken.  Sorry.")
+    _params = dict(
+        shared=Param(default=DEFAULT_SHARED,
+            doc='Global shared area for temporary storage'),
+        keep_jobdir=Param(type='bool',
+            doc="Do not delete jobdir at completion"),
+        reduce_tasks=Param(default=1, type='int',
+            doc='Default number of reduce tasks'),
+        )
 
-        from job import Job
-        from util import try_makedirs
-
-        # Set up shared directory
-        try_makedirs(self.shared)
-
-        job = Job(self.program_class, opts, args)
-        job.start()
-
-        while not job.done():
-            task = job.schedule()
-            # FIXME (busy loop):
-            if task is None:
-                continue
-            task.active()
-            task.run()
-            task.finished()
-            job.check_done()
-
-        job.join()
+    runner_class = runner.MockParallelRunner
 
 
-class Network(Implementation):
+class Network(ParamObj):
     _params = dict(
         port=Param(default=0, type='int', shortopt='-P',
             doc='RPC Port for incoming requests'),
@@ -164,11 +273,9 @@ class Network(Implementation):
         )
 
 
-class Master(Network):
-    import os
-    default_shared = os.getcwd()
+class Master(Implementation, Network):
     _params = dict(
-        shared=Param(default=default_shared,
+        shared=Param(default=DEFAULT_SHARED,
             doc='Global shared area for temporary storage'),
         keep_jobdir=Param(type='bool',
             doc="Do not delete jobdir at completion"),
@@ -178,56 +285,10 @@ class Master(Network):
             doc="Server's RPC port will be written here"),
         )
 
-    def _main(self, opts, args):
-        """Run Mrs Master
-
-        Master Main is called directly from Mrs Main.  On exit, the process
-        will return master_main's return value.
-        """
-        from job import Job
-        from io import blocking
-        from master import MasterState, MasterEventThread
-
-        # create job thread:
-        job = Job(self.program_class, opts, args)
-        # create master state:
-        import registry
-        program_hash = registry.object_hash(self.program_class)
-        master = MasterState(job, program_hash, opts, args)
-        # create event thread:
-        event_thread = MasterEventThread(master)
-        # create blocking thread (which is only started if necessary):
-        job.blockingthread = blocking.BlockingThread()
-
-        # Start the other threads:
-        event_thread.start()
-        job.start()
-
-        # Install a signal handler for debugging.
-        signal.signal(signal.SIGUSR1, master.current_status)
-
-        try:
-            # Note: under normal circumstances, the reactor (in the event
-            # thread) will quit on its own.
-            master.reaper.wait()
-        except KeyboardInterrupt:
-            pass
-
-        event_thread.shutdown()
-
-        # Clean up jobdir
-        if not self.keep_jobdir:
-            from util import remove_recursive
-            remove_recursive(job.jobdir)
-
-        # Wait for event thread to finish.
-        event_thread.join()
-
-        if master.reaper.traceback:
-            logger.critical('Exception: %s' % master.reaper.traceback)
+    runner_class = master.MasterRunner
 
 
-class Slave(Network):
+class Slave(BaseImplementation, Network):
     _params = dict(
         master=Param(shortopt='-M', doc='URL of the Master RPC server'),
         local_shared=Param(default=None,
@@ -248,6 +309,9 @@ class Slave(Network):
         import rpc
         program_hash = registry.object_hash(self.program_class)
 
+        if not self.master:
+            logger.critical('No master URL specified.')
+            return 1
         slave = Slave(program_hash, self.master, self.local_shared,
                 self.pingdelay, self.timeout)
 
@@ -280,6 +344,5 @@ class Slave(Network):
                 slave_thread.join(10)
 
         worker.terminate()
-
 
 # vim: et sw=4 sts=4

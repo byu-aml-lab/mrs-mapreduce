@@ -49,16 +49,15 @@ logger.addHandler(handler)
 
 # rather than importing all submodules, we just import the ones that are
 # expected to be useful outside of Mrs internals.
-from . import cli
 from . import registry
 from . import version
 from .io import HexWriter, TextWriter
+from .main import main
 from .mapreduce import MapReduce
 
 VERSION = version.VERSION
-main = cli.main
 
 # We need to set __all__ to make sure that pydoc has everything:
-__all__ = ['logger', 'cli', 'HexWriter', 'TextWriter', 'VERSION', 'main',]
+__all__ = ['logger', 'HexWriter', 'TextWriter', 'VERSION', 'main',]
 
 # vim: et sw=4 sts=4

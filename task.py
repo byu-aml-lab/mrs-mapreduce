@@ -22,8 +22,7 @@
 
 """MapReduce Tasks.
 
-A Task represents a unit of work.  A Task is created on the master,
-serialized, sent to the slave, and then created on the slave.
+A Task represents a unit of work and the mechanism for carrying it out.
 """
 
 from itertools import chain
@@ -52,44 +51,9 @@ class Task(object):
         self.format = format
 
         self.output = None
-        self._outurls = []
-
-    def active(self):
-        self.dataset.task_started(self)
-
-    def finished(self, urls=None):
-        if urls:
-            self._outurls = urls
-        self.dataset.task_finished(self)
-
-    def canceled(self):
-        self.dataset.task_canceled(self)
-
-    def inurls(self):
-        buckets = self.input[:, self.split]
-
-        urls = []
-        for bucket in buckets:
-            url = bucket.url
-            if url is None:
-                urls.append('')
-            else:
-                urls.append(url)
-        return urls
 
     def outurls(self):
-        # Normally, there's an output object, but the master only holds a
-        # list of urls.
-        if self.output:
-            urls = []
-            for bucket in self.output:
-                if len(bucket):
-                    urls.append(bucket.url)
-                else:
-                    urls.append('')
-            return urls
-        else:
-            return self._outurls
+        return [(b.split, b.url) for b in self.output if len(b)]
 
 
 class MapTask(Task):

@@ -23,7 +23,6 @@
 import codecs
 import cStringIO
 import os
-import subprocess
 import urlparse
 import urllib2
 
@@ -181,28 +180,6 @@ class HexWriter(TextWriter):
         print >>self.file, encoded_key, encoded_value
 
 
-def hexformat_sort(in_filenames, out_filename):
-    """Sort one or more HexFormats into a new HexFormat.
-
-    The ASCII hexadecimal encoding of keys has the property that sorting the
-    file (with Unix sort) will preserve the sort order.
-
-    Note that in_filenames can be the name of a single file or a list of names
-    of files.
-    """
-    # We give -s, which specifies a stable sort (only sort on the given key),
-    # which empirically seems to be faster.
-    args = ['sort', '-s', '-k1,1', '-o', out_filename]
-    if isinstance(in_filenames, str):
-        args.append(in_filenames)
-    else:
-        args += in_filenames
-    proc = subprocess.Popen(args)
-    retcode = proc.wait()
-    if retcode != 0:
-        raise RuntimeError("Sort failed.")
-
-
 def writerformat(extension):
     """Returns the writer class associated with the given file extension."""
     return writer_map[extension]
@@ -213,7 +190,7 @@ def fileformat(filename):
     extension = os.path.splitext(filename)[1]
     # strip the dot off:
     extension = extension[1:]
-    return reader_map.get(extension, default_format)
+    return reader_map.get(extension, default_read_format)
 
 
 def open_url(url):
@@ -226,7 +203,7 @@ def open_url(url):
     return f
 
 
-def blocking_fill(url, bucket):
+def fill(url, bucket):
     """Open a url or file and write it to a bucket."""
     consumer_cls = fileformat(url)
     consumer = consumer_cls(bucket)
@@ -240,13 +217,13 @@ def test():
 
 
 reader_map = {
-        #'mtxt': TextConsumer,
         'mrsx': HexConsumer,
         }
 writer_map = {
         'mtxt': TextWriter,
         'mrsx': HexWriter,
         }
-default_format = LineConsumer
+default_read_format = LineConsumer
+default_write_format = HexWriter
 
 # vim: et sw=4 sts=4

@@ -13,11 +13,4 @@ The following items are the most urgent:
   save such data.  Auto-delete temporary data from NFS and memory once it's no
   longer needed.
 
-- Convert XMLRPC (both client and server) to use Twisted.  Put all Twisted
-  stuff into a single thread.
-
-- When sending URLs around, send (partition id, url) pairs instead of a list
-  of URLs.  This will be more friendly for sparse lists and gradually updated
-  lists.
-
 - Allow HDFS and WebDAV to be used for shared storage.

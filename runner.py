@@ -23,7 +23,11 @@
 """Mrs Runner"""
 
 import collections
+import errno
+import multiprocessing
 import select
+import sys
+import threading
 
 from . import datasets
 from . import job
@@ -33,35 +37,61 @@ logger = logging.getLogger('mrs')
 
 
 class BaseRunner(object):
-    def __init__(self, program_class, opts, args, job_conn):
+    """Communicates with the job thread and keeps track of datasets."""
+
+    def __init__(self, program_class, opts, args, job_conn, jobdir):
         self.program_class = program_class
         self.opts = opts
         self.args = args
         self.job_conn = job_conn
+        self.jobdir = jobdir
 
-        #self.running = True
+        self.handler_map = {}
+        self.running = True
+        self.poll = select.poll()
+        self.register_fd(self.job_conn.fileno(), self.read_job_conn)
 
         self.datasets = {}
-        self.data_dependents = collections.defaultdict(set)
+        self.data_dependents = collections.defaultdict(collections.deque)
         # Datasets requested to be closed by the job process (but which
         # cannot be closed until their dependents are computed).
         self.close_requests = set()
 
-    """
-    def run(self):
-        poll = select.poll()
-        poll.register(self.job_conn, select.POLLIN)
-        poll.register(self.worker_conn, select.POLLIN)
+    def register_fd(self, fd, handler):
+        """Registers the given file descriptor and handler with poll.
 
+        Assumes that the file descriptors are only used in read mode.
+        """
+        self.handler_map[fd] = handler
+        self.poll.register(fd, select.POLLIN)
+
+    def eventloop(self, timeout_function=None):
+        """Repeatedly calls poll to read from various file descriptors.
+
+        The timeout_function is called each time through the loop, and its
+        value is used as the timeout for poll (None means to wait
+        indefinitely).
+
+        As far as event loops go, this is pretty lame.  Since the
+        multiprocessing module's send/recv methods don't support partial
+        reads, there will still be a significant amount of blocking.
+        Likewise, this simplistic loop does not support POLLOUT.  If it
+        becomes necessary, it won't be too hard to write a simple replacement
+        for multiprocessing's Pipe that supports partial reading and writing.
+        """
         while self.running:
-            for fd, event in poll.poll():
-                if fd == self.job_conn.fileno():
-                    self.read_job_conn()
-                elif fd == self.worker_conn.fileno():
-                    self.read_worker_conn()
+            # Note that poll() is unaffected by siginterrupt/SA_RESTART (man
+            # signal(7) for more detail), so we check explicitly for EINTR.
+            try:
+                if timeout_function:
+                    timeout = timeout_function()
                 else:
-                    assert False
-    """
+                    timeout = None
+                for fd, event in self.poll.poll(timeout):
+                    self.handler_map[fd]()
+            except select.error, e:
+                if e.args[0] != errno.EINTR:
+                    raise
 
     def read_job_conn(self):
         try:
@@ -74,7 +104,7 @@ class BaseRunner(object):
             self.datasets[ds.id] = ds
             input_id = getattr(ds, 'input_id', None)
             if input_id:
-                self.data_dependents[input_id].add(ds.id)
+                self.data_dependents[input_id].append(ds.id)
             if isinstance(ds, datasets.ComputedData):
                 self.compute_dataset(ds)
         elif isinstance(message, job.CloseDataset):
@@ -89,6 +119,9 @@ class BaseRunner(object):
         else:
             assert False, 'Unknown message type.'
 
+    def run(self):
+        raise NotImplementedError
+
     def compute_dataset(self, dataset):
         """Called when a new ComputedData set is submitted."""
         raise NotImplementedError
@@ -98,37 +131,42 @@ class BaseRunner(object):
 
         # Check whether any datasets can be closed as a result of the newly
         # completed computation.
-        if ds.input_id:
-            self.try_to_close_dataset(ds.input_id)
-        self.try_to_close_dataset(dataset_id)
+        if dataset.input_id:
+            self.try_to_close_dataset(dataset.input_id)
+        self.try_to_close_dataset(dataset.id)
 
-        if not ds.closed:
-            for bucket in ds:
+        self.send_dataset_response(dataset)
+        self.try_to_remove_dataset(dataset.id)
+
+    def send_dataset_response(self, dataset):
+        if not dataset.closed:
+            for bucket in dataset:
                 if len(bucket) or bucket.url:
-                    response = job.BucketReady(ds.id, bucket)
+                    response = job.BucketReady(dataset.id, bucket)
                     self.job_conn.send(response)
-        response = job.DatasetComputed(ds.id, not ds.closed)
+        response = job.DatasetComputed(dataset.id, not dataset.closed)
         self.job_conn.send(response)
-        self.try_to_remove_dataset(ds.id)
 
     def try_to_close_dataset(self, dataset_id):
         """Try to close the given dataset and remove its parent."""
         if dataset_id not in self.close_requests:
             return
+        ds = self.datasets[dataset_id]
+        if getattr(ds, 'computing', False):
+            return
         # Bail out if any dependent dataset still needs to be computed.
-        depset = self.data_dependents[dataset_id]
-        for dependent_id in depset:
+        deplist = self.data_dependents[dataset_id]
+        for dependent_id in deplist:
             dependent_ds = self.datasets[dependent_id]
-            if not getattr(dependent_ds, 'computed', True):
+            if getattr(dependent_ds, 'computing', False):
                 return
 
-        ds = self.datasets[dataset_id]
         ds.close()
         self.close_requests.remove(dataset_id)
 
         input_id = getattr(ds, 'input_id', None)
         if input_id:
-            self.data_dependents[input_id].discard(dataset_id)
+            self.data_dependents[input_id].remove(dataset_id)
             self.try_to_remove_dataset(input_id)
 
     def try_to_remove_dataset(self, dataset_id):
@@ -143,10 +181,182 @@ class BaseRunner(object):
         if not ds.closed:
             return
 
-        depset = self.data_dependents[dataset_id]
-        if not depset:
+        deplist = self.data_dependents[dataset_id]
+        if not deplist:
             del self.datasets[dataset_id]
             del self.data_dependents[dataset_id]
 
+    def debug_status(self):
+        """Print out the debug info about the current status of the runner."""
+        pass
+
+
+class TaskRunner(BaseRunner):
+    """Breaks down datasets into individual tasks.
+
+    By default, the tasks are evaluated in serial, but the schedule method
+    may be overridden.
+    """
+
+    def __init__(self, *args):
+        super(TaskRunner, self).__init__(*args)
+
+        self.pending_datasets = set()
+        self.runnable_datasets = collections.deque()
+        # List of (dataset, source) pairs.
+        self.ready_tasks = collections.deque()
+        # Dictionary mapping from dataset to set of tasks.
+        self.remaining_tasks = {}
+
+    def compute_dataset(self, dataset):
+        if self._runnable_or_pending(dataset):
+            self.schedule()
+
+    def next_task(self):
+        """Returns the next available task, or None if none are available.
+
+        Tasks are returned as (dataset, source) pairs.
+        """
+        if not self.ready_tasks:
+            if self.runnable_datasets:
+                ds = self.runnable_datasets.popleft()
+                self._make_tasks(ds)
+            else:
+                return None
+        return self.ready_tasks.popleft()
+
+    def _make_tasks(self, dataset):
+        """Generate tasks for the given dataset, adding them to ready_tasks."""
+        set_of_tasks = set(xrange(dataset.sources))
+        self.remaining_tasks[dataset] = set_of_tasks
+        self.ready_tasks.extend((dataset, i) for i in set_of_tasks)
+
+    def task_done(self, dataset, source):
+        """Report that the given source of the given dataset is computed."""
+        set_of_tasks = self.remaining_tasks[dataset]
+        set_of_tasks.remove(source)
+
+        for bucket in dataset[source, :]:
+            if bucket.url:
+                response = job.BucketReady(dataset.id, bucket)
+                self.job_conn.send(response)
+
+        if not set_of_tasks:
+            del self.remaining_tasks[dataset]
+            dataset.computation_done()
+            self.dataset_computed(dataset)
+
+            for dependent_id in self.data_dependents[dataset.id]:
+                dependent_ds = self.datasets[dependent_id]
+                self.pending_datasets.remove(dependent_ds)
+                self.runnable_datasets.append(dependent_ds)
+
+    def send_dataset_response(self, dataset):
+        response = job.DatasetComputed(dataset.id, False)
+        self.job_conn.send(response)
+
+    def _runnable_or_pending(self, ds):
+        """Add the dataset to runnable or pending list as appropriate.
+
+        Returns whether the dataset is runnable.
+        """
+        input_ds = self.datasets.get(ds.input_id, None)
+        if (input_ds is None) or getattr(input_ds, 'computing', False):
+            self.pending_datasets.add(ds)
+            return False
+        else:
+            self.runnable_datasets.append(ds)
+            return True
+
+    def schedule(self):
+        raise NotImplementedError
+
+    def debug_status(self):
+        super(TaskRunner, self).debug_status()
+        print >>sys.stderr, 'Runnable datasets:', (
+                ', '.join(ds.id for ds in self.runnable_datasets))
+        print >>sys.stderr, 'Pending datasets:', (
+                ', '.join(ds.id for ds in self.pending_datasets))
+        print >>sys.stderr, 'Ready tasks:'
+        datasets = set(task[0] for task in self.ready_tasks)
+        for ds in datasets:
+            sources = (str(t[1]) for t in self.ready_tasks if t[0] == ds)
+            print '    %s:' % ds.id, ', '.join(sources)
+
+
+class MockParallelRunner(TaskRunner):
+    def __init__(self, *args):
+        super(MockParallelRunner, self).__init__(*args)
+
+        self.program = None
+        self.worker_conn = None
+        self.worker_busy = False
+
+    def run(self):
+        try:
+            self.program = self.program_class(self.opts, self.args)
+        except Exception, e:
+            import traceback
+            logger.critical('Exception while instantiating the program: %s'
+                    % traceback.format_exc())
+            return
+
+        self.start_worker()
+
+        self.register_fd(self.worker_conn.fileno(), self.read_worker_conn)
+        self.eventloop()
+
+    def start_worker(self):
+        self.worker_conn, remote_worker_conn = multiprocessing.Pipe()
+        worker = MockParallelWorker(self.program, self.datasets,
+                self.jobdir, remote_worker_conn)
+        worker_thread = threading.Thread(target=worker.run,
+                name='MockParallel Worker')
+        worker_thread.daemon = True
+        worker_thread.start()
+
+    def read_worker_conn(self):
+        """Read a message from the worker.
+
+        Each message is the id of a dataset that has finished being computed.
+        """
+        try:
+            dataset_id, source = self.worker_conn.recv()
+        except EOFError:
+            return
+        ds = self.datasets[dataset_id]
+        self.task_done(ds, source)
+        self.worker_busy = False
+        self.schedule()
+
+    def schedule(self):
+        if not self.worker_busy:
+            next_task = self.next_task()
+            if next_task is not None:
+                dataset, source = next_task
+                self.worker_conn.send((dataset.id, source))
+                self.worker_busy = True
+
+
+class MockParallelWorker(object):
+    def __init__(self, program, datasets, jobdir, conn):
+        self.program = program
+        self.datasets = datasets
+        self.jobdir = jobdir
+        self.conn = conn
+
+    def run(self):
+        while True:
+            try:
+                dataset_id, source = self.conn.recv()
+            except EOFError:
+                return
+            ds = self.datasets[dataset_id]
+            t = ds.get_task(source, self.program, self.datasets, self.jobdir)
+            t.run()
+            for split, url in t.outurls():
+                ds[source, split].url = url
+
+            self.conn.send((dataset_id, source))
 
 # vim: et sw=4 sts=4

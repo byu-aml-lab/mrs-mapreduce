@@ -123,7 +123,7 @@ class WriteBucket(Bucket):
         super(WriteBucket, self).__init__(source, split)
         self.dir = dir
         if format is None:
-            format = io.HexWriter
+            format = io.default_write_format
         self.format = format
 
         self.path = None
@@ -136,6 +136,8 @@ class WriteBucket(Bucket):
     def readonly_copy(self):
         b = Bucket(self.source, self.split)
         b._data = self._data
+        b.path = self.path
+        b.url = self.url
         return b
 
     def open_writer(self):

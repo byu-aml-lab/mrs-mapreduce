@@ -40,9 +40,18 @@ PING_ATTEMPTS = 50
 
 COOKIE_LEN = 8
 
+import datetime
+import multiprocessing
+import optparse
+import select
 import socket
+import tempfile
 import threading
 import worker
+
+from . import rpc
+from . import util
+from .version import VERSION
 
 from logging import getLogger
 logger = getLogger('mrs')
@@ -59,14 +68,14 @@ class Slave(object):
         self.pingdelay = pingdelay
         self.timeout = timeout
 
-        from multiprocessing import Pipe
-        self.request_pipe_slave, self.request_pipe_worker = Pipe()
-        self.quit_pipe_recv, self.quit_pipe_send = Pipe(False)
+        self.request_pipe_slave, self.request_pipe_worker = (
+                multiprocessing.Pipe())
+        self.quit_pipe_recv, self.quit_pipe_send = multiprocessing.Pipe(False)
 
         #self.ping_task = None
 
         self.id = None
-        self.cookie = self.rand_cookie()
+        self.cookie = util.random_string(COOKIE_LEN)
         self.timestamp = None
         self.watchdog_stamp = None
         self.master_rpc = None
@@ -75,7 +84,6 @@ class Slave(object):
         self.current_request = None
 
     def run(self):
-        import rpc
         self.master_rpc = rpc.ServerProxy(self.master_url, self.timeout)
 
         result = self.signin()
@@ -99,11 +107,10 @@ class Slave(object):
     # State 1: Signing In
     def signin(self):
         """Start Slave RPC Server and sign in to master.
-        
+
         Returns (slave_id, jobdir, opts, args): the slave id, job
         directory, options object, and args list given by the server.
         """
-        from version import VERSION
         cookie = self.cookie
 
         try:
@@ -119,26 +126,21 @@ class Slave(object):
             return None
 
         # Parse the opts given by the master.
-        import optparse
         opts = optparse.Values(optdict)
 
         return slave_id, jobdir, opts, args
 
     def init_default_dir(self, jobdir):
         if self.local_shared:
-            import tempfile
-            from util import try_makedirs
-            try_makedirs(self.local_shared)
+            util.try_makedirs(self.local_shared)
             return tempfile.mkdtemp(dir=self.local_shared, prefix='mrs_slave_')
         else:
-            import socket
-            import tempfile
             hostname, _, _ = socket.gethostname().partition('.')
             return tempfile.mkdtemp(dir=jobdir, prefix=hostname)
 
     def report_ready(self):
         """Report to the master that we are ready to accept tasks.
-        
+
         This is the callback after user_setup is called.
         """
         # TODO: make this try a few times if there's a timeout
@@ -155,6 +157,8 @@ class Slave(object):
         request = worker.WorkerSetupRequest(opts, args, default_dir)
         self.request_pipe_slave.send(request)
         response = self.request_pipe_slave.recv()
+        if isinstance(response, worker.WorkerSetupSuccess):
+            return True
         if isinstance(response, worker.WorkerFailure):
             msg = 'Exception in Worker Setup: %s' % response.exception
             logger.critical(msg)
@@ -162,15 +166,14 @@ class Slave(object):
             logger.error(msg)
             return False
         else:
-            return True
+            raise RuntimeError('Invalid message type.')
 
     def workloop(self):
         """Repeatedly process completed requests.
-        
+
         The RPC thread submits requests to the worker (via submit_request),
         but this workloop processes their completion.
         """
-        import select
         poll = select.poll()
         poll.register(self.request_pipe_slave, select.POLLIN)
         poll.register(self.quit_pipe_recv, select.POLLIN)
@@ -189,7 +192,8 @@ class Slave(object):
         assert self.current_request is not None
         self.current_request = None
         if isinstance(response, worker.WorkerSuccess):
-            self.master_rpc.done(self.id, response.outurls, self.cookie)
+            self.master_rpc.done(self.id, response.dataset_id,
+                    response.source, response.outurls, self.cookie)
         elif isinstance(response, worker.WorkerFailure):
             msg = 'Exception in Worker: %s' % response.exception
             logger.critical(msg)
@@ -213,22 +217,13 @@ class Slave(object):
 
     def update_timestamp(self):
         """Set the timestamp to the current time."""
-        from datetime import datetime
-        self.timestamp = datetime.utcnow()
+        self.timestamp = datetime.datetime.utcnow()
 
     def get_timestamp(self):
         """Report the most recent timestamp."""
         return self.timestamp
 
     # Miscellaneous
-    @classmethod
-    def rand_cookie(cls):
-        # Generate a cookie so that mostly only authorized people can connect.
-        from random import choice
-        import string
-        possible = string.letters + string.digits
-        return ''.join(choice(possible) for i in xrange(COOKIE_LEN))
-
     def check_cookie(self, cookie):
         if cookie != self.cookie:
             raise CookieValidationError
@@ -244,29 +239,29 @@ class Slave(object):
 
 class SlaveInterface(object):
     """Public XML RPC Interface
-    
+
     Note that any method beginning with "xmlrpc_" will be exposed to
     remote hosts.
     """
     def __init__(self, slave):
         self.slave = slave
 
-    def xmlrpc_start_map(self, source, inputs, func_name, part_name, splits,
-            outdir, extension, cookie):
+    def xmlrpc_start_map(self, dataset_id, source, inputs, func_name,
+            part_name, splits, outdir, extension, cookie):
         self.slave.check_cookie(cookie)
         self.slave.update_timestamp()
         logger.info('Received a Map assignment from the master.')
-        request = worker.WorkerMapRequest(source, inputs, func_name, part_name,
-                splits, outdir, extension)
+        request = worker.WorkerMapRequest(dataset_id, source, inputs,
+                func_name, part_name, splits, outdir, extension)
         return self.slave.submit_request(request)
 
-    def xmlrpc_start_reduce(self, source, inputs, func_name, part_name,
-            splits, outdir, extension, cookie):
+    def xmlrpc_start_reduce(self, dataset_id, source, inputs, func_name,
+            part_name, splits, outdir, extension, cookie):
         self.slave.check_cookie(cookie)
         self.slave.update_timestamp()
         logger.info('Received a Reduce assignment from the master.')
-        request = worker.WorkerReduceRequest(source, inputs, func_name,
-                part_name, splits, outdir, extension)
+        request = worker.WorkerReduceRequest(dataset_id, source, inputs,
+                func_name, part_name, splits, outdir, extension)
         return self.slave.submit_request(request)
 
     def xmlrpc_quit(self, cookie):
