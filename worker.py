@@ -28,6 +28,7 @@ process is terminated when the main process quits.
 """
 
 import tempfile
+import traceback
 
 from . import datasets
 from . import io
@@ -86,7 +87,10 @@ class WorkerReduceRequest(object):
         This will ordinarily be called from some other thread.
         """
         input_data = datasets.FileData(self.inputs, splits=1)
-        format = io.writerformat(self.extension)
+        if self.extension:
+            format = io.writerformat(self.extension)
+        else:
+            format = io.default_write_format
 
         if not self.outdir:
             self.outdir = tempfile.mkdtemp(dir=default_dir, prefix='reduce_')
@@ -150,7 +154,6 @@ def run_worker(program_class, request_pipe):
                         t.outurls())
                 logger.debug('Task complete.')
         except Exception, e:
-            import traceback
             tb = traceback.format_exc()
             response = WorkerFailure(e, tb)
         request_pipe.send(response)

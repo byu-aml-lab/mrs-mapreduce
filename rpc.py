@@ -129,7 +129,7 @@ class Server(SimpleXMLRPCServer.SimpleXMLRPCServer):
     def _dispatch(self, method, params, host):
         try:
             func = getattr(self.instance, 'xmlrpc_' + method)
-        except AttribuetError:
+        except AttributeError:
             raise RuntimeError('method "%s" is not supported' % method)
 
         try:

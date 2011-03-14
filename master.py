@@ -31,6 +31,7 @@ More information coming soon.
 import os
 import sys
 import threading
+import time
 
 from . import pool
 from . import registry
@@ -71,11 +72,13 @@ class MasterRunner(runner.TaskRunner):
         self.sched_pipe, sched_write_pipe = os.pipe()
         self.register_fd(self.sched_pipe, self.read_sched_pipe)
         self.slaves = Slaves(sched_write_pipe, self.runqueue,
-                self.opts.mrs__timeout)
+                self.opts.mrs__timeout, self.opts.mrs__pingdelay)
 
         self.start_rpc_server()
 
         self.eventloop(timeout_function=self.maintain_runqueue)
+
+        self.slaves.disconnect_all()
 
     def start_rpc_server(self):
         program_hash = registry.object_hash(self.program_class)
@@ -267,20 +270,23 @@ class RemoteSlave(object):
         self.cookie = cookie
         self.slaves = slaves
         self.runqueue = slaves.runqueue
+        self.pingdelay = slaves.pingdelay
 
         uri = "http://%s:%s" % (host, port)
-        self.rpc = rpc.ServerProxy(uri, self.slaves.rpc_timeout)
+        self._rpc = rpc.ServerProxy(uri, slaves.rpc_timeout)
+        self._rpc_lock = threading.Lock()
 
         self._assignment = None
         self._rpc_func = None
         self._rpc_args = None
         self._alive = True
 
+        # The ping_repeating variable assures that only one ping "task" is
+        # active at a time.
+        self._ping_repeating = False
+        self._pinglock = threading.Lock()
+        self._schedule_ping(self.pingdelay)
         self.update_timestamp()
-
-        #self.ping_task = PingTask(pingdelay, ping_args, self.rpc,
-        #        self.ping_success, self.rpc_failure, self.get_timestamp)
-        #self.ping_task.start()
 
     def check_cookie(self, cookie):
         return (cookie == self.cookie)
@@ -299,9 +305,9 @@ class RemoteSlave(object):
         dataset, source = assignment
 
         if dataset.task_class == task.MapTask:
-            self._rpc_func = self.rpc.start_map
+            self._rpc_func = self._rpc.start_map
         elif dataset.task_class == task.ReduceTask:
-            self._rpc_func = self.rpc.start_reduce
+            self._rpc_func = self._rpc.start_reduce
         else:
             assert False, 'Unknown task class: %s' % repr(dataset.task_class)
 
@@ -324,16 +330,20 @@ class RemoteSlave(object):
         self.runqueue.do(self.send_assignment)
 
     def send_assignment(self):
-        try:
-            success = self._rpc_func(*self._rpc_args)
-        except xmlrpclib.Fault, f:
-            logger.error('Crash in RPC call to slave %s: %s'
-                    % (self.id, f.faultString))
-            success = False
-        except xmlrpclib.ProtocolError, e:
-            logger.error('Protocol error in RPC call to slave %s: %s'
-                    % (self.id, e.errmsg))
-            success = False
+        with self._rpc_lock:
+            try:
+                success = self._rpc_func(*self._rpc_args)
+            except xmlrpclib.Fault, f:
+                logger.error('Crash in RPC call to slave %s: %s'
+                        % (self.id, f.faultString))
+                success = False
+            except xmlrpclib.ProtocolError, e:
+                logger.error('Protocol error in RPC call to slave %s: %s'
+                        % (self.id, e.errmsg))
+                success = False
+
+            if success:
+                self.update_timestamp()
 
         self._rpc_func = None
         self._rpc_args = None
@@ -346,16 +356,11 @@ class RemoteSlave(object):
 
     def update_timestamp(self):
         """Set the timestamp to the current time."""
-        from datetime import datetime
         if not self.alive():
             logger.warning('Updating timestamp of previously dead slave %s.'
                     % self.id)
             self.resurrect()
-        self.timestamp = datetime.utcnow()
-
-    def get_timestamp(self):
-        """Report the most recent timestamp."""
-        return self.timestamp
+        self.timestamp = time.time()
 
     def critical_failure(self):
         """Report that a slave had a critical failure.
@@ -363,15 +368,10 @@ class RemoteSlave(object):
         Note that we can get multiple failures for one slave.
         """
         if self.alive():
-            #self.ping_task.stop()
             self._alive = False
 
             logger.error('Slave %s (%s): lost' % (self.id, self.host))
             self.slaves.slave_dead(self)
-
-    def ping_success(self):
-        """Called when a ping successfully completes."""
-        self.update_timestamp()
 
     def alive(self):
         """Checks whether the Slave is responding."""
@@ -380,27 +380,80 @@ class RemoteSlave(object):
     def resurrect(self):
         if not self.alive():
             logger.warning('Slave %s (%s): resurrected' % (self.id, self.host))
-            self._alive = True
-            # Restart the ping_task
-            #self.ping_task.start()
+            with self._pinglock:
+                self._alive = True
+                self._schedule_ping(self.pingdelay)
+
+    def ping(self):
+        """Ping the slave and schedule a follow-up ping."""
+        assert self._ping_repeating
+        with self._pinglock:
+            if not self.alive():
+                self._ping_repeating = False
+                return
+
+        delta = time.time() - self.timestamp
+        if delta > self.pingdelay:
+            self._schedule_ping(delta, from_ping_method=True)
+
+        if not self._rpc_lock.acquire(False):
+            # RPC socket busy; try again soon.
+            self.runqueue.do(self.ping)
+            self._schedule_ping(from_ping_method=True)
+            return
+
+        try:
+            self._rpc.ping(self.cookie)
+            success = True
+        except xmlrpclib.Fault, f:
+            logger.error('Crash in RPC call to slave %s: %s'
+                    % (self.id, f.faultString))
+            success = False
+        except xmlrpclib.ProtocolError, e:
+            logger.error('Protocol error in RPC call to slave %s: %s'
+                    % (self.id, e.errmsg))
+            success = False
+        finally:
+            self._rpc_lock.release()
+
+        if success:
+            self.update_timestamp()
+            self._schedule_ping(self.pingdelay, from_ping_method=True)
+        else:
+            self.critical_failure()
+
+    def _schedule_ping(self, delay=None, from_ping_method=False):
+        """Schedules a ping to occur after the given delay.
+
+        Ensures that the ping keeps repeating, i.e., when a ping finishes,
+        a new ping is immediately scheduled.
+        """
+        if not from_ping_method:
+            if self._ping_repeating:
+                return
+            else:
+                self._ping_repeating = True
+        self.runqueue.do(self.ping, delay=delay)
 
     def disconnect(self):
         """Disconnect the slave by sending a quit request."""
         if self.alive():
             self._alive = False
-            #self.ping_task.stop()
-            self.rpc.quit(self.cookie)
-            self.rpc.close()
-            self.rpc = None
-            self._alive = False
+            self.runqueue.do(self.send_quit)
+
+    def send_quit(self):
+        with self._rpc_lock:
+            self._rpc.quit(self.cookie)
+            self._rpc = None
 
 
 class Slaves(object):
     """List of remote slaves."""
-    def __init__(self, sched_pipe, runqueue, rpc_timeout):
+    def __init__(self, sched_pipe, runqueue, rpc_timeout, pingdelay):
         self._sched_pipe = sched_pipe
         self.runqueue = runqueue
         self.rpc_timeout = rpc_timeout
+        self.pingdelay = pingdelay
 
         self._lock = threading.Lock()
         self._next_slave_id = 0
@@ -472,6 +525,10 @@ class Slaves(object):
             changed = self._changed_slaves
             self._changed_slaves = set()
         return changed
+
+    def disconnect_all(self):
+        for slave in self._slaves.itervalues():
+            slave.disconnect()
 
 
 # vim: et sw=4 sts=4

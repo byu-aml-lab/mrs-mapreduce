@@ -32,6 +32,7 @@ import random
 import sys
 import threading
 import time
+import traceback
 
 
 class ThreadPool(object):
@@ -96,7 +97,13 @@ class FunctionCaller(object):
             if result:
                 self.counter.dec()
                 f, args = result
-                f(*args)
+                try:
+                    f(*args)
+                except Exception, e:
+                    tb = trackback.format_exc()
+                    msg = 'Exception in thread pool: %s' % e
+                    logger.critical(msg)
+                    logger.error('Traceback: %s' % tb)
                 self.counter.inc()
 
 
