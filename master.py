@@ -420,8 +420,9 @@ class RemoteSlave(object):
                 return
 
         delta = time.time() - self.timestamp
-        if delta > self.pingdelay:
-            self._schedule_ping(delta, from_ping_method=True)
+        if delta < self.pingdelay:
+            self._schedule_ping(self.pingdelay - delta, from_ping_method=True)
+            return
 
         if not self._rpc_lock.acquire(False):
             # RPC socket busy; try again soon.
