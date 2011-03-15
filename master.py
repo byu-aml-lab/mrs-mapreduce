@@ -53,6 +53,7 @@ class MasterRunner(runner.TaskRunner):
         self.slaves = None
         self.idle_slaves = set()
         self.dead_slaves = set()
+        self.current_assignments = set()
 
         self.rpc_interface = None
         self.rpc_thread = None
@@ -129,10 +130,15 @@ class MasterRunner(runner.TaskRunner):
     def schedule(self):
         """Check for any changed slaves and make task assignments."""
         for dataset_id, source, urls in self.slaves.get_results():
-            ds = self.datasets[dataset_id]
-            for split, url in urls:
-                ds[source, split].url = url
-            self.task_done(ds, source)
+            if (dataset_id, source) in self.current_assignments:
+                ds = self.datasets[dataset_id]
+                for split, url in urls:
+                    ds[source, split].url = url
+                self.task_done(dataset_id, source)
+                self.current_assignments.remove((dataset_id, source))
+            else:
+                logger.info('Ignoring a redundant result (%s, %s).' %
+                        (dataset_id, source))
 
         for slave in self.slaves.get_changed_slaves():
             if slave.alive():
@@ -152,13 +158,19 @@ class MasterRunner(runner.TaskRunner):
             # find the next job to run
             next = self.next_task()
             if next is None:
+                # TODO: duplicate currently assigned tasks here (while adding
+                # a mechanism for unassigning duplicate tasks once the result
+                # comes back).
                 self.idle_slaves.add(slave)
                 break
 
             slave.assign(next, self.datasets)
+            self.current_assignments.add(next)
 
     def debug_status(self):
         super(MasterRunner, self).debug_status()
+        print >>sys.stderr, 'Current assignments:', (
+                ', '.join('(%s, %s)' % a for a in self.current_assignments))
         print >>sys.stderr, 'Idle slaves:', (
                 ', '.join(str(slave.id) for slave in self.idle_slaves))
         print >>sys.stderr, 'Dead slaves:', (
@@ -315,8 +327,9 @@ class RemoteSlave(object):
         """
         assert self._assignment is None
         self._assignment = assignment
-        dataset, source = assignment
+        dataset_id, source = assignment
 
+        dataset = datasets[dataset_id]
         if dataset.task_class == task.MapTask:
             self._rpc_func = self._rpc.start_map
         elif dataset.task_class == task.ReduceTask:
@@ -337,7 +350,7 @@ class RemoteSlave(object):
         else:
             ext = ''
 
-        self._rpc_args = (dataset.id, source, urls, func_name, part_name,
+        self._rpc_args = (dataset_id, source, urls, func_name, part_name,
                 dataset.splits, storage, ext, self.cookie)
 
         self.runqueue.do(self.send_assignment)

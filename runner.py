@@ -235,25 +235,26 @@ class TaskRunner(BaseRunner):
                 if b.url:
                     set_of_tasks.add(source)
                     break
-        self.remaining_tasks[dataset] = set_of_tasks
-        self.ready_tasks.extend((dataset, i) for i in set_of_tasks)
+        self.remaining_tasks[dataset.id] = set_of_tasks
+        self.ready_tasks.extend((dataset.id, i) for i in set_of_tasks)
 
-    def task_done(self, dataset, source):
+    def task_done(self, dataset_id, source):
         """Report that the given source of the given dataset is computed."""
-        set_of_tasks = self.remaining_tasks[dataset]
+        set_of_tasks = self.remaining_tasks[dataset_id]
         set_of_tasks.remove(source)
 
+        dataset = self.datasets[dataset_id]
         for bucket in dataset[source, :]:
             if bucket.url:
-                response = job.BucketReady(dataset.id, bucket)
+                response = job.BucketReady(dataset_id, bucket)
                 self.job_conn.send(response)
 
         if not set_of_tasks:
-            del self.remaining_tasks[dataset]
+            del self.remaining_tasks[dataset_id]
             dataset.computation_done()
             self.dataset_computed(dataset)
 
-            for dependent_id in self.data_dependents[dataset.id]:
+            for dependent_id in self.data_dependents[dataset_id]:
                 dependent_ds = self.datasets[dependent_id]
                 self.pending_datasets.remove(dependent_ds)
                 self.runnable_datasets.append(dependent_ds)
@@ -286,9 +287,9 @@ class TaskRunner(BaseRunner):
                 ', '.join(ds.id for ds in self.pending_datasets))
         print >>sys.stderr, 'Ready tasks:'
         datasets = set(task[0] for task in self.ready_tasks)
-        for ds in datasets:
-            sources = (str(t[1]) for t in self.ready_tasks if t[0] == ds)
-            print '    %s:' % ds.id, ', '.join(sources)
+        for ds_id in datasets:
+            sources = (str(t[1]) for t in self.ready_tasks if t[0] == ds_id)
+            print '    %s:' % ds_id, ', '.join(sources)
 
 
 class MockParallelRunner(TaskRunner):
@@ -340,8 +341,7 @@ class MockParallelRunner(TaskRunner):
         if not self.worker_busy:
             next_task = self.next_task()
             if next_task is not None:
-                dataset, source = next_task
-                self.worker_conn.send((dataset.id, source))
+                self.worker_conn.send(next_task)
                 self.worker_busy = True
 
 
