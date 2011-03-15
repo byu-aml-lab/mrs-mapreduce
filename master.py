@@ -140,8 +140,12 @@ class MasterRunner(runner.TaskRunner):
                 if slave.idle():
                     self.idle_slaves.add(slave)
             else:
+                print 'processing a dead slave'
                 self.dead_slaves.add(slave)
                 self.idle_slaves.discard(slave)
+                assignment = slave.remove_assignment()
+                if assignment is not None:
+                    self.ready_tasks.appendleft(assignment)
 
         while self.idle_slaves:
             slave = self.idle_slaves.pop()
@@ -156,9 +160,9 @@ class MasterRunner(runner.TaskRunner):
     def debug_status(self):
         super(MasterRunner, self).debug_status()
         print >>sys.stderr, 'Idle slaves:', (
-                ', '.join(sorted(slave.id) for slave in self.idle_slaves))
+                ', '.join(str(slave.id) for slave in self.idle_slaves))
         print >>sys.stderr, 'Dead slaves:', (
-                ', '.join(sorted(slave.id) for slave in self.dead_slaves))
+                ', '.join(str(slave.id) for slave in self.dead_slaves))
 
 
 class MasterInterface(object):
@@ -298,6 +302,12 @@ class RemoteSlave(object):
         """Indicates whether the slave can take a new assignment."""
         return (self._assignment == None)
 
+    def remove_assignment(self):
+        """Removes and returns the current assignment."""
+        assignment = self._assignment
+        self._assignment = None
+        return assignment
+
     def assign(self, assignment, datasets):
         """Schedules an RPC request to make the slave work on the assignment.
 
@@ -363,9 +373,7 @@ class RemoteSlave(object):
         self._rpc_func = None
         self._rpc_args = None
 
-        if success:
-            self._assignment = None
-        else:
+        if not success:
             logger.info('Failed to assign a task to slave %s.' % self.id)
             self.critical_failure()
 
@@ -546,6 +554,7 @@ class Slaves(object):
         with self._lock:
             self._results.append((dataset_id, source, urls))
             self._changed_slaves.add(slave)
+        slave.remove_assignment()
         self.trigger_sched()
 
     def slave_dead(self, slave):

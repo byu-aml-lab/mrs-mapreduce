@@ -210,14 +210,11 @@ class Implementation(BaseImplementation):
             self.runner.run()
         except KeyboardInterrupt:
             logger.critical('Quitting due to keyboard interrupt.')
-            job_proc.terminate()
 
         # Clean up jobdir
         if jobdir and not self.keep_jobdir:
             from util import remove_recursive
             remove_recursive(jobdir)
-
-        job_proc.join()
 
     def make_jobdir(self, opts):
         """Make a temporary job directory, if appropriate."""
