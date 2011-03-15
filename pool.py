@@ -146,7 +146,7 @@ class RunQueue(object):
                     self._earliest = when
                     os.write(self._new_earliest_fd, '\0')
         else:
-            self._q.put(item)
+            self._put(item)
 
     def get(self, *args, **kwds):
         """Retrieve the next (f, args) pair from the queue.
@@ -175,7 +175,7 @@ class RunQueue(object):
 
                 if (when is not None) and (when <= now):
                     heapq.heappop(self._heap)
-                    self._q.put(item)
+                    self._put(item)
                 else:
                     break
 
@@ -183,6 +183,19 @@ class RunQueue(object):
                 self._earliest, _ = self._heap[0]
             else:
                 self._earliest = None
+
+    def _put(self, item):
+        """Put the given item on self._q.
+
+        Unlike a simple self._q.put(item), this does not block
+        KeyboardInterrupt.
+        """
+        while True:
+            try:
+                self._q.put(item, timeout=1)
+                break
+            except Queue.Full:
+                pass
 
 
 # vim: et sw=4 sts=4
