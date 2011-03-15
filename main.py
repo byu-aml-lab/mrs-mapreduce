@@ -33,6 +33,7 @@ import os
 import random
 import signal
 import sys
+import traceback
 
 from . import master
 from . import runner
@@ -228,6 +229,8 @@ class Implementation(BaseImplementation):
     def sigusr1_handler(self, signum, stack_frame):
         # Apparently the setting siginterrupt can get reset on some platforms.
         signal.siginterrupt(signal.SIGUSR1, False)
+        print >>sys.stderr, 'Received SIGUSR1. Current stack trace:'
+        traceback.print_stack(stack_frame)
         if self.runner is not None:
             self.runner.debug_status()
 
