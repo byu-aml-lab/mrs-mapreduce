@@ -56,6 +56,8 @@ class Job(object):
         except AttributeError:
             self._default_reduce_tasks = 1
 
+        self._keep_jobdir = opts.mrs__keep_jobdir
+
     def wait(self, *datasets, **kwds):
         """Wait for any of the given Datasets to complete.
 
@@ -83,7 +85,7 @@ class Job(object):
             if self._default_dir:
                 outdir = tempfile.mkdtemp(prefix='output_',
                         dir=self._default_dir)
-                permanent = self.opts.mrs__keep_jobdir
+                permanent = self._keep_jobdir
         if outdir:
             util.try_makedirs(outdir)
 
@@ -245,6 +247,7 @@ class DataManager(object):
                 del self._status_dict[message.dataset_id]
 
                 if ds is not None:
+                    ds.notify_urls_known()
                     if message.fetched:
                         ds._fetched = True
                     with self._runwaitcv:

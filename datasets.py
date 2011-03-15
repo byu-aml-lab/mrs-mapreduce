@@ -109,7 +109,7 @@ class BaseDataset(object):
         if self._close_callback:
             self._close_callback(self)
 
-    def _delete(self):
+    def delete(self):
         """Delete current data and temporary files from the dataset."""
         # TODO: deletion of remote datasets needs to be delegated to the
         # slave that created them.
@@ -180,8 +180,6 @@ class BaseDataset(object):
     def __del__(self):
         if not self.closed:
             self.close()
-        if self._data:
-            self._delete()
 
 
 class LocalData(BaseDataset):
@@ -245,9 +243,8 @@ class RemoteData(BaseDataset):
     def __init__(self, **kwds):
         super(RemoteData, self).__init__(**kwds)
 
+        self._urls_known = False
         self._fetched = False
-        self._fetchlist_active = True
-        self._init_fetchlist()
 
     def _make_bucket(self, source, split):
         return bucket.Bucket(source, split)
@@ -255,75 +252,33 @@ class RemoteData(BaseDataset):
     def __getstate__(self):
         """Pickle without getting certain forbidden/unnecessary elements."""
         state = self.__dict__.copy()
-        del state['_fetchlist']
-        del state['_fetchlist_cv']
         state['_close_callback'] = None
         if self.closed:
             state['_data'] = None
         return state
 
-    def __setstate__(self, state):
-        self.__dict__ = state
-        self._init_fetchlist()
-
-    def _init_fetchlist(self):
-        """Create the list of bucket ids (i.e., (source, split) pairs) that
-        have newly available urls."""
-        self._fetchlist = None
-        self._fetchlist_cv = threading.Condition()
-
     # TODO: consider parallelizing this to use multiple downloading threads.
     def fetchall(self):
         """Download all of the files."""
         assert not self.closed, (
-                'Invalid attempt to call fetchall on a closed dataset.')
+                'Invalid fetchall on a closed dataset.')
+        assert self._urls_known, (
+                'Invalid fetchall on a dataset with unknown urls.')
 
         # Don't call fetchall twice:
         if self._fetched:
             return
 
-        if not self._fetchlist_active:
-            for bucket in self:
-                url = bucket.url
-                if url:
-                    io.fill(url, bucket)
-        else:
-            more = True
-            while more:
-                with self._fetchlist_cv:
-                    if self._fetchlist_active and not self._fetchlist:
-                        self._fetchlist_cv.wait()
-                    bucket_ids = self._fetchlist
-                    self._fetchlist = []
-                    more = self._fetchlist_active
-
-                for key in bucket_ids:
-                    bucket = self[key]
-                    url = bucket.url
-                    if url:
-                        io.fill(url, bucket)
+        for bucket in self:
+            url = bucket.url
+            if url:
+                io.fill(url, bucket)
 
         self._fetched = True
 
-    def notify_new_url(self, keylist):
-        """Notify any fetchall method that new urls are available.
-
-        The keylist parameter is an iterable of (source, split) pairs.
-        """
-        with self._fetchlist_cv:
-            assert self._fetchlist_active
-            self._fetchlist.extend(keylist)
-            self._fetchlist_cv.notify_all()
-
     def notify_urls_known(self):
-        """Signify that all buckets have been assigned urls.
-
-        Notifies any fetchall method that all urls are known.
-        """
-        with self._fetchlist_cv:
-            assert self._fetchlist_active
-            self._fetchlist_active = False
-            self._fetchlist_cv.notify_all()
+        """Signify that all buckets have been assigned urls."""
+        self._urls_known = True
 
 
 class FileData(RemoteData):
@@ -362,9 +317,7 @@ class FileData(RemoteData):
             if url:
                 bucket = self[i // splits, i % splits]
                 bucket.url = url
-
-        # Since all urls are pre-known, the fetchlist is unneeded.
-        self._fetchlist_active = False
+        self._urls_known = True
 
 
 class ComputedData(RemoteData):
@@ -397,9 +350,6 @@ class ComputedData(RemoteData):
     def computation_done(self):
         """Signify that computation of the dataset is done."""
         self._computing = False
-        with self._fetchlist_cv:
-            self._fetchlist_active = False
-            self._fetchlist_cv.notify_all()
 
     def run_serial(self, program, datasets):
         input_data = datasets[self.input_id]

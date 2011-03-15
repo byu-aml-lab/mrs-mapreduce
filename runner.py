@@ -181,6 +181,8 @@ class BaseRunner(object):
         if not ds.closed:
             return
 
+        ds.delete()
+
         deplist = self.data_dependents[dataset_id]
         if not deplist:
             del self.datasets[dataset_id]
@@ -227,7 +229,12 @@ class TaskRunner(BaseRunner):
 
     def _make_tasks(self, dataset):
         """Generate tasks for the given dataset, adding them to ready_tasks."""
-        set_of_tasks = set(xrange(dataset.sources))
+        set_of_tasks = set()
+        for source in xrange(dataset.sources):
+            for b in self.datasets[dataset.input_id][:, source]:
+                if b.url:
+                    set_of_tasks.add(source)
+                    break
         self.remaining_tasks[dataset] = set_of_tasks
         self.ready_tasks.extend((dataset, i) for i in set_of_tasks)
 

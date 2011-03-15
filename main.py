@@ -168,7 +168,7 @@ class BaseImplementation(ParamObj):
         job_conn, child_job_conn = multiprocessing.Pipe()
         job_proc = multiprocessing.Process(target=job.job_process,
                 name='Job',
-                args=(self.program_class, opts, args, None, child_job_conn))
+                args=(self.program_class, opts, args, jobdir, child_job_conn))
         return job_proc, job_conn
 
 
@@ -186,6 +186,7 @@ class Implementation(BaseImplementation):
     runner_class = None
     runner = None
     shared = None
+    keep_jobdir = False
 
     def _main(self, opts, args):
         from . import job
