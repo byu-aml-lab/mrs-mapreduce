@@ -29,9 +29,11 @@ More information coming soon.
 # /proc/sys/net/core/somaxconn (which seems to be 128 by default)
 
 import os
+import socket
 import sys
 import threading
 import time
+import xmlrpclib
 
 from . import pool
 from . import registry
@@ -74,11 +76,11 @@ class MasterRunner(runner.TaskRunner):
         self.slaves = Slaves(sched_write_pipe, self.runqueue,
                 self.opts.mrs__timeout, self.opts.mrs__pingdelay)
 
-        self.start_rpc_server()
-
-        self.eventloop(timeout_function=self.maintain_runqueue)
-
-        self.slaves.disconnect_all()
+        try:
+            self.start_rpc_server()
+            self.eventloop(timeout_function=self.maintain_runqueue)
+        finally:
+            self.slaves.disconnect_all()
 
     def start_rpc_server(self):
         program_hash = registry.object_hash(self.program_class)
@@ -280,6 +282,7 @@ class RemoteSlave(object):
         self._rpc_func = None
         self._rpc_args = None
         self._alive = True
+        self._disconnected = False
 
         # The ping_repeating variable assures that only one ping "task" is
         # active at a time.
@@ -331,15 +334,27 @@ class RemoteSlave(object):
 
     def send_assignment(self):
         with self._rpc_lock:
+            if not self.alive():
+                logger.warning('Cancelling RPC call because slave %s is no'
+                        ' longer alive.' % self.id)
+                return
+
             try:
                 success = self._rpc_func(*self._rpc_args)
             except xmlrpclib.Fault, f:
-                logger.error('Crash in RPC call to slave %s: %s'
+                logger.error('Fault in RPC call to slave %s: %s'
                         % (self.id, f.faultString))
                 success = False
             except xmlrpclib.ProtocolError, e:
                 logger.error('Protocol error in RPC call to slave %s: %s'
                         % (self.id, e.errmsg))
+                success = False
+            except socket.timeout:
+                logger.error('Timeout in ping call to slave %s' % self.id)
+                success = False
+            except socket.error, e:
+                logger.error('Socket error in RPC call to slave %s: %s'
+                        % (self.id, e.args[1]))
                 success = False
 
             if success:
@@ -356,6 +371,8 @@ class RemoteSlave(object):
 
     def update_timestamp(self):
         """Set the timestamp to the current time."""
+        if self._disconnected:
+            return
         if not self.alive():
             logger.warning('Updating timestamp of previously dead slave %s.'
                     % self.id)
@@ -370,7 +387,7 @@ class RemoteSlave(object):
         if self.alive():
             self._alive = False
 
-            logger.error('Slave %s (%s): lost' % (self.id, self.host))
+            logger.error('Lost slave %s (%s).' % (self.id, self.host))
             self.slaves.slave_dead(self)
 
     def alive(self):
@@ -378,15 +395,17 @@ class RemoteSlave(object):
         return self._alive
 
     def resurrect(self):
-        if not self.alive():
+        if self.alive() or self._disconnected:
+            return False
+        else:
             logger.warning('Slave %s (%s): resurrected' % (self.id, self.host))
             with self._pinglock:
                 self._alive = True
                 self._schedule_ping(self.pingdelay)
+            return True
 
     def ping(self):
         """Ping the slave and schedule a follow-up ping."""
-        assert self._ping_repeating
         with self._pinglock:
             if not self.alive():
                 self._ping_repeating = False
@@ -406,12 +425,19 @@ class RemoteSlave(object):
             self._rpc.ping(self.cookie)
             success = True
         except xmlrpclib.Fault, f:
-            logger.error('Crash in RPC call to slave %s: %s'
+            logger.error('Fault in ping to slave %s: %s'
                     % (self.id, f.faultString))
             success = False
         except xmlrpclib.ProtocolError, e:
-            logger.error('Protocol error in RPC call to slave %s: %s'
+            logger.error('Protocol error in ping to slave %s: %s'
                     % (self.id, e.errmsg))
+            success = False
+        except socket.timeout:
+            logger.error('Timeout in ping to slave %s' % self.id)
+            success = False
+        except socket.error, e:
+            logger.error('Socket error in ping to slave %s: %s'
+                    % (self.id, e.args[1]))
             success = False
         finally:
             self._rpc_lock.release()
@@ -439,11 +465,25 @@ class RemoteSlave(object):
         """Disconnect the slave by sending a quit request."""
         if self.alive():
             self._alive = False
+            self._disconnected = True
             self.runqueue.do(self.send_quit)
 
     def send_quit(self):
         with self._rpc_lock:
-            self._rpc.quit(self.cookie)
+            try:
+                self._rpc.quit(self.cookie)
+            except xmlrpclib.Fault, f:
+                logger.error('Fault in quit to slave %s: %s'
+                        % (self.id, f.faultString))
+            except xmlrpclib.ProtocolError, e:
+                logger.error('Protocol error in quit to slave %s: %s'
+                        % (self.id, e.errmsg))
+            except socket.timeout:
+                logger.error('Timeout in quit to slave %s' % self.id)
+            except socket.error, e:
+                logger.error('Socket error in quit to slave %s: %s'
+                        % (self.id, e.args[1]))
+            success = False
             self._rpc = None
 
 
@@ -491,7 +531,8 @@ class Slaves(object):
 
     def slave_ready(self, slave):
         if not slave.alive():
-            slave.resurrect()
+            if not slave.resurrect():
+                return
 
         with self._lock:
             if not slave.idle():

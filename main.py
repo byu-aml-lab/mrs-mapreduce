@@ -32,6 +32,7 @@ import binascii
 import os
 import random
 import signal
+import sys
 
 from . import master
 from . import runner
@@ -62,8 +63,8 @@ except NotImplementedError:
 DEFAULT_SHARED = os.getcwd()
 
 import logging
-import sys
 logger = logging.getLogger('mrs')
+del logging
 
 
 def main(program_class, update_parser=None):
@@ -184,6 +185,7 @@ class Implementation(BaseImplementation):
 
     runner_class = None
     runner = None
+    shared = None
 
     def _main(self, opts, args):
         from . import job
@@ -219,9 +221,8 @@ class Implementation(BaseImplementation):
     def make_jobdir(self, opts):
         """Make a temporary job directory, if appropriate."""
         import tempfile
-        shared_dir = getattr(opts, 'mrs__shared', None)
-        if shared_dir:
-            jobdir = tempfile.mkdtemp(prefix='mrs.job_', dir=shared_dir)
+        if self.shared:
+            jobdir = tempfile.mkdtemp(prefix='mrs.job_', dir=self.shared)
         else:
             jobdir = None
         return jobdir

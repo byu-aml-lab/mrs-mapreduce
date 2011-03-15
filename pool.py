@@ -27,12 +27,17 @@ MIN_THREADS = 1
 MAX_THREADS = 20
 
 import heapq
+import os
 import Queue
 import random
 import sys
 import threading
 import time
 import traceback
+
+import logging
+logger = logging.getLogger('mrs')
+del logging
 
 
 class ThreadPool(object):
@@ -100,7 +105,7 @@ class FunctionCaller(object):
                 try:
                     f(*args)
                 except Exception, e:
-                    tb = trackback.format_exc()
+                    tb = traceback.format_exc()
                     msg = 'Exception in thread pool: %s' % e
                     logger.critical(msg)
                     logger.error('Traceback: %s' % tb)
@@ -139,7 +144,7 @@ class RunQueue(object):
 
                 if (self._earliest is None) or (when < self._earliest):
                     self._earliest = when
-                    self._new_earliest_fd.write('\0')
+                    os.write(self._new_earliest_fd, '\0')
         else:
             self._q.put(item)
 
