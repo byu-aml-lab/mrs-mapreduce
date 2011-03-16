@@ -99,7 +99,7 @@ def main():
 
 def submit_master(name, script_vars, cmdline, jobdir):
     """Submit the master to PBS using qsub.
-    
+
     Returns the jobid of the newly created job.
     """
     script = r'''#!/bin/bash
@@ -143,6 +143,7 @@ def submit_master(name, script_vars, cmdline, jobdir):
                 --mrs-pingdelay="$TIMEOUT" ${ARGS[@]} >$OUTPUT
         ''' % script_vars
 
+    cmdline = list(cmdline)
     cmdline += ['-N', name + QSUB_NAME_MASTER]
     outfile = os.path.join(jobdir, 'master_stdout')
     errfile = os.path.join(jobdir, 'master_stderr')
@@ -185,6 +186,7 @@ def submit_slave(name, script_vars, cmdline, jobdir, master_jobid):
         ''' % script_vars
 
     # Don't print jobid to stdout
+    cmdline = list(cmdline)
     cmdline += ['-z']
     # Set the job name
     cmdline += ['-N', name + QSUB_NAME_SLAVE]
