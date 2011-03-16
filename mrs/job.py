@@ -51,12 +51,8 @@ class Job(object):
         self._default_dir = default_dir
 
         self._default_reduce_parts = 1
-        try:
-            self._default_reduce_tasks = opts.mrs__reduce_tasks
-        except AttributeError:
-            self._default_reduce_tasks = 1
-
-        self._keep_jobdir = opts.mrs__keep_jobdir
+        self._default_reduce_tasks = getattr(opts, 'mrs__reduce_tasks', 1)
+        self._keep_jobdir = getattr(opts, 'mrs__keep_jobdir', False)
 
     def wait(self, *datasets, **kwds):
         """Wait for any of the given Datasets to complete.

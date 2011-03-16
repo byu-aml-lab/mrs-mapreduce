@@ -262,12 +262,13 @@ class RemoteData(BaseDataset):
         """Download all of the files."""
         assert not self.closed, (
                 'Invalid fetchall on a closed dataset.')
-        assert self._urls_known, (
-                'Invalid fetchall on a dataset with unknown urls.')
 
         # Don't call fetchall twice:
         if self._fetched:
             return
+
+        assert self._urls_known, (
+                'Invalid fetchall on a dataset with unknown urls.')
 
         for bucket in self:
             url = bucket.url
