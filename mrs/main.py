@@ -29,6 +29,7 @@ specifies its command-line options.
 # In this file, we perform several imports inside of methods in order to
 # reduce the initial startup time (especially to make --help more pleasant).
 import binascii
+import logging
 import multiprocessing
 import os
 import random
@@ -65,9 +66,7 @@ except NotImplementedError:
 
 DEFAULT_SHARED = os.getcwd()
 
-import logging
 logger = logging.getLogger('mrs')
-del logging
 
 
 def main(program_class, update_parser=None):

@@ -33,6 +33,7 @@ import traceback
 from . import datasets
 from . import io
 from . import task
+from . import util
 
 from logging import getLogger
 logger = getLogger('mrs')
@@ -63,7 +64,8 @@ class WorkerMapRequest(object):
             format = io.default_write_format
 
         if not self.outdir:
-            self.outdir = tempfile.mkdtemp(dir=default_dir, prefix='map_')
+            self.outdir = tempfile.mkdtemp(dir=default_dir,
+                    prefix=(self.dataset_id + '_'))
 
         mapper = getattr(program, self.map_name)
         parter = getattr(program, self.part_name)
@@ -93,7 +95,8 @@ class WorkerReduceRequest(object):
             format = io.default_write_format
 
         if not self.outdir:
-            self.outdir = tempfile.mkdtemp(dir=default_dir, prefix='reduce_')
+            self.outdir = tempfile.mkdtemp(dir=default_dir,
+                    prefix=(self.dataset_id + '_'))
 
         reducer = getattr(program, self.reduce_name)
         parter = getattr(program, self.part_name)
@@ -101,6 +104,11 @@ class WorkerReduceRequest(object):
         t = task.ReduceTask(input_data, 0, self.source, reducer, parter,
                 self.splits, self.outdir, format)
         return t
+
+
+class WorkerRemoveRequest(object):
+    def __init__(self, *args):
+        (self.directory,) = args
 
 
 class WorkerFailure(object):
@@ -116,9 +124,10 @@ class WorkerSetupSuccess(object):
 
 class WorkerSuccess(object):
     """Successful response from worker."""
-    def __init__(self, dataset_id, source, outurls=None):
+    def __init__(self, dataset_id, source, outdir, outurls=None):
         self.dataset_id = dataset_id
         self.source = source
+        self.outdir = outdir
         self.outurls = outurls
 
 
@@ -136,6 +145,7 @@ def run_worker(program_class, request_pipe):
 
     while True:
         request = request_pipe.recv()
+        response = None
         try:
             if isinstance(request, WorkerSetupRequest):
                 assert program is None
@@ -145,18 +155,24 @@ def run_worker(program_class, request_pipe):
                 program = program_class(opts, args)
                 default_dir = request.default_dir
                 response = WorkerSetupSuccess()
+
+            elif isinstance(request, WorkerRemoveRequest):
+                util.remove_recursive(request.directory)
+
             else:
                 assert program is not None
                 logger.info('Starting to run a new task.')
                 t = request.make_task(program, default_dir)
                 t.run()
                 response = WorkerSuccess(request.dataset_id, request.source,
-                        t.outurls())
+                        request.outdir, t.outurls())
                 logger.debug('Task complete.')
         except Exception, e:
             tb = traceback.format_exc()
             response = WorkerFailure(e, tb)
-        request_pipe.send(response)
+
+        if response:
+            request_pipe.send(response)
 
 
 # vim: et sw=4 sts=4

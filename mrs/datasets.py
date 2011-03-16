@@ -109,19 +109,17 @@ class BaseDataset(object):
         if self._close_callback:
             self._close_callback(self)
 
+    def clear(self):
+        self._data = None
+
     def delete(self):
         """Delete current data and temporary files from the dataset."""
-        # TODO: deletion of remote datasets needs to be delegated to the
-        # slave that created them.
-        if self._data is None:
-            return
-        if not self.permanent:
-            for b in self:
-                b.clean()
-            if self.dir:
-                # Just to make sure it's all gone:
-                util.remove_recursive(self.dir)
-        self._data = None
+        for b in self:
+            b.clean()
+        if self.dir:
+            # Just to make sure it's all gone:
+            util.remove_recursive(self.dir)
+        self.clear()
 
     def ready(self):
         """Report whether Dataset is ready.

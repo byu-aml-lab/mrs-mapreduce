@@ -35,6 +35,7 @@ import threading
 import time
 import xmlrpclib
 
+from . import datasets
 from . import pool
 from . import registry
 from . import rpc
@@ -54,6 +55,7 @@ class MasterRunner(runner.TaskRunner):
         self.idle_slaves = set()
         self.dead_slaves = set()
         self.current_assignments = set()
+        self.result_storage = {}
 
         self.rpc_interface = None
         self.rpc_thread = None
@@ -129,7 +131,10 @@ class MasterRunner(runner.TaskRunner):
 
     def schedule(self):
         """Check for any changed slaves and make task assignments."""
-        for dataset_id, source, urls in self.slaves.get_results():
+        for slave, dataset_id, source, urls in self.slaves.get_results():
+            if dataset_id in self.result_storage:
+                self.result_storage[dataset_id].append((slave, source))
+
             if (dataset_id, source) in self.current_assignments:
                 ds = self.datasets[dataset_id]
                 for split, url in urls:
@@ -146,10 +151,9 @@ class MasterRunner(runner.TaskRunner):
                 if slave.idle():
                     self.idle_slaves.add(slave)
             else:
-                print 'processing a dead slave'
                 self.dead_slaves.add(slave)
                 self.idle_slaves.discard(slave)
-                assignment = slave.remove_assignment()
+                assignment = slave.pop_assignment()
                 if assignment is not None:
                     self.ready_tasks.appendleft(assignment)
 
@@ -164,8 +168,23 @@ class MasterRunner(runner.TaskRunner):
                 self.idle_slaves.add(slave)
                 break
 
+            if not slave.idle():
+                logger.error('Slave %s mistakenly in idle_slaves.' % slave.id)
+                continue
+
+            dataset_id, source = next
+            if dataset_id not in self.result_storage:
+                self.result_storage[dataset_id] = []
             slave.assign(next, self.datasets)
             self.current_assignments.add(next)
+
+    def remove_dataset(self, ds):
+        if isinstance(ds, datasets.ComputedData):
+            delete = not ds.permanent
+            for slave, source in self.result_storage[ds.id]:
+                self.runqueue.do(slave.remove, args=(ds.id, source, delete))
+            del self.result_storage[ds.id]
+        super(MasterRunner, self).remove_dataset(ds)
 
     def debug_status(self):
         super(MasterRunner, self).debug_status()
@@ -253,7 +272,8 @@ class MasterInterface(object):
         """
         slave = self.slaves.get_slave(slave_id, cookie)
         if slave is not None:
-            logger.info('Slave %s reported completion.' % slave_id)
+            logger.info('Slave %s reported completion of task: %s, %s'
+                    % (slave_id, dataset_id, source))
             slave.update_timestamp()
             self.slaves.slave_result(slave, dataset_id, source, urls)
             return True
@@ -295,6 +315,7 @@ class RemoteSlave(object):
         self._rpc_lock = threading.Lock()
 
         self._assignment = None
+        self._assignment_lock = threading.Lock()
         self._rpc_func = None
         self._rpc_args = None
         self._alive = True
@@ -314,19 +335,29 @@ class RemoteSlave(object):
         """Indicates whether the slave can take a new assignment."""
         return (self._assignment == None)
 
-    def remove_assignment(self):
+    def pop_assignment(self, assignment=None):
         """Removes and returns the current assignment."""
-        assignment = self._assignment
-        self._assignment = None
-        return assignment
+        with self._assignment_lock:
+            assignment = self._assignment
+            self._assignment = None
+            return assignment
+
+    def set_assignment(self, old_assignment, new_assignment):
+        """Sets the assignment to new_assignment if the old_assignment matches.
+        """
+        with self._assignment_lock:
+            if self._assignment == old_assignment:
+                self._assignment = new_assignment
+                return True
+            else:
+                return False
 
     def assign(self, assignment, datasets):
         """Schedules an RPC request to make the slave work on the assignment.
 
         Called from the Runner.
         """
-        assert self._assignment is None
-        self._assignment = assignment
+        assert self.set_assignment(None, assignment)
         dataset_id, source = assignment
 
         dataset = datasets[dataset_id]
@@ -343,7 +374,8 @@ class RemoteSlave(object):
 
         func_name = dataset.func_name
         part_name = dataset.part_name
-        logger.info('Assigning a task to slave %s.' % self.id)
+        logger.info('Assigning task to slave %s: %s, %s'
+                % (self.id, dataset_id, source))
         storage = dataset.dir if dataset.dir else ''
         if dataset.format is not None:
             ext = dataset.format.ext
@@ -358,7 +390,7 @@ class RemoteSlave(object):
     def send_assignment(self):
         with self._rpc_lock:
             if not self.alive():
-                logger.warning('Cancelling RPC call because slave %s is no'
+                logger.warning('Canceling RPC call because slave %s is no'
                         ' longer alive.' % self.id)
                 return
 
@@ -373,7 +405,7 @@ class RemoteSlave(object):
                         % (self.id, e.errmsg))
                 success = False
             except socket.timeout:
-                logger.error('Timeout in ping call to slave %s' % self.id)
+                logger.error('Timeout in RPC call to slave %s' % self.id)
                 success = False
             except socket.error, e:
                 logger.error('Socket error in RPC call to slave %s: %s'
@@ -388,6 +420,41 @@ class RemoteSlave(object):
 
         if not success:
             logger.info('Failed to assign a task to slave %s.' % self.id)
+            self.critical_failure()
+
+    def remove(self, dataset_id, source, delete):
+        with self._rpc_lock:
+            logger.info('Sending remove request to slave %s: %s, %s'
+                    % (self.id, dataset_id, source))
+            if not self.alive():
+                # Note: the master may disconnect the slave while remove
+                # requests are still pending--this isn't really a bad thing.
+                return
+
+            try:
+                self._rpc.remove(dataset_id, source, delete, self.cookie)
+                success = True
+            except xmlrpclib.Fault, f:
+                logger.error('Fault in remove call to slave %s: %s'
+                        % (self.id, f.faultString))
+                success = False
+            except xmlrpclib.ProtocolError, e:
+                logger.error('Protocol error in remove call to slave %s: %s'
+                        % (self.id, e.errmsg))
+                success = False
+            except socket.timeout:
+                logger.error('Timeout in remove call to slave %s' % self.id)
+                success = False
+            except socket.error, e:
+                logger.error('Socket error in remove call to slave %s: %s'
+                        % (self.id, e.args[1]))
+                success = False
+
+            if success:
+                self.update_timestamp()
+
+        if not success:
+            logger.info('Failed to remove data on slave %s.' % self.id)
             self.critical_failure()
 
     def update_timestamp(self):
@@ -566,9 +633,9 @@ class Slaves(object):
 
     def slave_result(self, slave, dataset_id, source, urls):
         with self._lock:
-            self._results.append((dataset_id, source, urls))
+            self._results.append((slave, dataset_id, source, urls))
             self._changed_slaves.add(slave)
-        slave.remove_assignment()
+        assert slave.set_assignment((dataset_id, source), None)
         self.trigger_sched()
 
     def slave_dead(self, slave):

@@ -59,7 +59,11 @@ logger = getLogger('mrs')
 
 
 class Slave(object):
-    """State of a Mrs slave"""
+    """State of a Mrs slave
+
+    Attributes:
+        outdata: map from a (dataset_id, source) pair to an OutputData object
+    """
 
     def __init__(self, program_class, master_url, local_shared, pingdelay,
             timeout):
@@ -82,6 +86,8 @@ class Slave(object):
 
         self.setup_complete = False
         self.current_request = None
+        self._outdata = {}
+        self._outdata_lock = threading.Lock()
 
     def run(self):
         self.start_rpc_server_thread()
@@ -103,7 +109,10 @@ class Slave(object):
         # TODO: start a ping and/or watchdog thread
 
         self.report_ready()
-        self.workloop()
+        try:
+            self.workloop()
+        finally:
+            util.remove_recursive(default_dir)
 
     def start_rpc_server_thread(self):
         rpc_interface = SlaveInterface(self)
@@ -199,32 +208,37 @@ class Slave(object):
     def process_one_response(self):
         """Reads a single response from the request pipe."""
 
-        response = self.request_pipe_slave.recv()
+        r = self.request_pipe_slave.recv()
         assert self.current_request is not None
         self.current_request = None
-        if isinstance(response, worker.WorkerSuccess):
-            self.master_rpc.done(self.id, response.dataset_id,
-                    response.source, response.outurls, self.cookie)
-        elif isinstance(response, worker.WorkerFailure):
-            msg = 'Exception in Worker: %s' % response.exception
+        if isinstance(r, worker.WorkerSuccess):
+            self.add_output_data(r.dataset_id, r.source, r.outdir, r.outurls)
+            self.master_rpc.done(self.id, r.dataset_id,
+                    r.source, r.outurls, self.cookie)
+        elif isinstance(r, worker.WorkerFailure):
+            msg = 'Exception in Worker: %s' % r.exception
             logger.critical(msg)
-            msg = 'Traceback: %s' % response.traceback
+            msg = 'Traceback: %s' % r.traceback
             logger.error(msg)
         else:
             assert False
 
-    def submit_request(self, request):
+    def submit_request(self, request, one_at_a_time=True):
         """Submit the given request to the worker.
 
-        Returns a boolean indicating whether the request was accepted.  Called
-        from the RPC thread.
+        If one_at_a_time is specified, then no other one_at_time requests can
+        be accepted until the current task finishes.  Returns a boolean
+        indicating whether the request was accepted.
+
+        Called from the RPC thread.
         """
-        if self.current_request is None:
+        if one_at_a_time:
+            if self.current_request is not None:
+                return False
             self.current_request = request
-            self.request_pipe_slave.send(request)
-            return True
-        else:
-            return False
+
+        self.request_pipe_slave.send(request)
+        return True
 
     def update_timestamp(self):
         """Set the timestamp to the current time."""
@@ -241,6 +255,20 @@ class Slave(object):
     def register_worker(self, worker):
         """Called by the worker so the Slave can have a reference to it."""
         self.worker = worker
+
+    def add_output_data(self, dataset_id, source, outdir, outurls):
+        """Creates and stores an OutputData object."""
+        output_data = OutputData(outdir, outurls)
+        with self._outdata_lock:
+            self._outdata[dataset_id, source] = output_data
+
+    def get_output_data(self, dataset_id, source):
+        with self._outdata_lock:
+            return self._outdata[dataset_id, source]
+
+    def remove_output_data(self, dataset_id, source, delete):
+        with self._outdata_lock:
+            del self._outdata[dataset_id, source]
 
     def quit(self):
         """Called to tell the slave to quit."""
@@ -274,6 +302,20 @@ class SlaveInterface(object):
                 func_name, part_name, splits, outdir, extension)
         return self.slave.submit_request(request)
 
+    def xmlrpc_remove(self, dataset_id, source, delete, cookie):
+        self.slave.check_cookie(cookie)
+        self.slave.update_timestamp()
+        logger.info('Received remove request from master: %s, %s'
+                % (dataset_id, source))
+        if delete:
+            output_data = self.slave.get_output_data(dataset_id, source)
+            request = worker.WorkerRemoveRequest(output_data.outdir)
+            success = self.slave.submit_request(request, False)
+        else:
+            success = True
+
+        return success
+
     def xmlrpc_quit(self, cookie):
         self.slave.check_cookie(cookie)
         self.slave.update_timestamp()
@@ -295,5 +337,10 @@ class SlaveInterface(object):
 class CookieValidationError(Exception):
     pass
 
+
+class OutputData(object):
+    def __init__(self, outdir, outurls):
+        self.outdir = outdir
+        self.outurls = outurls
 
 # vim: et sw=4 sts=4

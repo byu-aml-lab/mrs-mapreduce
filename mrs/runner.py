@@ -181,12 +181,17 @@ class BaseRunner(object):
         if not ds.closed:
             return
 
-        ds.delete()
-
         deplist = self.data_dependents[dataset_id]
         if not deplist:
+            self.remove_dataset(ds)
             del self.datasets[dataset_id]
             del self.data_dependents[dataset_id]
+
+    def remove_dataset(self, dataset):
+        if dataset.permanent:
+            dataset.clear()
+        else:
+            dataset.delete()
 
     def debug_status(self):
         """Print out the debug info about the current status of the runner."""
