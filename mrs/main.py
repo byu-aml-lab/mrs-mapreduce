@@ -29,10 +29,12 @@ specifies its command-line options.
 # In this file, we perform several imports inside of methods in order to
 # reduce the initial startup time (especially to make --help more pleasant).
 import binascii
+import multiprocessing
 import os
 import random
 import signal
 import sys
+import threading
 import traceback
 
 from . import master
@@ -93,7 +95,6 @@ def main(program_class, update_parser=None):
         sys.exit(0)
     except KeyboardInterrupt:
         logger.critical('Quitting due to keyboard interrupt.')
-        print >>sys.stderr, "Interrupted."
         sys.exit(1)
 
 
@@ -163,7 +164,6 @@ class BaseImplementation(ParamObj):
 
         Returns a (process, connection) pair.
         """
-        import multiprocessing
         from . import job
 
         job_conn, child_job_conn = multiprocessing.Pipe()
@@ -303,48 +303,20 @@ class Slave(BaseImplementation, Network):
         Slave Main is called directly from Mrs Main.  On exit, the process
         will return slave_main's return value.
         """
-        from multiprocessing import Process, Pipe
-        from threading import Thread
-        from slave import Slave, SlaveInterface
-        from worker import run_worker
-        import registry
-        import rpc
-        program_hash = registry.object_hash(self.program_class)
+        from . import slave
+        from . import worker
 
         if not self.master:
             logger.critical('No master URL specified.')
             return 1
-        slave = Slave(program_hash, self.master, self.local_shared,
+        s = slave.Slave(self.program_class, self.master, self.local_shared,
                 self.pingdelay, self.timeout)
 
-        rpc_interface = SlaveInterface(slave)
-        rpc_server = rpc.Server(('', 0), rpc_interface)
-        _, slave.port = rpc_server.socket.getsockname()
+        worker_process = multiprocessing.Process(target=worker.run_worker,
+                name='Worker', args=(self.program_class, s.request_pipe_worker))
+        worker_process.daemon = True
+        worker_process.start()
 
-        # Create and start the other processes:
-        worker = Process(name='Worker', target=run_worker,
-                args=(self.program_class, slave.request_pipe_worker))
-        worker.start()
-
-        # Create and start the other threads:
-        slave_thread = Thread(name='Slave', target=slave.run)
-        slave_thread.daemon = True
-        slave_thread.start()
-
-        rpc_thread = Thread(name='RPC Server', target=rpc_server.serve_forever)
-        rpc_thread.daemon = True
-        rpc_thread.start()
-
-        try:
-            # KeyboardInterrupt can't interrupt waiting on a lock unless
-            # a timeout is given, so we do a loop:
-            while slave_thread.is_alive():
-                slave_thread.join(10)
-        except KeyboardInterrupt:
-            slave.quit()
-            while slave_thread.is_alive():
-                slave_thread.join(10)
-
-        worker.terminate()
+        s.run()
 
 # vim: et sw=4 sts=4

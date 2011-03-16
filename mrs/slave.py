@@ -49,6 +49,7 @@ import tempfile
 import threading
 import worker
 
+from . import registry
 from . import rpc
 from . import util
 from .version import VERSION
@@ -60,9 +61,9 @@ logger = getLogger('mrs')
 class Slave(object):
     """State of a Mrs slave"""
 
-    def __init__(self, program_hash, master_url, local_shared, pingdelay,
+    def __init__(self, program_class, master_url, local_shared, pingdelay,
             timeout):
-        self.program_hash = program_hash
+        self.program_class = program_class
         self.master_url = master_url
         self.local_shared = local_shared
         self.pingdelay = pingdelay
@@ -72,18 +73,18 @@ class Slave(object):
                 multiprocessing.Pipe())
         self.quit_pipe_recv, self.quit_pipe_send = multiprocessing.Pipe(False)
 
-        #self.ping_task = None
-
         self.id = None
         self.cookie = util.random_string(COOKIE_LEN)
         self.timestamp = None
         self.watchdog_stamp = None
+        self.port = None
         self.master_rpc = None
 
         self.setup_complete = False
         self.current_request = None
 
     def run(self):
+        self.start_rpc_server_thread()
         self.master_rpc = rpc.ServerProxy(self.master_url, self.timeout)
 
         result = self.signin()
@@ -104,7 +105,16 @@ class Slave(object):
         self.report_ready()
         self.workloop()
 
-    # State 1: Signing In
+    def start_rpc_server_thread(self):
+        rpc_interface = SlaveInterface(self)
+        rpc_server = rpc.Server(('', 0), rpc_interface)
+        _, self.port = rpc_server.socket.getsockname()
+
+        rpc_thread = threading.Thread(target=rpc_server.serve_forever,
+                name='RPC Server')
+        rpc_thread.daemon = True
+        rpc_thread.start()
+
     def signin(self):
         """Start Slave RPC Server and sign in to master.
 
@@ -112,10 +122,11 @@ class Slave(object):
         directory, options object, and args list given by the server.
         """
         cookie = self.cookie
+        program_hash = registry.object_hash(self.program_class)
 
         try:
             slave_id, jobdir, optdict, args = self.master_rpc.signin(VERSION,
-                    cookie, self.port, self.program_hash)
+                    cookie, self.port, program_hash)
         except socket.error, e:
             msg = e.args[1]
             logger.critical('Unable to contact master: %s' % msg)
@@ -223,7 +234,6 @@ class Slave(object):
         """Report the most recent timestamp."""
         return self.timestamp
 
-    # Miscellaneous
     def check_cookie(self, cookie):
         if cookie != self.cookie:
             raise CookieValidationError
