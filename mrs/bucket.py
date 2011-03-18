@@ -22,6 +22,7 @@
 
 import cStringIO
 import os
+import urlparse
 
 from . import io
 
@@ -29,7 +30,7 @@ from logging import getLogger
 logger = getLogger('mrs')
 
 
-class Bucket(object):
+class ReadBucket(object):
     """Hold data from a source.
 
     Attributes:
@@ -95,7 +96,7 @@ class Bucket(object):
         return iter(self._data)
 
 
-class WriteBucket(Bucket):
+class WriteBucket(ReadBucket):
     """Hold data for a split.
 
     Data can be manually dumped to disk, in which case the data will be saved
@@ -106,8 +107,7 @@ class WriteBucket(Bucket):
         split: An integer showing which split the data is directed to.
         dir: A string specifying the directory for writes.
         format: The class to be used for formatting writes.
-        url: A string showing a URL that can be used to read the data.
-        path: The local path of the written file (may be different from url).
+        path: The local path of the written file.
 
     >>> b = WriteBucket(0, 0)
     >>> b.addpair((4, 'test'))
@@ -126,17 +126,14 @@ class WriteBucket(Bucket):
             format = io.default_write_format
         self.format = format
 
-        self.path = None
-        self.url = None
         self._writer = None
 
     def __setstate__(self, state):
         raise NotImplementedError
 
     def readonly_copy(self):
-        b = Bucket(self.source, self.split)
+        b = ReadBucket(self.source, self.split)
         b._data = self._data
-        b.path = self.path
         b.url = self.url
         return b
 
@@ -147,14 +144,10 @@ class WriteBucket(Bucket):
             # Note that Python 2.6 has NamedTemporaryFile(delete=False), which
             # would make this easier.
             import tempfile
-            fd, self.path = tempfile.mkstemp(dir=self.dir,
+            fd, self.url = tempfile.mkstemp(dir=self.dir,
                     prefix=self.prefix(), suffix='.' + self.format.ext)
             output_file = os.fdopen(fd, 'a')
             self._writer = self.format(output_file)
-
-            # For now, the externally visible url is just the filename on the
-            # local or networked filesystem.
-            self.url = self.path
 
     def close_writer(self):
         if self._writer:
@@ -200,7 +193,43 @@ class WriteBucket(Bucket):
         """Removes any temporary files created and empties cached data."""
         super(WriteBucket, self).clean()
         self._data = None
-        if self.path:
+        if self.url:
             os.remove(parsed_url.path)
+
+
+class URLConverter(object):
+    def __init__(self, addr, port, basedir):
+        assert port is not None
+        self.addr = addr
+        self.port = port
+        self.netloc = '%s:%s' % (addr, port)
+        self.basedir = basedir
+
+    def local_to_global(self, path):
+        """Creates a URL corresponding to the given path."""
+        url_path = os.path.relpath(path, self.basedir)
+        url_components = ('http', self.netloc, url_path, None, None, None)
+        url = urlparse.urlunparse(url_components)
+        return url
+
+    def global_to_local(self, url, master):
+        """Creates a locally accessible URL from the given URL.
+
+        The urls, as sent by the master, may have any empty host fields in the
+        urls if any data was created on the master.  Also, it may be possible
+        to create a locally-accessible path in place of an http url.
+        """
+        result = urlparse.urlparse(url)
+        if result.scheme and not result.hostname:
+            components = list(result)
+            components[1] = master
+            if result.port:
+                components[1] += ':%s' % result.port
+            url = urlparse.urlunparse(components)
+        elif (result.hostname == self.addr) and (result.port == self.port):
+            path = result.path.lstrip('/')
+            url = os.path.join(self.basedir, path)
+        return url
+
 
 # vim: et sw=4 sts=4

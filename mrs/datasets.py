@@ -245,7 +245,7 @@ class RemoteData(BaseDataset):
         self._fetched = False
 
     def _make_bucket(self, source, split):
-        return bucket.Bucket(source, split)
+        return bucket.ReadBucket(source, split)
 
     def __getstate__(self):
         """Pickle without getting certain forbidden/unnecessary elements."""

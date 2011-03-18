@@ -43,9 +43,21 @@ class WorkerSetupRequest(object):
     """Request to worker to run setup function."""
 
     def __init__(self, opts, args, default_dir):
+        self.id = 'worker_setup'
         self.opts = opts
         self.args = args
         self.default_dir = default_dir
+
+    def id(self):
+        return self.__class__.__name__
+
+
+class WorkerRemoveRequest(object):
+    def __init__(self, *args):
+        (self.directory,) = args
+
+    def id(self):
+        return self.__class__.__name__
 
 
 class WorkerMapRequest(object):
@@ -55,6 +67,10 @@ class WorkerMapRequest(object):
         (self.dataset_id, self.source, self.inputs, self.map_name,
                 self.part_name, self.splits, self.outdir, self.extension
                 ) = args
+
+    def id(self):
+        return '%s_%s_%s' % (self.__class__.__name__, self.dataset_id,
+                self.source)
 
     def make_task(self, program, default_dir):
         input_data = datasets.FileData(self.inputs, splits=1)
@@ -83,6 +99,10 @@ class WorkerReduceRequest(object):
                 self.part_name, self.splits, self.outdir, self.extension
                 ) = args
 
+    def id(self):
+        return '%s_%s_%s' % (self.__class__.__name__, self.dataset_id,
+                self.source)
+
     def make_task(self, program, default_dir):
         """Tell this worker to start working on a reduce task.
 
@@ -106,16 +126,12 @@ class WorkerReduceRequest(object):
         return t
 
 
-class WorkerRemoveRequest(object):
-    def __init__(self, *args):
-        (self.directory,) = args
-
-
 class WorkerFailure(object):
     """Failure response from worker."""
-    def __init__(self, exception, traceback):
+    def __init__(self, exception, traceback, request_id):
         self.exception = exception
         self.traceback = traceback
+        self.request_id = request_id
 
 
 class WorkerSetupSuccess(object):
@@ -124,11 +140,12 @@ class WorkerSetupSuccess(object):
 
 class WorkerSuccess(object):
     """Successful response from worker."""
-    def __init__(self, dataset_id, source, outdir, outurls=None):
+    def __init__(self, dataset_id, source, outdir, outurls, request_id):
         self.dataset_id = dataset_id
         self.source = source
         self.outdir = outdir
         self.outurls = outurls
+        self.request_id = request_id
 
 
 def run_worker(program_class, request_pipe):
@@ -144,9 +161,12 @@ def run_worker(program_class, request_pipe):
     program = None
 
     while True:
-        request = request_pipe.recv()
+        request = None
         response = None
+
         try:
+            request = request_pipe.recv()
+
             if isinstance(request, WorkerSetupRequest):
                 assert program is None
                 opts = request.opts
@@ -165,11 +185,14 @@ def run_worker(program_class, request_pipe):
                 t = request.make_task(program, default_dir)
                 t.run()
                 response = WorkerSuccess(request.dataset_id, request.source,
-                        request.outdir, t.outurls())
+                        request.outdir, t.outurls(), request.id())
                 logger.debug('Task complete.')
+        except KeyboardInterrupt:
+            return
         except Exception, e:
+            request_id = request.id() if request else None
             tb = traceback.format_exc()
-            response = WorkerFailure(e, tb)
+            response = WorkerFailure(e, tb, request_id)
 
         if response:
             request_pipe.send(response)

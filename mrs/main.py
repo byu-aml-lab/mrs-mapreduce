@@ -166,10 +166,12 @@ class BaseImplementation(ParamObj):
         from . import job
 
         job_conn, child_job_conn = multiprocessing.Pipe()
+        child_job_quit_pipe, job_quit_pipe = os.pipe()
         job_proc = multiprocessing.Process(target=job.job_process,
-                name='Job',
-                args=(self.program_class, opts, args, jobdir, child_job_conn))
-        return job_proc, job_conn
+                name='Job Process',
+                args=(self.program_class, opts, args, jobdir, child_job_conn,
+                    child_job_quit_pipe, self.use_bucket_server))
+        return job_proc, job_conn, job_quit_pipe
 
 
 class Bypass(BaseImplementation):
@@ -187,6 +189,7 @@ class Implementation(BaseImplementation):
     runner = None
     shared = None
     keep_jobdir = False
+    use_bucket_server = False
 
     def _main(self, opts, args):
         from . import job
@@ -196,20 +199,28 @@ class Implementation(BaseImplementation):
             raise NotImplementedError('Subclasses must set runner_class.')
 
         jobdir = self.make_jobdir(opts)
-        job_proc, job_conn = self.make_job_process(opts, args, jobdir)
-        job_proc.daemon = True
-        job_proc.start()
+        if jobdir:
+            default_dir = os.path.join(jobdir, 'user_run')
+            os.mkdir(default_dir)
+        else:
+            default_dir = None
 
-        # Install a signal handler for debugging.
-        signal.signal(signal.SIGUSR1, self.sigusr1_handler)
-        signal.siginterrupt(signal.SIGUSR1, False)
-
-        self.runner = self.runner_class(self.program_class, opts, args,
-                job_conn, jobdir)
+        job_proc, job_conn, job_quit_pipe = self.make_job_process(
+                opts, args, default_dir)
         try:
+            job_proc.start()
+
+            # Install a signal handler for debugging.
+            signal.signal(signal.SIGUSR1, self.sigusr1_handler)
+            signal.siginterrupt(signal.SIGUSR1, False)
+
+            self.runner = self.runner_class(self.program_class, opts, args,
+                    job_conn, jobdir)
             self.runner.run()
         except KeyboardInterrupt:
             logger.critical('Quitting due to keyboard interrupt.')
+        finally:
+            os.write(job_quit_pipe, '\0')
 
         # Clean up jobdir
         if jobdir and not self.keep_jobdir:
@@ -287,6 +298,7 @@ class Master(Implementation, Network):
         )
 
     runner_class = master.MasterRunner
+    use_bucket_server = True
 
 
 class Slave(BaseImplementation, Network):

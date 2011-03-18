@@ -47,10 +47,12 @@ import select
 import socket
 import tempfile
 import threading
+import urlparse
 import worker
 
+from . import bucket
+from . import http
 from . import registry
-from . import rpc
 from . import util
 from .version import VERSION
 
@@ -62,7 +64,7 @@ class Slave(object):
     """State of a Mrs slave
 
     Attributes:
-        outdata: map from a (dataset_id, source) pair to an OutputData object
+        _outdirs: map from a (dataset_id, source) pair to an output directory
     """
 
     def __init__(self, program_class, master_url, local_shared, pingdelay,
@@ -81,23 +83,30 @@ class Slave(object):
         self.cookie = util.random_string(COOKIE_LEN)
         self.timestamp = None
         self.watchdog_stamp = None
-        self.port = None
+        self.rpc_port = None
+        self.bucket_port = None
         self.master_rpc = None
+        self.url_converter = None
 
         self.setup_complete = False
-        self.current_request = None
-        self._outdata = {}
-        self._outdata_lock = threading.Lock()
+        self.current_request_id = None
+        self._outdirs = {}
+        self._outdirs_lock = threading.Lock()
 
     def run(self):
         self.start_rpc_server_thread()
-        self.master_rpc = rpc.ServerProxy(self.master_url, self.timeout)
+        self.master_rpc = http.ServerProxy(self.master_url, self.timeout)
 
         result = self.signin()
         if not result:
             return
-        self.id, jobdir, opts, args = result
+        self.id, addr, jobdir, opts, args = result
         default_dir = self.init_default_dir(jobdir)
+
+        if self.local_shared:
+            self.start_bucket_server_thread(default_dir)
+            self.url_converter = bucket.URLConverter(addr, self.bucket_port,
+                    default_dir)
 
         # Tell the Worker to run the user_setup function and wait for
         # a response.
@@ -116,13 +125,22 @@ class Slave(object):
 
     def start_rpc_server_thread(self):
         rpc_interface = SlaveInterface(self)
-        rpc_server = rpc.Server(('', 0), rpc_interface)
-        _, self.port = rpc_server.socket.getsockname()
+        rpc_server = http.RPCServer(('', 0), rpc_interface)
+        _, self.rpc_port = rpc_server.socket.getsockname()
 
         rpc_thread = threading.Thread(target=rpc_server.serve_forever,
                 name='RPC Server')
         rpc_thread.daemon = True
         rpc_thread.start()
+
+    def start_bucket_server_thread(self, default_dir):
+        bucket_server = http.ThreadingBucketServer(('', 0), default_dir)
+        _, self.bucket_port = bucket_server.socket.getsockname()
+
+        bucket_thread = threading.Thread(target=bucket_server.serve_forever,
+                name='Bucket Server')
+        bucket_thread.daemon = True
+        bucket_thread.start()
 
     def signin(self):
         """Start Slave RPC Server and sign in to master.
@@ -134,8 +152,8 @@ class Slave(object):
         program_hash = registry.object_hash(self.program_class)
 
         try:
-            slave_id, jobdir, optdict, args = self.master_rpc.signin(VERSION,
-                    cookie, self.port, program_hash)
+            slave_id, addr, jobdir, optdict, args = self.master_rpc.signin(
+                    VERSION, cookie, self.rpc_port, program_hash)
         except socket.error, e:
             msg = e.args[1]
             logger.critical('Unable to contact master: %s' % msg)
@@ -148,21 +166,26 @@ class Slave(object):
         # Parse the opts given by the master.
         opts = optparse.Values(optdict)
 
-        return slave_id, jobdir, opts, args
+        return slave_id, addr, jobdir, opts, args
 
     def init_default_dir(self, jobdir):
         if self.local_shared:
             util.try_makedirs(self.local_shared)
-            return tempfile.mkdtemp(dir=self.local_shared, prefix='mrs_slave_')
+            directory = self.local_shared
+            prefix = 'mrs_slave_'
         else:
             hostname, _, _ = socket.gethostname().partition('.')
-            return tempfile.mkdtemp(dir=jobdir, prefix=hostname)
+            directory = jobdir
+            prefix = hostname
+        return tempfile.mkdtemp(dir=directory, prefix=prefix)
 
     def report_ready(self):
         """Report to the master that we are ready to accept tasks.
 
         This is the callback after user_setup is called.
         """
+        assert self.current_request_id is None
+
         # TODO: make this try a few times if there's a timeout
         try:
             self.master_rpc.ready(self.id, self.cookie)
@@ -170,7 +193,7 @@ class Slave(object):
             msg = e.args[0]
             logger.critical('Failed to report due to network error: %s' % msg)
 
-        logger.info('Connected to master.')
+        logger.info('Reported ready to master.')
         self.update_timestamp()
 
     def worker_setup(self, opts, args, default_dir):
@@ -209,13 +232,20 @@ class Slave(object):
         """Reads a single response from the request pipe."""
 
         r = self.request_pipe_slave.recv()
-        assert self.current_request is not None
-        self.current_request = None
         if isinstance(r, worker.WorkerSuccess):
-            self.add_output_data(r.dataset_id, r.source, r.outdir, r.outurls)
-            self.master_rpc.done(self.id, r.dataset_id,
-                    r.source, r.outurls, self.cookie)
+            assert self.current_request_id == r.request_id
+            self.current_request_id = None
+            self.add_output_dir(r.dataset_id, r.source, r.outdir)
+            outurls = r.outurls
+            if self.url_converter:
+                convert_url = self.url_converter.local_to_global
+                outurls = [(s, convert_url(url)) for s, url in outurls]
+            self.master_rpc.done(self.id, r.dataset_id, r.source, outurls,
+                    self.cookie)
         elif isinstance(r, worker.WorkerFailure):
+            if self.current_request_id == r.request_id:
+                self.current_request_id = None
+                self.report_ready()
             msg = 'Exception in Worker: %s' % r.exception
             logger.critical(msg)
             msg = 'Traceback: %s' % r.traceback
@@ -223,7 +253,7 @@ class Slave(object):
         else:
             assert False
 
-    def submit_request(self, request, one_at_a_time=True):
+    def submit_request(self, request):
         """Submit the given request to the worker.
 
         If one_at_a_time is specified, then no other one_at_time requests can
@@ -232,10 +262,11 @@ class Slave(object):
 
         Called from the RPC thread.
         """
-        if one_at_a_time:
-            if self.current_request is not None:
+        if (isinstance(request, worker.WorkerMapRequest) or
+                isinstance(request, worker.WorkerReduceRequest)):
+            if self.current_request_id is not None:
                 return False
-            self.current_request = request
+            self.current_request_id = request.id()
 
         self.request_pipe_slave.send(request)
         return True
@@ -256,19 +287,17 @@ class Slave(object):
         """Called by the worker so the Slave can have a reference to it."""
         self.worker = worker
 
-    def add_output_data(self, dataset_id, source, outdir, outurls):
-        """Creates and stores an OutputData object."""
-        output_data = OutputData(outdir, outurls)
-        with self._outdata_lock:
-            self._outdata[dataset_id, source] = output_data
+    def add_output_dir(self, dataset_id, source, outdir):
+        """Stores the output directory (for subsequent deletion)."""
+        with self._outdirs_lock:
+            self._outdirs[dataset_id, source] = outdir
 
-    def get_output_data(self, dataset_id, source):
-        with self._outdata_lock:
-            return self._outdata[dataset_id, source]
-
-    def remove_output_data(self, dataset_id, source, delete):
-        with self._outdata_lock:
-            del self._outdata[dataset_id, source]
+    def pop_output_dir(self, dataset_id, source):
+        """Return and remove the output directory for the specified source."""
+        with self._outdirs_lock:
+            outdir = self._outdirs[dataset_id, source]
+            del self._outdirs[dataset_id, source]
+        return outdir
 
     def quit(self):
         """Called to tell the slave to quit."""
@@ -284,20 +313,26 @@ class SlaveInterface(object):
     def __init__(self, slave):
         self.slave = slave
 
+    @http.uses_host
     def xmlrpc_start_map(self, dataset_id, source, inputs, func_name,
-            part_name, splits, outdir, extension, cookie):
+            part_name, splits, outdir, extension, cookie, host=None):
         self.slave.check_cookie(cookie)
         self.slave.update_timestamp()
         logger.info('Received a Map assignment from the master.')
+        convert_url = self.slave.url_converter.global_to_local
+        inputs = [convert_url(url, host) for url in inputs]
         request = worker.WorkerMapRequest(dataset_id, source, inputs,
                 func_name, part_name, splits, outdir, extension)
         return self.slave.submit_request(request)
 
+    @http.uses_host
     def xmlrpc_start_reduce(self, dataset_id, source, inputs, func_name,
-            part_name, splits, outdir, extension, cookie):
+            part_name, splits, outdir, extension, cookie, host=None):
         self.slave.check_cookie(cookie)
         self.slave.update_timestamp()
         logger.info('Received a Reduce assignment from the master.')
+        convert_url = self.slave.url_converter.global_to_local
+        inputs = [convert_url(url, host) for url in inputs]
         request = worker.WorkerReduceRequest(dataset_id, source, inputs,
                 func_name, part_name, splits, outdir, extension)
         return self.slave.submit_request(request)
@@ -308,9 +343,9 @@ class SlaveInterface(object):
         logger.info('Received remove request from master: %s, %s'
                 % (dataset_id, source))
         if delete:
-            output_data = self.slave.get_output_data(dataset_id, source)
-            request = worker.WorkerRemoveRequest(output_data.outdir)
-            success = self.slave.submit_request(request, False)
+            outdir = self.slave.pop_output_dir(dataset_id, source)
+            request = worker.WorkerRemoveRequest(outdir)
+            success = self.slave.submit_request(request)
         else:
             success = True
 
@@ -337,10 +372,5 @@ class SlaveInterface(object):
 class CookieValidationError(Exception):
     pass
 
-
-class OutputData(object):
-    def __init__(self, outdir, outurls):
-        self.outdir = outdir
-        self.outurls = outurls
 
 # vim: et sw=4 sts=4

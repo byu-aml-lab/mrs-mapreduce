@@ -36,9 +36,9 @@ import time
 import xmlrpclib
 
 from . import datasets
+from . import http
 from . import pool
 from . import registry
-from . import rpc
 from . import runner
 from . import task
 
@@ -90,7 +90,7 @@ class MasterRunner(runner.TaskRunner):
         self.rpc_interface = MasterInterface(self.slaves, program_hash,
                 self.opts, self.args, self.jobdir)
         port = getattr(self.opts, 'mrs__port', 0)
-        rpc_server = rpc.ThreadedServer(('', port), self.rpc_interface)
+        rpc_server = http.ThreadingRPCServer(('', port), self.rpc_interface)
         if port == 0:
             port = rpc_server.server_address[1]
 
@@ -224,7 +224,7 @@ class MasterInterface(object):
         host = request.client.host
         return host
 
-    @rpc.uses_host
+    @http.uses_host
     def xmlrpc_signin(self, version, cookie, slave_port, program_hash,
             host=None):
         """Slave reporting for duty.
@@ -247,9 +247,9 @@ class MasterInterface(object):
 
         raw_iter = vars(self.opts).iteritems()
         optdict = dict((k, v) for k, v in raw_iter if v is not None)
-        return (slave.id, self.jobdir, optdict, self.args)
+        return (slave.id, host, self.jobdir, optdict, self.args)
 
-    @rpc.uses_host
+    @http.uses_host
     def xmlrpc_ready(self, slave_id, cookie, host=None):
         """Slave is ready for work."""
         slave = self.slaves.get_slave(slave_id, cookie)
@@ -263,7 +263,7 @@ class MasterInterface(object):
                     % (host, slave_id))
             return False
 
-    @rpc.uses_host
+    @http.uses_host
     def xmlrpc_done(self, slave_id, dataset_id, source, urls, cookie,
             host=None):
         """Slave is done with whatever it was working on.
@@ -282,7 +282,7 @@ class MasterInterface(object):
                     % (host, slave_id))
             return False
 
-    @rpc.uses_host
+    @http.uses_host
     def xmlrpc_ping(self, slave_id, cookie, host=None):
         """Slave checking if we're still here."""
         slave = self.slaves.get_slave(slave_id, cookie)
@@ -311,7 +311,7 @@ class RemoteSlave(object):
         self.pingdelay = slaves.pingdelay
 
         uri = "http://%s:%s" % (host, port)
-        self._rpc = rpc.ServerProxy(uri, slaves.rpc_timeout)
+        self._rpc = http.ServerProxy(uri, slaves.rpc_timeout)
         self._rpc_lock = threading.Lock()
 
         self._assignment = None

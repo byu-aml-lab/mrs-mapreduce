@@ -116,7 +116,7 @@ class BaseRunner(object):
         elif isinstance(message, job.JobDone):
             if not message.success:
                 logger.critical('Job execution failed.')
-            self.job_conn.send(job.JobDoneAck())
+            self.job_conn.send(job.QuitJobProcess())
             self.running = False
         else:
             assert False, 'Unknown message type.'

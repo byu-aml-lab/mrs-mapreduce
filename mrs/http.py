@@ -20,23 +20,30 @@
 # Licensing Office, Brigham Young University, 3760 HBLL, Provo, UT 84602,
 # (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
 
-"""Mrs. RPC
+"""Mrs. HTTP
 
-RPC mechanisms built on Python's xmlrpc library.
+RPC mechanisms and HTTP servers built on Python's standard library.
 """
 
 # Socket backlog (argument to socket.listen)
 BACKLOG = 100
 
 import httplib
+import os
+import posixpath
+import SimpleHTTPServer
 import SimpleXMLRPCServer
 import socket
 import SocketServer
 import sys
+import urllib
+import urlparse
 import xmlrpclib
 
 import logging
 logger = logging.getLogger('mrs')
+del logging
+
 
 # TODO: switch parent class to xmlrpclib.SafeTransport
 # TODO: consider using the Transport's enable_threshold setting for gzip
@@ -92,7 +99,7 @@ class ServerProxy(xmlrpclib.ServerProxy):
         xmlrpclib.ServerProxy.__init__(self, uri, transport=transport)
 
 
-class RequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
+class RPCRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
     """Simple HTTP request handler
     """
     # The sequence of calls is a bit counter-intuitive.  The do_POST method in
@@ -108,7 +115,7 @@ class RequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
         return self.server._dispatch(method, params, host)
 
 
-class Server(SimpleXMLRPCServer.SimpleXMLRPCServer):
+class RPCServer(SimpleXMLRPCServer.SimpleXMLRPCServer):
     """XMLRPC Server that supports passing the client host to the method.
 
     This server takes an instance used for dispatching requests; methods of
@@ -121,7 +128,7 @@ class Server(SimpleXMLRPCServer.SimpleXMLRPCServer):
 
     def __init__(self, addr, instance):
         SimpleXMLRPCServer.SimpleXMLRPCServer.__init__(self, addr,
-                requestHandler=RequestHandler, logRequests=False)
+                requestHandler=RPCRequestHandler, logRequests=False)
         # Disable Nagle's algorithm to avoid [hypothetical] high latency.
         self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         self.instance = instance
@@ -147,7 +154,7 @@ class Server(SimpleXMLRPCServer.SimpleXMLRPCServer):
             raise
 
 
-class ThreadedServer(SocketServer.ThreadingMixIn, Server):
+class ThreadingRPCServer(SocketServer.ThreadingMixIn, RPCServer):
     daemon_threads = True
 
 
@@ -174,14 +181,57 @@ def rpc_url(urlstring):
     'http://localhost/path/to/xmlrpc'
     >>>
     """
-    from urlparse import urlsplit, urlunsplit
-
     if '://' not in urlstring:
         urlstring = 'http://' + urlstring
 
-    scheme, netloc, path, query, fragment = urlsplit(urlstring)
+    scheme, netloc, path, query, fragment = urlparse.urlsplit(urlstring)
     if not path and not query and not fragment:
         path = '/RPC2'
-    return urlunsplit((scheme, netloc, path, query, fragment))
+    return urlparse.urlunsplit((scheme, netloc, path, query, fragment))
+
+
+class BucketRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
+    """HTTP request handler for serving buckets from local datasets."""
+
+    def list_directory(self, path):
+        self.send_error(403, "Directory listing is forbidden")
+
+    def translate_path(self, path):
+        # Remove query and fragment.
+        path = path.split('?',1)[0]
+        path = path.split('#',1)[0]
+
+        # Remove double slashes, leading slashes, etc.
+        path = posixpath.normpath(urllib.unquote(path)).lstrip('/')
+
+        # Split into components and check for an invalid path.  Note that
+        # there might be many other invalid paths on Windows.
+        words = path.split('/')
+        if words[0] == '..':
+            self.send_error(403, 'Forbidden')
+            return
+
+        return os.path.join(self.server.basedir, *words)
+
+    def log_request(self, *args, **kwds):
+        return
+
+    def guess_type(self, path):
+        return 'application/octet-stream'
+
+
+class BucketServer(SocketServer.TCPServer):
+    """HTTP server for serving buckets from local datasets."""
+
+    request_queue_size = BACKLOG
+
+    def __init__(self, addr, basedir):
+        SocketServer.TCPServer.__init__(self, addr, BucketRequestHandler)
+        self.basedir = basedir
+
+
+class ThreadingBucketServer(SocketServer.ThreadingMixIn, BucketServer):
+    daemon_threads = True
+
 
 # vim: et sw=4 sts=4
