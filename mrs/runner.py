@@ -52,6 +52,7 @@ class BaseRunner(object):
         self.register_fd(self.job_conn.fileno(), self.read_job_conn)
 
         self.datasets = {}
+        self.computing_datasets = set()
         self.data_dependents = collections.defaultdict(collections.deque)
         # Datasets requested to be closed by the job process (but which
         # cannot be closed until their dependents are computed).
@@ -106,6 +107,7 @@ class BaseRunner(object):
             if input_id:
                 self.data_dependents[input_id].append(ds.id)
             if isinstance(ds, datasets.ComputedData):
+                self.computing_datasets.add(ds)
                 self.compute_dataset(ds)
         elif isinstance(message, job.CloseDataset):
             self.close_requests.add(message.dataset_id)
@@ -128,6 +130,8 @@ class BaseRunner(object):
 
     def dataset_computed(self, dataset):
         """Called when a dataset's computation is finished."""
+
+        self.computing_datasets.remove(dataset)
 
         # Check whether any datasets can be closed as a result of the newly
         # completed computation.
@@ -152,6 +156,10 @@ class BaseRunner(object):
         if dataset_id not in self.close_requests:
             return
         ds = self.datasets[dataset_id]
+        # Skip datasets that are currently being computed.
+        if ds in self.computing_datasets:
+            return
+        # Skip datasets that haven't been computed yet.
         if getattr(ds, 'computing', False):
             return
         # Bail out if any dependent dataset still needs to be computed.
