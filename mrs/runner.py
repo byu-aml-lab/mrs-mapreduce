@@ -143,7 +143,7 @@ class BaseRunner(object):
         self.try_to_remove_dataset(dataset.id)
 
     def send_dataset_response(self, dataset):
-        if not dataset.closed:
+        if not (dataset.closed or dataset_id in self.close_requests):
             for bucket in dataset:
                 if len(bucket) or bucket.url:
                     response = job.BucketReady(dataset.id, bucket)
@@ -251,16 +251,20 @@ class TaskRunner(BaseRunner):
         self.remaining_tasks[dataset.id] = set_of_tasks
         self.ready_tasks.extend((dataset.id, i) for i in set_of_tasks)
 
-    def task_done(self, dataset_id, source):
+    def task_done(self, dataset_id, source, urls):
         """Report that the given source of the given dataset is computed."""
         set_of_tasks = self.remaining_tasks[dataset_id]
         set_of_tasks.remove(source)
 
         dataset = self.datasets[dataset_id]
-        for bucket in dataset[source, :]:
-            if bucket.url:
-                response = job.BucketReady(dataset_id, bucket)
-                self.job_conn.send(response)
+        if not dataset.closed:
+            for split, url in urls:
+                bucket = dataset[source, split]
+                bucket.url = url
+                if dataset_id not in self.close_requests:
+                    response = job.BucketReady(dataset_id, bucket)
+                    self.job_conn.send(response)
+            dataset.notify_urls_known()
 
         if not set_of_tasks:
             del self.remaining_tasks[dataset_id]
@@ -342,11 +346,10 @@ class MockParallelRunner(TaskRunner):
         Each message is the id of a dataset that has finished being computed.
         """
         try:
-            dataset_id, source = self.worker_conn.recv()
+            dataset_id, source, urls = self.worker_conn.recv()
         except EOFError:
             return
-        ds = self.datasets[dataset_id]
-        self.task_done(ds, source)
+        self.task_done(dataset_id, source, urls)
         self.worker_busy = False
         self.schedule()
 
@@ -374,9 +377,7 @@ class MockParallelWorker(object):
             ds = self.datasets[dataset_id]
             t = ds.get_task(source, self.program, self.datasets, self.jobdir)
             t.run()
-            for split, url in t.outurls():
-                ds[source, split].url = url
 
-            self.conn.send((dataset_id, source))
+            self.conn.send((dataset_id, source, t.outurls()))
 
 # vim: et sw=4 sts=4

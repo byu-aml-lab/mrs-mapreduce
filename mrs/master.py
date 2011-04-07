@@ -136,10 +136,7 @@ class MasterRunner(runner.TaskRunner):
                 self.result_storage[dataset_id].append((slave, source))
 
             if (dataset_id, source) in self.current_assignments:
-                ds = self.datasets[dataset_id]
-                for split, url in urls:
-                    ds[source, split].url = url
-                self.task_done(dataset_id, source)
+                self.task_done(dataset_id, source, urls)
                 self.current_assignments.remove((dataset_id, source))
             else:
                 logger.info('Ignoring a redundant result (%s, %s).' %
