@@ -421,14 +421,16 @@ class _Option(optparse.Option):
         for base in (self.search or []):
             # Look for modules in the search list.
             try:
-                module = '.'.join((base, value))
-                paramobj = import_object(module)
+                full_name = '.'.join((base, value))
+                paramobj = import_object(full_name)
                 break
             except ImportError, e:
                 msg = e.args[0]
                 if msg.startswith('No module named '):
+                    all_but_last, _ = full_name.rsplit('.', 1)
                     prefix, part, errname = msg.partition('No module named ')
-                    if errname in (base, value):
+                    if (full_name.endswith(errname)
+                            or all_but_last.endswith(errname)):
                         # Could not find the name.  Keep trying elsewhere.
                         pass
                     else:
