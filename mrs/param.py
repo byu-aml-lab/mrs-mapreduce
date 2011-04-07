@@ -418,6 +418,8 @@ class _Option(optparse.Option):
         if value is None:
             return
 
+        paramobj = None
+        no_attribute_msg = None
         for base in (self.search or []):
             # Look for modules in the search list.
             try:
@@ -426,8 +428,8 @@ class _Option(optparse.Option):
                 break
             except ImportError, e:
                 msg = e.args[0]
+                all_but_last, _ = full_name.rsplit('.', 1)
                 if msg.startswith('No module named '):
-                    all_but_last, _ = full_name.rsplit('.', 1)
                     prefix, part, errname = msg.partition('No module named ')
                     if (full_name.endswith(errname)
                             or all_but_last.endswith(errname)):
@@ -436,8 +438,10 @@ class _Option(optparse.Option):
                     else:
                         raise
                 elif msg.startswith('No attribute named '):
-                    # Could not find the name.  Keep trying elsewhere.
-                    pass
+                    # Could not find the name.  Keep trying elsewhere,
+                    # but save the error message.
+                    if no_attribute_msg is None:
+                        no_attribute_msg = '%s in %s' % (msg, all_but_last)
                 else:
                     # Unexpected message in ImportError.
                     raise
@@ -447,9 +451,17 @@ class _Option(optparse.Option):
             try:
                 paramobj = import_object(value)
             except ImportError, e:
-                message = ('option %s: Error while importing class "%s": %s' %
-                        (opt_str, value, e.args[0]))
-                raise optparse.OptionValueError(message)
+                if (no_attribute_msg is None
+                        and msg.startswith('No attribute named ')):
+                    no_attribute_msg = msg
+
+        if not paramobj:
+            if no_attribute_msg:
+                message = no_attribute_msg
+            else:
+                message = 'Could not find %s in the search path' % value
+            raise optparse.OptionValueError('option %s: %s'
+                    % (opt_str, message))
 
         try:
             full_path = '%s.%s' % (paramobj.__module__, paramobj.__name__)
