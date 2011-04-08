@@ -143,7 +143,7 @@ class BaseRunner(object):
         self.try_to_remove_dataset(dataset.id)
 
     def send_dataset_response(self, dataset):
-        if not (dataset.closed or dataset_id in self.close_requests):
+        if not (dataset.closed or dataset.id in self.close_requests):
             for bucket in dataset:
                 if len(bucket) or bucket.url:
                     response = job.BucketReady(dataset.id, bucket)
