@@ -208,9 +208,13 @@ class URLConverter(object):
     def local_to_global(self, path):
         """Creates a URL corresponding to the given path."""
         url_path = os.path.relpath(path, self.basedir)
-        url_components = ('http', self.netloc, url_path, None, None, None)
-        url = urlparse.urlunparse(url_components)
-        return url
+        if url_path.startswith('..'):
+            # Can't create a global URL because the file isn't in the HTTP dir.
+            return path
+        else:
+            url_components = ('http', self.netloc, url_path, None, None, None)
+            url = urlparse.urlunparse(url_components)
+            return url
 
     def global_to_local(self, url, master):
         """Creates a locally accessible URL from the given URL.
