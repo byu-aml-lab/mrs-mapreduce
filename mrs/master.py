@@ -622,8 +622,8 @@ class Slaves(object):
 
         with self._lock:
             if not slave.idle():
-                logger.error('Slave %s reported ready but is not idle.' %
-                        slave.id)
+                logger.error('Slave %s reported ready but is not idle; '
+                        'check the slave logs for errors.' % slave.id)
             self._changed_slaves.add(slave)
 
         self.trigger_sched()
