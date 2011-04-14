@@ -214,14 +214,15 @@ def run_user_thread(program_class, opts, args, default_dir, manager,
     job = Job(manager, reg, opts, program.partition, default_dir, url_converter)
 
     try:
-        program.run(job)
+        success = program.run(job)
     except Exception, e:
+        success = False
         logger.critical('Exception raised in the run function: %s'
                 % traceback.format_exc())
         manager.done(False)
         return
 
-    manager.done()
+    manager.done(success)
 
 
 class DataManager(object):

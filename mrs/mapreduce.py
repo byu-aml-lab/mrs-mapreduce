@@ -27,6 +27,8 @@ implementation for a standard MapReduce program.  However, the MapReduce class
 can be extended to create much more complex programs.
 """
 
+import sys
+
 from . import io
 
 
@@ -76,15 +78,32 @@ class MapReduce(object):
         self.opts = opts
         self.args = args
 
-    def run(self, job):
-        """Default run which creates a map stage and a reduce stage."""
+    def basic_io(self, job):
+        """Returns a (input_dataset, output_directory) pair.
 
+        This is called by the default run method and is passed the job.
+        The input_dataset is a dataset to be
+        used for the input to the map function.  The output_directory is a
+        string which determines where the output from the reduce function will
+        be placed.  In case of a fatal error, the pair (None, None) is
+        returned.
+
+        It may be helpful to access the list of command-line arguments in
+        self.args.
+        """
         if len(self.args) < 2:
-            import sys
             print >>sys.stderr, "Requires input(s) and an output."
-            return
+            return None, None
         inputs = self.args[:-1]
         outdir = self.args[-1]
+        input_data = job.file_data(inputs)
+        return input_data, outdir
+
+    def run(self, job):
+        """Default run which creates a map stage and a reduce stage."""
+        source, outdir = self.basic_io(job, self.args)
+        if source is None:
+            return False
 
         try:
             source = job.file_data(inputs)
@@ -104,6 +123,8 @@ class MapReduce(object):
                         % (map_percent, reduce_percent))
         except KeyboardInterrupt:
             print 'Interrupted.'
+
+        return True
 
     def hash_partition(self, x, n):
         """A partition function that partitions by hashing the key.
@@ -140,7 +161,6 @@ class MapReduce(object):
         generate the same sequence of pseudo-random numbers.
         """
         import random
-        import sys
         seed = int(self.opts.mrs__seed) + sys.maxint * offset
         return random.Random(seed)
 
