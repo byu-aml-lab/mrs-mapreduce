@@ -233,11 +233,11 @@ class MasterInterface(object):
 
         if version != VERSION:
             logger.warning('Client tried to sign in with mismatched version.')
-            return -1, {}, []
+            return -1, '', '', {}, []
         if self.program_hash != program_hash:
             # The slaves are running different code than the master is.
             logger.warning('Client tried to sign in with nonmatching code.')
-            return -1, {}, []
+            return -1,'', '', {}, []
 
         slave = self.slaves.new_slave(host, slave_port, cookie)
         logger.info('New slave %s on host %s' % (slave.id, host))
