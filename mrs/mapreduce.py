@@ -106,7 +106,6 @@ class MapReduce(object):
             return False
 
         try:
-            source = job.file_data(inputs)
             intermediate = job.map_data(source, self.map)
             source.close()
             output = job.reduce_data(intermediate, self.reduce, outdir=outdir,
