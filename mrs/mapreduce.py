@@ -78,31 +78,41 @@ class MapReduce(object):
         self.opts = opts
         self.args = args
 
-    def basic_io(self, job):
-        """Returns a (input_dataset, output_directory) pair.
+    def input_data(self, job):
+        """Returns an input_dataset.
 
         This is called by the default run method and is passed the job.
-        The input_dataset is a dataset to be
-        used for the input to the map function.  The output_directory is a
-        string which determines where the output from the reduce function will
-        be placed.  In case of a fatal error, the pair (None, None) is
-        returned.
+        Returns a dataset to be used for the input to the map function.  In
+        case of a fatal error, None is returned.
 
         It may be helpful to access the list of command-line arguments in
         self.args.
         """
         if len(self.args) < 2:
             print >>sys.stderr, "Requires input(s) and an output."
-            return None, None
+            return None
         inputs = self.args[:-1]
-        outdir = self.args[-1]
-        input_data = job.file_data(inputs)
-        return input_data, outdir
+        return job.file_data(inputs)
+
+    def output_dir(self):
+        """Returns the name of the output directory.
+
+        The output_directory is a string which determines where the
+        output from the reduce function will be placed.  In case of a fatal
+        error, None is returned.
+        """
+        if len(self.args) < 1:
+            print >>sys.stderr, "Requires an output."
+            return None
+        return self.args[-1]
 
     def run(self, job):
         """Default run which creates a map stage and a reduce stage."""
-        source, outdir = self.basic_io(job, self.args)
+        source = self.input_data(job)
         if source is None:
+            return False
+        outdir = self.output_dir()
+        if outdir is None:
             return False
 
         try:
