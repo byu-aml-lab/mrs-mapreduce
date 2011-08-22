@@ -12,6 +12,18 @@
 - find something more sane than Twisted (something generator based would be
   really nice)
 
+##############################################################################
+# TODO
+
+The following items are the most urgent:
+
+- Allow datasets to be accessed over HTTP.  Whether to use NFS or HTTP should
+  be configurable.  Also, make a distinction between saving data somewhere
+  permanent vs. saving it temporarily on NFS.  Automatically decide when to
+  save such data.  Auto-delete temporary data from NFS and memory once it's no
+  longer needed.
+
+- Allow HDFS and WebDAV to be used for shared storage.
 
 ########################################################################
 
@@ -23,3 +35,21 @@ void emit(char *key, char *value);
 
 Pass the C function the key (as a c_char_p), the list of values (probably as a
 char **), and a function pointer to emit.  Or something like that.
+
+
+========================================================================
+
+TO TRY:
+- -R :number of reduce tasks
+- Multiple slaves (both less and more than six)
+- ssh to sage
+- mrs-potato.py
+
+
+TODO
+- Default --mrs-local-shared (slave): mkdtmp /tmp (e.g. /tmp/mrs-slave.xyz)
+  slave.py
+- Slave didn't quit
+- Wordcount tutorial: serial, master/slave(s), mrs-potato
+- Simple program tutorial
+
