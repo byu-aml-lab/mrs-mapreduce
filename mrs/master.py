@@ -552,11 +552,14 @@ class RemoteSlave(object):
                 self._ping_repeating = True
         self.runqueue.do(self.ping, delay=delay)
 
-    def disconnect(self):
+    def disconnect(self, write_pipe=None):
         """Disconnect the slave by sending a quit request."""
         if self._state not in ('exiting', 'exited'):
             self._state = 'exiting'
             self.runqueue.do(self.send_quit)
+
+        if write_pipe is not None:
+            os.write(write_pipe, '\0')
 
     def send_quit(self):
         with self._rpc_lock:
@@ -660,8 +663,22 @@ class Slaves(object):
         return changed
 
     def disconnect_all(self):
+        """Sends an exit request to the slaves and waits for completion."""
+
+        # Each slave writes to the write_pipe when the disconnect completes.
+        read_pipe, write_pipe = os.pipe()
         for slave in self._slaves.itervalues():
-            slave.disconnect()
+            slave.disconnect(write_pipe)
+
+        keep_going = True
+        while keep_going:
+            # The actual data read is irrelevant--this just lets us block.
+            os.read(read_pipe, 4096)
+            keep_going = False
+            for slave in self._slaves.itervalues():
+                if not slave.exited():
+                    keep_going = True
+                    break
 
 
 # vim: et sw=4 sts=4
