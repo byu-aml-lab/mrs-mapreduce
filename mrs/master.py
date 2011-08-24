@@ -557,6 +557,7 @@ class RemoteSlave(object):
     def send_quit(self):
         with self._rpc_lock:
             try:
+                logger.info('Sending a quit request to slave %s' % self.id)
                 self._rpc.quit(self.cookie)
             except xmlrpclib.Fault, f:
                 logger.error('Fault in quit to slave %s: %s'
