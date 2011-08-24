@@ -102,6 +102,9 @@ class ServerProxy(xmlrpclib.ServerProxy):
 class RPCRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
     """Simple HTTP request handler
     """
+    # Tell BaseHTTPRequestHandler to support HTTP keepalive
+    protocol_version = 'HTTP/1.1'
+
     # The sequence of calls is a bit counter-intuitive.  The do_POST method in
     # SimpleXMLRPCRequestHandler calls the server's _marshaled_dispatch
     # method, passing it a reference to its own _dispatch method.  This
