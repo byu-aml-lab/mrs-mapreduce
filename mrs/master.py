@@ -422,13 +422,13 @@ class RemoteSlave(object):
 
     def remove(self, dataset_id, source, delete):
         with self._rpc_lock:
-            logger.info('Sending remove request to slave %s: %s, %s'
-                    % (self.id, dataset_id, source))
             if not self.alive():
                 # Note: the master may disconnect the slave while remove
                 # requests are still pending--this isn't really a bad thing.
                 return
 
+            logger.info('Sending remove request to slave %s: %s, %s'
+                    % (self.id, dataset_id, source))
             try:
                 self._rpc.remove(dataset_id, source, delete, self.cookie)
                 success = True
