@@ -556,12 +556,9 @@ class RemoteSlave(object):
         """Disconnect the slave by sending a quit request."""
         if self._state not in ('exiting', 'exited'):
             self._state = 'exiting'
-            self.runqueue.do(self.send_exit)
+            self.runqueue.do(self.send_exit, (write_pipe,))
 
-        if write_pipe is not None:
-            os.write(write_pipe, '\0')
-
-    def send_exit(self):
+    def send_exit(self, write_pipe=None):
         with self._rpc_lock:
             try:
                 logger.info('Sending a exit request to slave %s' % self.id)
@@ -579,6 +576,9 @@ class RemoteSlave(object):
                         % (self.id, e.args[1]))
             self._state = 'exited'
             self._rpc = None
+
+        if write_pipe is not None:
+            os.write(write_pipe, '\0')
 
 
 class Slaves(object):
