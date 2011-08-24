@@ -670,7 +670,12 @@ class Slaves(object):
         for slave in self._slaves.itervalues():
             slave.disconnect(write_pipe)
 
-        keep_going = True
+        keep_going = False
+        for slave in self._slaves.itervalues():
+            if not slave.exited():
+                keep_going = True
+                break
+
         while keep_going:
             # The actual data read is irrelevant--this just lets us block.
             os.read(read_pipe, 4096)
