@@ -315,8 +315,9 @@ class RemoteSlave(object):
         self._assignment_lock = threading.Lock()
         self._rpc_func = None
         self._rpc_args = None
-        self._alive = True
-        self._disconnected = False
+
+        # The `_state` is either 'alive', 'failed', 'exiting', or 'exited'
+        self._state = 'alive'
 
         # The ping_repeating variable assures that only one ping "task" is
         # active at a time.
@@ -456,10 +457,10 @@ class RemoteSlave(object):
 
     def update_timestamp(self):
         """Set the timestamp to the current time."""
-        if self._disconnected:
+        if self._state in ('exiting', 'exited'):
             return
-        if not self.alive():
-            logger.warning('Updating timestamp of previously dead slave %s.'
+        if self._state == 'failed':
+            logger.warning('Updating timestamp of the failed slave %s.'
                     % self.id)
             self.resurrect()
         self.timestamp = time.time()
@@ -469,25 +470,29 @@ class RemoteSlave(object):
 
         Note that we can get multiple failures for one slave.
         """
-        if self.alive():
-            self._alive = False
+        if self._state == 'alive':
+            self._state = 'failed'
 
             logger.error('Lost slave %s (%s).' % (self.id, self.host))
             self.slaves.slave_dead(self)
 
     def alive(self):
         """Checks whether the Slave is responding."""
-        return self._alive
+        return self._state == 'alive'
+
+    def exited(self):
+        """Checks whether the Slave has been given an exit request."""
+        return self._state == 'exited'
 
     def resurrect(self):
-        if self.alive() or self._disconnected:
-            return False
-        else:
+        if self._state == 'failed':
             logger.warning('Slave %s (%s): resurrected' % (self.id, self.host))
             with self._pinglock:
-                self._alive = True
+                self._state = 'alive'
                 self._schedule_ping(self.pingdelay)
             return True
+        else:
+            return False
 
     def ping(self):
         """Ping the slave and schedule a follow-up ping."""
@@ -549,9 +554,8 @@ class RemoteSlave(object):
 
     def disconnect(self):
         """Disconnect the slave by sending a quit request."""
-        if self.alive():
-            self._alive = False
-            self._disconnected = True
+        if self._state not in ('exiting', 'exited'):
+            self._state = 'exiting'
             self.runqueue.do(self.send_quit)
 
     def send_quit(self):
@@ -570,7 +574,7 @@ class RemoteSlave(object):
             except socket.error, e:
                 logger.error('Socket error in quit to slave %s: %s'
                         % (self.id, e.args[1]))
-            success = False
+            self._state = 'exited'
             self._rpc = None
 
 
