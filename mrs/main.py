@@ -325,7 +325,6 @@ class Slave(BaseImplementation, Network):
 
         worker_process = multiprocessing.Process(target=worker.run_worker,
                 name='Worker', args=(self.program_class, s.request_pipe_worker))
-        worker_process.daemon = True
         worker_process.start()
 
         s.run()

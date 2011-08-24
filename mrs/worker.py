@@ -40,7 +40,7 @@ logger = getLogger('mrs')
 
 
 class WorkerSetupRequest(object):
-    """Request to worker to run setup function."""
+    """Request the worker to run the setup function."""
 
     def __init__(self, opts, args, default_dir):
         self.id = 'worker_setup'
@@ -61,7 +61,7 @@ class WorkerRemoveRequest(object):
 
 
 class WorkerMapRequest(object):
-    """Request to worker to run a map task."""
+    """Request the worker to run a map task."""
 
     def __init__(self, *args):
         (self.dataset_id, self.source, self.inputs, self.map_name,
@@ -92,7 +92,7 @@ class WorkerMapRequest(object):
 
 
 class WorkerReduceRequest(object):
-    """Request to worker to run a reduce task."""
+    """Request the to worker to run a reduce task."""
 
     def __init__(self, *args):
         (self.dataset_id, self.source, self.inputs, self.reduce_name,
@@ -124,6 +124,10 @@ class WorkerReduceRequest(object):
         t = task.ReduceTask(input_data, 0, self.source, reducer, parter,
                 self.splits, self.outdir, format)
         return t
+
+
+class WorkerQuitRequest(object):
+    """Request the worker to quit."""
 
 
 class WorkerFailure(object):
@@ -175,6 +179,9 @@ def run_worker(program_class, request_pipe):
                 program = program_class(opts, args)
                 default_dir = request.default_dir
                 response = WorkerSetupSuccess()
+
+            elif isinstance(request, WorkerQuitRequest):
+                return
 
             elif isinstance(request, WorkerRemoveRequest):
                 util.remove_recursive(request.directory)

@@ -224,6 +224,8 @@ class Slave(object):
         while True:
             for fd, event in poll.poll():
                 if fd == self.exit_pipe_recv.fileno():
+                    request = worker.WorkerQuitRequest()
+                    self.request_pipe_slave.send(request)
                     return
                 else:
                     self.process_one_response()
