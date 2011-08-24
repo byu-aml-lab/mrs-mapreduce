@@ -422,7 +422,7 @@ class RemoteSlave(object):
 
     def remove(self, dataset_id, source, delete):
         with self._rpc_lock:
-            if _state not in ('alive', 'exiting'):
+            if self._state not in ('alive', 'exiting'):
                 # Note: the master may disconnect the slave while remove
                 # requests are still pending--this isn't really a bad thing.
                 return
