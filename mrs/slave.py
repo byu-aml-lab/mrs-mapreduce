@@ -32,7 +32,7 @@ the main thread exists at all is to deal with signals.
 
 The worker process executes the user's map function and reduce function.
 That's it.  It just does what the main process tells it to.  The worker
-process is terminated when the main process quits.
+process is terminated when the main process exits.
 """
 
 # Number of ping timeouts before giving up:
@@ -77,7 +77,7 @@ class Slave(object):
 
         self.request_pipe_slave, self.request_pipe_worker = (
                 multiprocessing.Pipe())
-        self.quit_pipe_recv, self.quit_pipe_send = multiprocessing.Pipe(False)
+        self.exit_pipe_recv, self.exit_pipe_send = multiprocessing.Pipe(False)
 
         self.id = None
         self.cookie = util.random_string(COOKIE_LEN)
@@ -219,11 +219,11 @@ class Slave(object):
         """
         poll = select.poll()
         poll.register(self.request_pipe_slave, select.POLLIN)
-        poll.register(self.quit_pipe_recv, select.POLLIN)
+        poll.register(self.exit_pipe_recv, select.POLLIN)
 
         while True:
             for fd, event in poll.poll():
-                if fd == self.quit_pipe_recv.fileno():
+                if fd == self.exit_pipe_recv.fileno():
                     return
                 else:
                     self.process_one_response()
@@ -299,9 +299,9 @@ class Slave(object):
             del self._outdirs[dataset_id, source]
         return outdir
 
-    def quit(self):
-        """Called to tell the slave to quit."""
-        self.quit_pipe_send.send(1)
+    def exit(self):
+        """Called to tell the slave to exit."""
+        self.exit_pipe_send.send(1)
 
 
 class SlaveInterface(object):
@@ -351,13 +351,13 @@ class SlaveInterface(object):
 
         return success
 
-    def xmlrpc_quit(self, cookie):
+    def xmlrpc_exit(self, cookie):
         self.slave.check_cookie(cookie)
         self.slave.update_timestamp()
-        logger.info('Received a request to quit from the master.')
+        logger.info('Received a request to exit from the master.')
         # We delay before actually stopping because we need to make sure that
         # the response gets sent back.
-        self.slave.quit()
+        self.slave.exit()
         return True
 
     def xmlrpc_ping(self, cookie):

@@ -548,27 +548,28 @@ class RemoteSlave(object):
         self.runqueue.do(self.ping, delay=delay)
 
     def disconnect(self):
-        """Disconnect the slave by sending a quit request."""
+        """Disconnect the slave by sending a exit request."""
         if self.alive():
             self._alive = False
             self._disconnected = True
-            self.runqueue.do(self.send_quit)
+            logger.info('Adding a exit request to runqueue for slave %s' % self.id)
+            self.runqueue.do(self.send_exit)
 
-    def send_quit(self):
+    def send_exit(self):
         with self._rpc_lock:
             try:
-                logger.info('Sending a quit request to slave %s' % self.id)
-                self._rpc.quit(self.cookie)
+                logger.info('Sending a exit request to slave %s' % self.id)
+                self._rpc.exit(self.cookie)
             except xmlrpclib.Fault, f:
-                logger.error('Fault in quit to slave %s: %s'
+                logger.error('Fault in exit to slave %s: %s'
                         % (self.id, f.faultString))
             except xmlrpclib.ProtocolError, e:
-                logger.error('Protocol error in quit to slave %s: %s'
+                logger.error('Protocol error in exit to slave %s: %s'
                         % (self.id, e.errmsg))
             except socket.timeout:
-                logger.error('Timeout in quit to slave %s' % self.id)
+                logger.error('Timeout in exit to slave %s' % self.id)
             except socket.error, e:
-                logger.error('Socket error in quit to slave %s: %s'
+                logger.error('Socket error in exit to slave %s: %s'
                         % (self.id, e.args[1]))
             success = False
             self._rpc = None
