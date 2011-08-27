@@ -52,4 +52,7 @@ TODO
 - Slave didn't quit
 - Wordcount tutorial: serial, master/slave(s), mrs-potato
 - Simple program tutorial
+- Graceful exit for bad file in both run modes
+- Slave should ping master and timeout after x seconds
+- SocketServer error on home computer when running parallel?
 
