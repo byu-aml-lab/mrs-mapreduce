@@ -25,6 +25,7 @@
 import multiprocessing
 import select
 import threading
+import traceback
 
 from . import runner
 
@@ -43,7 +44,6 @@ class SerialRunner(runner.BaseRunner):
         try:
             self.program = self.program_class(self.opts, self.args)
         except Exception, e:
-            import traceback
             logger.critical('Exception while instantiating the program: %s'
                     % traceback.format_exc())
             return
@@ -64,14 +64,21 @@ class SerialRunner(runner.BaseRunner):
     def compute_dataset(self, dataset):
         """Called when a new ComputedData set is submitted."""
         self.worker_conn.send(dataset.id)
+  
 
     def read_worker_conn(self):
-        """Read a message from the worker.
+        """Read a response from the worker.
 
-        Each message is the id of a dataset that has finished being computed.
+        Each SerialWorkerSuccess response will contain an id of a dataset
+        that has finished being computed.
         """
         try:
-            dataset_id = self.worker_conn.recv()
+            response = self.worker_conn.recv()
+            if isinstance(response, SerialWorkerSuccess):
+                dataset_id = response.dataset_id
+            else:
+                logger.error(response.traceback)
+                return
         except EOFError:
             return
         ds = self.datasets[dataset_id]
@@ -87,11 +94,30 @@ class SerialWorker(object):
     def run(self):
         while True:
             try:
-                dataset_id = self.conn.recv()
-            except EOFError:
-                return
-            ds = self.datasets[dataset_id]
-            ds.run_serial(self.program, self.datasets)
-            self.conn.send(dataset_id)
+                try:
+                    dataset_id = self.conn.recv()
+                except EOFError:
+                    return
+                ds = self.datasets[dataset_id]
+                ds.run_serial(self.program, self.datasets)
+                response = SerialWorkerSuccess(dataset_id)
+            except Exception, e:
+                response = SerialWorkerFailure(e, traceback.format_exc())
+                
+            self.conn.send(response)
+
+
+class SerialWorkerSuccess(object):
+    """Successful response from SerialWorker."""
+    def __init__(self, dataset_id):
+        self.dataset_id = dataset_id
+        
+        
+class SerialWorkerFailure(object):
+    """Failure response from SerialWorker."""
+    def __init__(self, exception, traceback):
+        self.exception = exception
+        self.traceback = traceback
+        
 
 # vim: et sw=4 sts=4
