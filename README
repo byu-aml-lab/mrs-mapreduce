@@ -8,7 +8,7 @@ Things to consider before beginning:
 
     -Mrs was developed to run on a Linux platform. There is no Windows version
      available.
-    -Mrs is flexible enough to run on a single processor laptop, if you want, but
+    -Mrs is flexible enough to run on a single processor, if you want, but
      was designed to handle large data sets while running on multiple machines. 
     -Mrs is written in Python, so you will need to have it installed before
      trying to install Mrs. 
@@ -26,11 +26,11 @@ to proceed, a more detailed set of instructions are available below.
        passing it a text file (or text files) and an output directory. 
 
 If all went well you should have a file called source_something_something.mtxt
-in our output directory containing a list of all the words in the text file(s)
+in your output directory containing a list of all the words in the text file(s)
 with their respective counts. Congratulations! You are now ready to begin
 applying MapReduce to your own problems. Included with the source code are a
-couple of tutorials that cover writing your own very basic and somewhat more
-complex Mrs implimentation.  You may find these helpful.
+couple of tutorials that cover writing your own basic and somewhat more
+complex Mrs implimentation. You may find these helpful.
 
 
 Installation with a little more detail:
@@ -40,4 +40,8 @@ interface, the Python programing language and Git version control.
 
   1. Using Git, clone the repository at git://aml.cs.byu.edu/mrs.git
 
-
+    run: "git clone git://aml.cs.byu.edu/mrs.git
+    
+  2. Add the MRS_HOME/mrs directory to your PYTHONPATH.
+  
+    MRS_HOME refers to the path to the mrs root directory. 
