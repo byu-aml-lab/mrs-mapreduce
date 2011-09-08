@@ -9,9 +9,9 @@ Things to consider before beginning:
     -Mrs was developed to run on a Linux platform. There is no Windows version
      available.
     -Mrs is flexible enough to run on a single processor, if you want, but
-     was designed to handle large data sets while running on multiple machines. 
+     was designed to handle large data sets while running on multiple machines.
     -Mrs is written in Python, so you will need to have it installed before
-     trying to install Mrs. 
+     trying to install Mrs.
 
 
 Installation in a nutshell:
@@ -20,10 +20,11 @@ If you are an experienced programmer familiar with MapReduce, this overview may
 be all that you need to get started, but if you still feel a little unsure how
 to proceed, a more detailed set of instructions are available below.
 
-    1. Using Git, clone the repository at git://aml.cs.byu.edu/mrs.git
-    2. Add the MRS_HOME/mrs directory to your PYTHONPATH.
-    3. Navigate to the MRS_HOME/examples directory and run wordcount.py,
-       passing it a text file (or text files) and an output directory. 
+    1. Using Git, clone the repository from git://aml.cs.byu.edu/mrs.git
+       or download and unpack the tar file from code.google.com...
+    2. Navagate to the MRS_HOME folder and run setup.py.
+    3. From the MRS_HOME/examples directory, run wordcount.py, passing
+       it a text file (or text files) and an output directory.
 
 If all went well you should have a file called source_something_something.mtxt
 in your output directory containing a list of all the words in the text file(s)
@@ -35,13 +36,14 @@ complex Mrs implimentation. You may find these helpful.
 
 Installation with a little more detail:
 
-These instructions assume that you are familiar with the Linux command line
-interface, the Python programing language and Git version control. 
+These instructions assume that you are at least somewhat familiar with the Linux
+command line interface, the Python programing language and Git version
+control.
 
   1. Using Git, clone the repository at git://aml.cs.byu.edu/mrs.git
 
     run: "git clone git://aml.cs.byu.edu/mrs.git
-    
+
   2. Add the MRS_HOME/mrs directory to your PYTHONPATH.
-  
-    MRS_HOME refers to the path to the mrs root directory.... 
+
+    MRS_HOME refers to the path to the mrs root directory....
