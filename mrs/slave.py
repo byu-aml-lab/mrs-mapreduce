@@ -170,12 +170,14 @@ class Slave(object):
 
     def init_default_dir(self, jobdir):
         if self.local_shared:
+            logger.info("local_shared dir IS: %s" % self.local_shared)
             util.try_makedirs(self.local_shared)
             directory = self.local_shared
             prefix = 'mrs_slave_'
         else:
             hostname, _, _ = socket.gethostname().partition('.')
             directory = jobdir
+            logger.info("else IS: %s" % jobdir) 
             prefix = hostname
         return tempfile.mkdtemp(dir=directory, prefix=prefix)
 
@@ -321,8 +323,11 @@ class SlaveInterface(object):
         self.slave.check_cookie(cookie)
         self.slave.update_timestamp()
         logger.info('Received a Map assignment from the master.')
-        convert_url = self.slave.url_converter.global_to_local
-        inputs = [convert_url(url, host) for url in inputs]
+        
+        if self.slave.url_converter:
+            convert_url = self.slave.url_converter.global_to_local
+            inputs = [convert_url(url, host) for url in inputs]
+            
         request = worker.WorkerMapRequest(dataset_id, source, inputs,
                 func_name, part_name, splits, outdir, extension)
         return self.slave.submit_request(request)
@@ -333,8 +338,11 @@ class SlaveInterface(object):
         self.slave.check_cookie(cookie)
         self.slave.update_timestamp()
         logger.info('Received a Reduce assignment from the master.')
-        convert_url = self.slave.url_converter.global_to_local
-        inputs = [convert_url(url, host) for url in inputs]
+        
+        if self.slave.url_converter:
+            convert_url = self.slave.url_converter.global_to_local
+            inputs = [convert_url(url, host) for url in inputs]
+            
         request = worker.WorkerReduceRequest(dataset_id, source, inputs,
                 func_name, part_name, splits, outdir, extension)
         return self.slave.submit_request(request)
