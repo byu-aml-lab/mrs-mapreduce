@@ -170,14 +170,12 @@ class Slave(object):
 
     def init_default_dir(self, jobdir):
         if self.local_shared:
-            logger.info("local_shared dir IS: %s" % self.local_shared)
             util.try_makedirs(self.local_shared)
             directory = self.local_shared
             prefix = 'mrs_slave_'
         else:
             hostname, _, _ = socket.gethostname().partition('.')
             directory = jobdir
-            logger.info("else IS: %s" % jobdir) 
             prefix = hostname
         return tempfile.mkdtemp(dir=directory, prefix=prefix)
 
