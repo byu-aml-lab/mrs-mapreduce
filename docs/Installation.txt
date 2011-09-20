@@ -1,0 +1,66 @@
+Installing Mrs
+
+Mrs is a lightweight but highly scalable implementation of the well known
+MapReduce programing paradigm developed at Google. It is written entirely in
+Python and was designed for ease of use in such areas as research and education
+where the larger and more complex implementations, such as Hadoop, are not needed.
+
+Things to consider before beginning:
+
+    -Mrs was developed to run on a Linux platform. There is no Windows version
+     available.
+    -Mrs is flexible enough to run on a single processor, if you want, but
+     was designed to handle large data sets while running on multiple machines.
+    -Mrs is written in Python, so you will need to have it installed before
+     trying to install Mrs.
+
+
+Three minute, three step, installation instructions:
+
+If you are familiar with the Linux enviroment, you should have no difficulty
+installing Mrs and running it with the example program in three minutes or less.
+
+    1. Using Git, clone the repository from git://aml.cs.byu.edu/mrs.git,
+       or if you prefer, download and unpack the tar file available from
+       http://code.google.com/p/mrs-mapreduce/.
+
+       example: $ git clone git://aml.cs.byu.edu/mrs.git
+
+    2. Navagate to the MRS_HOME folder and run setup.py as root*.
+
+       example: $ sudo python setup.py install
+
+    3. From the MRS_HOME/examples directory, run wordcount.py, passing
+       it a text file (or text files) and an output directory.
+
+       example: $ python wordcount.py myTextFileDir/*.txt myOutputDir
+
+
+If all went well you should have a file called source_something_something.mtxt
+in your output directory containing a list of all the words in the text file(s)
+with their respective counts. Congratulations! You are now ready to begin
+applying MapReduce to your own problems. Tutorials for running Mrs in parallel, 
+creating a run-script, and for writing a basic MapReduce implementations are
+included in the MRS_HOME/docs folder. You may find these helpful.
+
+
+* What to do if you don't have root access:
+
+If you don't have root access, or for what ever reason don't want to run the
+install, it's not a big problem, you'll just have to add the MRS_HOME directory
+to your python path veriable. For example, to add MRS_HOME to your python path
+ variable, you could use the 'export' command as follows:
+
+    example: $ export PYTHONPATH=$PYTHONPATH:~/path_from_home_dir_to_MRS_HOME/
+
+You can do this each time you log in and run Mrs, or you can modify your
+terminal configuration file to automatically do it for you. So, if you're
+using bash, for example, you would just add the example line to your .bashrc
+file.
+    
+    
+
+THOUGHTS:
+    -Review things to consider for other dependancies
+    
+    
