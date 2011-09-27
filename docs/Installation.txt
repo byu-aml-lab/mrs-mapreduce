@@ -17,7 +17,7 @@ Things to consider before beginning:
 
 Three minute, three step, installation instructions:
 
-If you are familiar with the Linux enviroment, you should have no difficulty
+If you are familiar with the Linux environment, you should have no difficulty
 installing Mrs and running it with the example program in three minutes or less.
 
     1. Using Git, clone the repository from git://aml.cs.byu.edu/mrs.git,
@@ -46,10 +46,10 @@ included in the MRS_HOME/docs folder. You may find these helpful.
 
 * What to do if you don't have root access:
 
-If you don't have root access, or for what ever reason don't want to run the
-install, it's not a big problem, you'll just have to add the MRS_HOME directory
-to your python path veriable. For example, to add MRS_HOME to your python path
- variable, you could use the 'export' command as follows:
+If you don't have root access, or for whatever reason don't want to run the
+install, it's not a big problem, you just have to add the MRS_HOME directory
+to your python path variable. For example, to add MRS_HOME to your python path
+variable, you could use the 'export' command as follows:
 
     example: $ export PYTHONPATH=$PYTHONPATH:~/path_from_home_dir_to_MRS_HOME/
 
@@ -57,10 +57,6 @@ You can do this each time you log in and run Mrs, or you can modify your
 terminal configuration file to automatically do it for you. So, if you're
 using bash, for example, you would just add the example line to your .bashrc
 file.
-    
-    
 
-THOUGHTS:
-    -Review things to consider for other dependancies
     
     
