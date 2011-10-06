@@ -3,7 +3,7 @@
 """Runs a Mrs program using screen and pssh.
 
     Example:
-    $ python potato.py --hosts ~/admin/potatoes/russet --jobname wordcount wordcount.py bom.txt out
+    $ python runscript.py --hosts yukon wordcount.py WordCount.java out
 """
 
 import getpass
