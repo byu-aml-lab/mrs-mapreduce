@@ -21,6 +21,15 @@
 # Licensing Office, Brigham Young University, 3760 HBLL, Provo, UT 84602,
 # (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
 
+
+################################################################################
+#
+# wordcount.py is the classic, hello world MapReduce program. This is a working
+# example and is provided to demonstrate a simple Mrs implementation. It is
+# further explained in the tutorials provided in the MRS_HOME/tutorials folder.
+#
+################################################################################
+
 import string
 import mrs
 

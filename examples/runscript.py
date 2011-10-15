@@ -1,9 +1,37 @@
 #!/usr/bin/python
+# Mrs
+# Copyright 2008-2011 Brigham Young University
+#
+# This file is part of Mrs.
+#
+# Mrs is free software: you can redistribute it and/or modify it under the
+# terms of the GNU General Public License as published by the Free Software
+# Foundation, either version 3 of the License, or (at your option) any later
+# version.
+#
+# Mrs is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# Mrs.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Inquiries regarding any further use of Mrs, please contact the Copyright
+# Licensing Office, Brigham Young University, 3760 HBLL, Provo, UT 84602,
+# (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
+
+
+################################################################################
+#
+#
+#
+################################################################################
 
 """Runs a Mrs program using screen and pssh.
 
     Example:
-    $ python runscript.py --hosts slaves wordcount.py mytxt.txt
+    $ python runscript.py --hosts [slaves] [mrs program] [input]
 
     The 'slaves' file will be passed to the pssh program and should be a text
     file with the name of a slave machine on each line in the following format:
@@ -11,7 +39,12 @@
              [user@][host][:port]
 
     If the user name is left off, pssh will use the current user name, and
-    likewise for the port number the ssh default will be used (port 22).
+    likewise for the port number, the ssh default will be used (port 22).
+    
+    Note that you will need to set up passphraseless ssh between the master
+    and slave machines.
+    
+    All output is put in a folder named after the jobname. (default: 'newjob') 
 """
 
 import getpass

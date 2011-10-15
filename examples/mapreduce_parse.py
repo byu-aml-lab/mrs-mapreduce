@@ -23,6 +23,7 @@
 
 
 ################################################################################
+#
 # This file is not meant to be a completely working example; there are other
 # dependencies that we are not including, because this is not runnable without
 # a lot of other code and set up.  However, this is an example of a slightly
@@ -32,6 +33,7 @@
 # individual files in serial and make it into a MapReduce program.  If the code
 # that does the examining is easily importable, you simply need a little
 # wrapper around it that puts it into MapReduce.
+#
 ################################################################################
 
 

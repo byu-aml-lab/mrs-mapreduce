@@ -5,4 +5,8 @@ The Run-Script
 
 This tutorial explaines the example run-script include in MRS_HOME/examples. The
 script is also written in Python and uses screen and pssh to control the master
-and slaves.   
+and slaves. 
+
+ fulton.py is a script we've used to submit MapReduce jobs to Brigham
+Young University's Fulton Supercomputing Lab. It is included just as a helpful
+example.  

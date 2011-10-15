@@ -57,16 +57,10 @@ Now what?
 
 In the MRS_HOME/tutorials folder you will find three more tutorials to help you
 get started running Mrs in parallel, creating a run-script, and an introduction
-to using some of the more advanced features.
+to using some of the more advanced features. And in the MRS_HOME/examples folder
+we have included several example files that we thought you might find useful.
 
-Also, in the MRS_HOME/examples folder, we have included several examples that
-we thought you might find useful.
-
-wordcount.py is the classic, hello world, MapReduce program.
-
-finally fulton.py is a script we've used to submit MapReduce jobs to Brigham
-Young University's Fulton Supercomputing Lab. It is included just as a helpful
-example. 
+ 
 
 * What to do if you don't have root access:
 

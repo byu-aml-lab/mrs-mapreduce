@@ -22,6 +22,16 @@
 # Licensing Office, Brigham Young University, 3760 HBLL, Provo, UT 84602,
 # (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
 
+
+################################################################################
+#
+# This file is not meant to be a completely working example; We've used it to
+# submit MapReduce jobs to Brigham Young University's Fulton Supercomputing Lab.
+# It is included just as a helpful example.
+#
+################################################################################
+
+
 from __future__ import division
 
 PYTHON="/fslapps/Python-2.6.2/bin/python2.6"
