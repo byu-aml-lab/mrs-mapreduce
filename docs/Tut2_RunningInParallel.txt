@@ -1,11 +1,14 @@
-Running Mrs in Parallel Mode
+Tutorial #2
 
+
+
+Running Mrs in Parallel
 
 This tutorial will walk you through the basic configurations and options of
 running Mrs in parallel.  If you followed the installation instructions provided
-with Mrs, then you have probably already run the example wordcount program in
-serial mode and so have varified that Mrs is installed and running correctly on
-your system. Otherwise, you may want to do that before proceeding.
+in Mrs tutorial #1, then you have probably already run the example wordcount
+program in serial mode and so have varified that Mrs is installed and running
+correctly on your system. Otherwise, you may want to do that before proceeding.
 
 Assuming you have at least two machines networked together, and that Mrs is
 installed and ready to run, you will need to open two terminals, one for the
@@ -28,27 +31,27 @@ implimentations, you will need to specify which, as in:
 Now, let's run our friendly wordcount program in the most simple configuration,
 and afterwords explain some of the other options that you might want to use. To
 begin, start the Master. You will need to specify a port number, and of course
-the input file(s) and an output directory. Note that if you don't specify a port
+the input file and an output directory. Note that if you don't specify a port
 number, Mrs will automatically choose one, but you will need to run with the
 verbose option so it will print it out. You will probably want to run in verbose
 mode anyway.
 
-    exmaple: $ python wordcount.py -I Master -P 44555 --mrs-verbose dir/*.txt outDir
+    exmaple: $ python wordcount.py -I Master -P 44555 --mrs-verbose mytxt.txt outDir
 
 Next, start the Slave. The slave needs to know where to report to the master, 
 which you can specify with the -M MASTER:PORT option. 
 
-    example: $ python wordcount.py -I Slave -M prodigy:44555 --mrs-verbose
+    example: $ python wordcount.py -I Slave -M [hostname]:44555 --mrs-verbose
 
 And once again, if all went well, you should have the results in your outDir. Of
 course, if you are intrested in MapReduce, you probably have problems that you
-will need to run on many more machines than just two, so you will need a script.
-The included run-script tutorial may prove useful.
+will need to run on many more machines than just two, so you may find the Mrs
+run-script tutorial helpful.
 
 
 
 Master option: --mrs-shared=SHARED:
-     This option allows you to 
+     This option allows you to...
 
 
 

@@ -1,3 +1,7 @@
+Tutorial #1 
+
+
+
 Installing Mrs
 
 Mrs is a lightweight but highly scalable implementation of the well known
@@ -5,14 +9,13 @@ MapReduce programing paradigm developed at Google. It is written entirely in
 Python and was designed for ease of use in such areas as research and education
 where the larger and more complex implementations, such as Hadoop, are not needed.
 
+
+
 Things to consider before beginning:
 
-    -Mrs was developed to run on a Linux platform. There is no Windows version
-     available.
-    -Mrs is flexible enough to run on a single processor, if you want, but
-     was designed to handle large data sets while running on multiple machines.
     -Mrs is written in Python, so you will need to have it installed before
      trying to install Mrs.
+
 
 
 Three minute, three step, installation instructions:
@@ -26,22 +29,24 @@ installing Mrs and running it with the example program in three minutes or less.
 
        example: $ git clone git://aml.cs.byu.edu/mrs.git
 
-    2. Navagate to the MRS_HOME folder and run setup.py as root*.
+    2. Navagate to the MRS_HOME folder and run setup.py as root (see note below
+       if you don't have root access)*.
 
        example: $ sudo python setup.py install
 
-    3. From the MRS_HOME/examples directory, run wordcount.py, passing
-       it a text file (or text files) and an output directory.
+    3. Verify correct instalation by running the provided wordcount program,
+       from the MRS_HOME/examples directory, passing it an input text file and
+       an output directory name.
 
-       example: $ python wordcount.py myTextFileDir/*.txt myOutputDir
-
+       example: $ python wordcount.py myTextFile.txt myOutputDir
 
 If all went well you should have a file called source_something_something.mtxt
-in your output directory containing a list of all the words in the text file(s)
-with their respective counts. Congratulations! You are now ready to begin
-applying MapReduce to your own problems. Tutorials for running Mrs in parallel, 
-creating a run-script, and for writing a basic MapReduce implementations are
-included in the MRS_HOME/docs folder. You may find these helpful.
+in your output directory containing a list of all the words in the text file
+with their respective counts. Further tutorials to help get started running Mrs
+in parallel, creating a run-script, and an introduction to some of the more
+advanced features have been included in the MRS_HOME/docs folder. You may find
+these helpful as you begin applying Mrs to your own problems.
+
 
 
 * What to do if you don't have root access:

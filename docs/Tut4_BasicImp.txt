@@ -1,0 +1,27 @@
+Tutorial #4 
+
+Writing your own mrs implimentation.
+
+The wordcount implementation that we have been working with throught the previous
+three tutorials is designed to be a simple way to get you comfortable with mrs. 
+However, your projects may requier useing some of the more advanced features of
+mrs, so in this final tutorial we will try to introduce some of them to help you
+get started on your own projects.
+
+ 
+
+
+
+
+Your Mrs MapReduce program might look something like this:
+
+class Program(mrs.MapReduce):
+    def map(key, value):
+        yield newkey, newvalue
+
+    def reduce(key, values):
+        yield newvalue
+
+if __name__ == '__main__':
+    import mrs
+    mrs.main(mapper, reducer)

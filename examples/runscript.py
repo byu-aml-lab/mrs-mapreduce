@@ -50,7 +50,7 @@ if not opts.hostfiles:
     print >>sys.stderr,'No hosts file specified!'
     sys.exit(1)
 
-# set some variables
+# init some variables
 mrs_program = args[0]
 mrs_argv = args[1:]
 job_dir = os.path.join(opts.scratch_dir, opts.jobname)
@@ -58,6 +58,13 @@ local_shared = os.path.join(opts.local_scratch, opts.jobname)
 runfilename = os.path.join(job_dir, 'master.run')
 host_options = ' '.join('--hosts %s' % hostfile for hostfile in opts.hostfiles)
 master_hostname = socket.gethostname()
+
+# Make the job directory (note that this will fail if it already exists).
+try:
+    os.makedirs(job_dir)
+except:
+    print >>sys.stderr,'Error, job directory \"%s\" may already exist!' % job_dir
+    sys.exit(1)
 
 # This method is called to run commands on the command line
 def run(*args):
@@ -78,18 +85,10 @@ MASTER_COMMAND = ' '.join((
     '2>%s/master.err' % job_dir,
     '|tee %s/master.out' % job_dir))
 
-# Make the job directory (note that this will fail if it already exists).
-try:
-    os.makedirs(job_dir)
-except:
-    print >>sys.stderr,'Error, job directory \"%s\" may already exist!' % job_dir
-    sys.exit(1)
-
-# Create a screen session named after the job name.
-run('screen', '-dmS', opts.jobname)
-run('screen', '-S', opts.jobname, '-X', 'screen')
-
 print 'Starting the master.'
+
+# Create a screen session named after the job name and start master.
+run('screen', '-dmS', opts.jobname)
 run('screen', '-S', opts.jobname, '-p0', '-X', 'stuff', MASTER_COMMAND + '\n')
 
 while True:
@@ -119,12 +118,17 @@ PSSH_COMMAND = ' '.join((
     '-e', '%s/slaves.err' % job_dir,
     '-t -1 -p 1000',
     '"%s"' % SLAVE_COMMAND))
-
+    
 print 'Starting the slaves.'
+
+# add a second window to the screen session and run slave command
+run('screen', '-S', opts.jobname, '-X', 'screen')
 run('screen', '-S', opts.jobname, '-p1', '-X', 'stuff', PSSH_COMMAND + '\n')
 
 # Load the screen session.
 print 'Loading screen session'
 run('screen', '-r', opts.jobname, '-p0')
+
+
 
 
