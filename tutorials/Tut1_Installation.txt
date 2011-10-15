@@ -5,9 +5,9 @@ Tutorial #1
 Installing Mrs
 
 Mrs is a lightweight but highly scalable implementation of the well known
-MapReduce programing paradigm developed at Google. It is written entirely in
+MapReduce programming paradigm developed at Google. It is written entirely in
 Python and was designed for ease of use in such areas as research and education
-where the larger and more complex implementations, such as Hadoop, are not needed.
+where the larger more complex implementations, such as Hadoop, are not needed.
 
 
 
@@ -15,13 +15,20 @@ Things to consider before beginning:
 
     -Mrs is written in Python, so you will need to have it installed before
      trying to install Mrs.
+     
+    -Although, not necessary to have before installing Mrs, the following 
+     utilities can be very helpful when running Mrs in parallel:
+
+            -pssh (http://code.google.com/p/parallel-ssh/)
+            -screen (most Linux distros already have this installed)
 
 
 
 Three minute, three step, installation instructions:
 
-If you are familiar with the Linux environment, you should have no difficulty
-installing Mrs and running it with the example program in three minutes or less.
+If you are familiar with Python and the Linux environment, you should have no
+difficulty installing Mrs and running it with the example wordcount program in
+three minutes or less.
 
     1. Using Git, clone the repository from git://aml.cs.byu.edu/mrs.git,
        or if you prefer, download and unpack the tar file available from
@@ -29,12 +36,12 @@ installing Mrs and running it with the example program in three minutes or less.
 
        example: $ git clone git://aml.cs.byu.edu/mrs.git
 
-    2. Navagate to the MRS_HOME folder and run setup.py as root (see note below
-       if you don't have root access)*.
+    2. Navigate to the MRS_HOME folder and run setup.py as root (*see note below
+       if you don't have root access).
 
        example: $ sudo python setup.py install
 
-    3. Verify correct instalation by running the provided wordcount program,
+    3. Verify correct instalation by running the provided wordcount program
        from the MRS_HOME/examples directory, passing it an input text file and
        an output directory name.
 
@@ -42,12 +49,24 @@ installing Mrs and running it with the example program in three minutes or less.
 
 If all went well you should have a file called source_something_something.mtxt
 in your output directory containing a list of all the words in the text file
-with their respective counts. Further tutorials to help get started running Mrs
-in parallel, creating a run-script, and an introduction to some of the more
-advanced features have been included in the MRS_HOME/docs folder. You may find
-these helpful as you begin applying Mrs to your own problems.
+with their respective counts.
 
 
+
+Now what?
+
+In the MRS_HOME/tutorials folder you will find three more tutorials to help you
+get started running Mrs in parallel, creating a run-script, and an introduction
+to using some of the more advanced features.
+
+Also, in the MRS_HOME/examples folder, we have included several examples that
+we thought you might find useful.
+
+wordcount.py is the classic, hello world, MapReduce program.
+
+finally fulton.py is a script we've used to submit MapReduce jobs to Brigham
+Young University's Fulton Supercomputing Lab. It is included just as a helpful
+example. 
 
 * What to do if you don't have root access:
 

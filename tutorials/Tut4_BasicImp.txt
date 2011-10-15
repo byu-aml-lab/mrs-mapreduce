@@ -25,3 +25,91 @@ class Program(mrs.MapReduce):
 if __name__ == '__main__':
     import mrs
     mrs.main(mapper, reducer)
+    
+    
+
+
+
+
+
+    def input_data(self, job):
+        if len(self.args) < 2:
+            print >>sys.stderr, "Requires input(s) and an output."
+            return None
+        inputs = []
+        f = open(self.args[0])
+        for line in f:
+            inputs.append(line[:-1])
+        return job.file_data(inputs)
+        
+        
+
+
+
+
+
+
+Defining Map Functions
+======================
+
+Let's look at how to create map functions in more detail.  The simple
+WordCount mapper is:
+
+>>> def mapper(key, value):
+...     for word in value.split():
+...         yield (word, str(1))
+>>>
+
+This is great for simple examples, but what do you do if you need to do
+something special, like initializing the mapper with options before
+processing any key-value pairs?  The following example shows how this
+may be done with a factory function that creates mappers:
+
+>>> def MapperFactory(options):
+...     ignore = options['ignore'].split(', ')
+...     def f(key, value):
+...         for word in value.split():
+...             if word not in ignore:
+...                 yield (word, str(1))
+...     return f
+>>>
+
+The MapReduce system will initialize the mapper with the options
+specified by the user.  It may do something like the following:
+
+>>> mapper = Mapper({'ignore': 'a, an, the'})
+>>>
+
+This mapper works the same as the first mapper, except that it ignores
+the articles in the list.
+
+An alternative way to approach the problem is to define a class that can
+be initialized with the parameters.  The following is equivalent to the
+previous example:
+
+>>> class MapperClass:
+...     def __init__(self, options):
+...         self.ignore = options['ignore'].split(', ')
+...     def __call__(self, key, value):
+...         for word in value.split():
+...             if word not in self.ignore:
+...                 yield (word, str(1))
+>>>
+
+This Mapper class can be instantiated with options:
+
+>>> mapper = Mapper({'ignore': 'a, an, the'})
+>>>
+
+We have shown three different ways to define a map function.  The simple
+generator is the best way when no initialization or saved state is
+needed.  The factory function is the best way when initialization is
+required but no saved state is needed.  The class is the best way when
+the generator needs to modify state while processing input.
+
+
+Complex MapReduce Programs
+==========================
+
+Sometimes a MapReduce program is more complex than a map operation
+followed by a reduce operation.

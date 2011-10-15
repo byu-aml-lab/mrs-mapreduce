@@ -3,4 +3,6 @@ Tutorial #2
 
 The Run-Script
 
-This tutorial explaines the example run-script include in MRS_HOME/examples.    
+This tutorial explaines the example run-script include in MRS_HOME/examples. The
+script is also written in Python and uses screen and pssh to control the master
+and slaves.   

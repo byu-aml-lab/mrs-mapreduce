@@ -4,12 +4,12 @@
 
     Example:
     $ python runscript.py --hosts slaves wordcount.py mytxt.txt
-    
+
     The 'slaves' file will be passed to the pssh program and should be a text
     file with the name of a slave machine on each line in the following format:
-            
+
              [user@][host][:port]
-             
+
     If the user name is left off, pssh will use the current user name, and
     likewise for the port number the ssh default will be used (port 22).
 """
@@ -34,27 +34,27 @@ DEFAULT_JOBNAME = 'newjob'
 # example: $ python runscript.py --help
 parser = optparse.OptionParser()
 
-parser.add_option('--hosts', 
-        dest='hostfiles', 
+parser.add_option('--hosts',
+        dest='hostfiles',
         action='append',
-        help='Hosts file (each line "[user]@[hostname]:[port]")', 
+        help='Hosts file (each line "[user]@[hostname]:[port]")',
         default=[])
-parser.add_option('--jobname', 
-        dest='jobname', 
+parser.add_option('--jobname',
+        dest='jobname',
         action='store',
-        help='Job name. Default is \'newjob\'', 
+        help='Job name. Default is \'newjob\'',
         default=DEFAULT_JOBNAME)
-parser.add_option('--scratch', 
-        dest='scratch_dir', 
+parser.add_option('--scratch',
+        dest='scratch_dir',
         action='store',
-        help='Scratch directory. Default is current working directory', 
+        help='Scratch directory. Default is current working directory',
         default=DEFAULT_SCRATCH_DIR)
-parser.add_option('--local-scratch', 
-        dest='local_scratch', 
+parser.add_option('--local-scratch',
+        dest='local_scratch',
         action='store',
         help='Local scratch (subdir of /net/$hostname, empty string to skip)',
         default=DEFAULT_LOCAL_SCRATCH)
-        
+
 opts, args = parser.parse_args()
 
 # Make sure slave machines are specified.
@@ -124,14 +124,14 @@ SLAVE_COMMAND = ' '.join((
     '--mrs-verbose',
     '--mrs-local-shared', ('/net/\\`hostname -s\\`/' + local_shared),
     '--mrs-master=%s:%s' % (master_hostname, master_port)))
-    
+
 PSSH_COMMAND = ' '.join((
     'pssh', host_options,
-    '-o', '%s/slaves.out' % job_dir, 
+    '-o', '%s/slaves.out' % job_dir,
     '-e', '%s/slaves.err' % job_dir,
     '-t -1 -p 1000',
     '"%s"' % SLAVE_COMMAND))
-    
+
 print 'Starting the slaves.'
 
 # add a second window to the screen session and run slave command.
