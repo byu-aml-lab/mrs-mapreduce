@@ -3,7 +3,15 @@
 """Runs a Mrs program using screen and pssh.
 
     Example:
-    $ python runscript.py --hosts slaves wordcount.py test.txt
+    $ python runscript.py --hosts slaves wordcount.py mytxt.txt
+    
+    The 'slaves' file will be passed to the pssh program and should be a text
+    file with the name of a slave machine on each line in the following format:
+            
+             [user@][host][:port]
+             
+    If the user name is left off, pssh will use the current user name, and
+    likewise for the port number the ssh default will be used (port 22).
 """
 
 import getpass
@@ -21,6 +29,9 @@ DEFAULT_JOBNAME = 'newjob'
 ##############################################################################
 # Setup
 
+# Here we use python's option parser to setup any run options we may want.
+# They can be prented out with the --help option from the command line:
+# example: $ python runscript.py --help
 parser = optparse.OptionParser()
 
 parser.add_option('--hosts', 
@@ -46,11 +57,12 @@ parser.add_option('--local-scratch',
         
 opts, args = parser.parse_args()
 
+# Make sure slave machines are specified.
 if not opts.hostfiles:
     print >>sys.stderr,'No hosts file specified!'
     sys.exit(1)
 
-# init some variables
+# Initalize any needed variables.
 mrs_program = args[0]
 mrs_argv = args[1:]
 job_dir = os.path.join(opts.scratch_dir, opts.jobname)
@@ -66,7 +78,7 @@ except:
     print >>sys.stderr,'Error, job directory \"%s\" may already exist!' % job_dir
     sys.exit(1)
 
-# This method is called to run commands on the command line
+# This method is called to run commands on the command line.
 def run(*args):
     returncode = subprocess.call(args)
     if returncode != 0:
@@ -91,6 +103,7 @@ print 'Starting the master.'
 run('screen', '-dmS', opts.jobname)
 run('screen', '-S', opts.jobname, '-p0', '-X', 'stuff', MASTER_COMMAND + '\n')
 
+# Wait for the master to start and get the port number.
 while True:
     try:
         runfile = open(runfilename)
@@ -121,7 +134,7 @@ PSSH_COMMAND = ' '.join((
     
 print 'Starting the slaves.'
 
-# add a second window to the screen session and run slave command
+# add a second window to the screen session and run slave command.
 run('screen', '-S', opts.jobname, '-X', 'screen')
 run('screen', '-S', opts.jobname, '-p1', '-X', 'stuff', PSSH_COMMAND + '\n')
 
