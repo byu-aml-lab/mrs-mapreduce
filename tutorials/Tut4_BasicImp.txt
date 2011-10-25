@@ -1,36 +1,44 @@
 Tutorial #4 
 
-Writing your own mrs implimentation.
-
-The wordcount implementation that we have been working with throught the previous
-three tutorials is designed to be a simple way to get you comfortable with mrs. 
-However, your projects may requier useing some of the more advanced features of
-mrs, so in this final tutorial we will try to introduce some of them to help you
-get started on your own projects.
-
- 
 
 
+Writing Your Own Mrs Implimentation:
 
+The wordcount implementation that we have been working with throught the
+previous three tutorials shows a Mrs program in it's most simple form. In this
+tutorial, we will try to explain the Basic format for a Mrs MapReduce program
+and some of the options for a more complex implimentation.
 
-Your Mrs MapReduce program might look something like this:
+The Basic format for a Mrs MapReduce program looks something like this:
 
-class Program(mrs.MapReduce):
-    def map(key, value):
-        yield newkey, newvalue
+    class Mrs-Program(mrs.MapReduce):
 
-    def reduce(key, values):
-        yield newvalue
+        def map(key, value):
+            yield newkey, newvalue
 
-if __name__ == '__main__':
-    import mrs
-    mrs.main(mapper, reducer)
+        def reduce(key, values):
+            yield newvalue
+
+    if __name__ == '__main__':
+        import mrs
+        mrs.main(Mrs-Program)
     
-    
+Here we create a class that extends the mapreduce.py file in MRS_HOME/mrs, and
+overrides only the required map and reduce functions. The last section of code
+(the "if __name__ == '__main__':" section) just passes the program to Mrs
+to run. 
 
+For example, in the map function in the wordcount program, we take in a chunk of
+text as the starting value, break it up into words and yield each word as a new
+key with a value of one (found one instance of that word). Then the reduce
+function sums all values associated with a particular key (word), and yields
+the result.
 
-
-
+But what if, instead to reading in just one textfile and counting the words as
+we've been doing, you had thousands of files that you wanted to count? This is a
+little more complicated, so you would probably want to override the input_data()
+function from mapreduce.py, by adding something like the following to your the
+wordcount program. 
 
     def input_data(self, job):
         if len(self.args) < 2:
@@ -41,75 +49,86 @@ if __name__ == '__main__':
         for line in f:
             inputs.append(line[:-1])
         return job.file_data(inputs)
+
+Now, you can just pass in a single file containing the path to each text file on
+a line of the input file, and it will read them all in.
         
-        
+In the examples folder we have included a file called mapreduce-parse.py as an
+example of a much more complex implimentation where there was a need to extend
+several of the functions. 
 
 
 
+Defining More Complex Map Functions:
 
+Let's look at how to create map functions in more detail. The simple WordCount
+mapper is:
 
-
-Defining Map Functions
-======================
-
-Let's look at how to create map functions in more detail.  The simple
-WordCount mapper is:
-
->>> def mapper(key, value):
-...     for word in value.split():
-...         yield (word, str(1))
->>>
+    def mapper(key, value):
+        for word in value.split():
+            yield (word, str(1))
 
 This is great for simple examples, but what do you do if you need to do
 something special, like initializing the mapper with options before
-processing any key-value pairs?  The following example shows how this
-may be done with a factory function that creates mappers:
+processing any key-value pairs?  The following example shows how thismay be
+done with a factory function that creates mappers:
 
->>> def MapperFactory(options):
-...     ignore = options['ignore'].split(', ')
-...     def f(key, value):
-...         for word in value.split():
-...             if word not in ignore:
-...                 yield (word, str(1))
-...     return f
->>>
+    def MapperFactory(options):
+        ignore = options['ignore'].split(', ')
+        def f(key, value):
+            for word in value.split():
+                if word not in ignore:
+                    yield (word, str(1))
+        return f
 
-The MapReduce system will initialize the mapper with the options
-specified by the user.  It may do something like the following:
+The MapReduce system will initialize the mapper with the options specified by
+the user. It may do something like the following:
 
->>> mapper = Mapper({'ignore': 'a, an, the'})
->>>
+    mapper = Mapper({'ignore': 'a, an, the'})
 
-This mapper works the same as the first mapper, except that it ignores
-the articles in the list.
+This mapper works the same as the first mapper, except that it ignores the
+articles in the list.
 
-An alternative way to approach the problem is to define a class that can
-be initialized with the parameters.  The following is equivalent to the
+An alternative way to approach the problem is to define a class that can be
+initialized with the parameters.  The following is equivalent to the
 previous example:
 
->>> class MapperClass:
-...     def __init__(self, options):
-...         self.ignore = options['ignore'].split(', ')
-...     def __call__(self, key, value):
-...         for word in value.split():
-...             if word not in self.ignore:
-...                 yield (word, str(1))
->>>
+    class MapperClass:
+        def __init__(self, options):
+            self.ignore = options['ignore'].split(', ')
+        def __call__(self, key, value):
+            for word in value.split():
+                if word not in self.ignore:
+                    yield (word, str(1))
 
 This Mapper class can be instantiated with options:
 
->>> mapper = Mapper({'ignore': 'a, an, the'})
->>>
+    mapper = Mapper({'ignore': 'a, an, the'})
 
-We have shown three different ways to define a map function.  The simple
-generator is the best way when no initialization or saved state is
-needed.  The factory function is the best way when initialization is
-required but no saved state is needed.  The class is the best way when
-the generator needs to modify state while processing input.
+Of the three different ways just shown to define a map function, the simple
+generator is the best way when no initialization or saved state is needed.
+The factory function is the best way when initialization is required but no
+saved state is needed. And the class is the best way when the generator needs
+to modify state while processing input.
 
 
-Complex MapReduce Programs
-==========================
 
-Sometimes a MapReduce program is more complex than a map operation
-followed by a reduce operation.
+Finally:
+
+Hopefully these examples have proven helpful in getting you started solving your
+own problems. Any issues (problems/bugs) can be reported on Mrs's Google code
+page: 
+
+    http://code.google.com/p/mrs-mapreduce/ 
+
+Mrs feedback is also welcome at:
+
+    kseppi@byu.edu
+
+
+
+
+  
+
+
+

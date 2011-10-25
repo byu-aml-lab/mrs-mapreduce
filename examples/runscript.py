@@ -24,7 +24,8 @@
 
 ################################################################################
 #
-#
+# This is the run-script referenced in Mrs tutorial #3. It should work as
+# is, but of course is meant to be adapted as needed. 
 #
 ################################################################################
 
@@ -39,10 +40,10 @@
              [user@][host][:port]
 
     If the user name is left off, pssh will use the current user name, and
-    likewise for the port number, the ssh default will be used (port 22).
+    for the port number, the ssh default will be used (port 22).
     
     Note that you will need to set up passphraseless ssh between the master
-    and slave machines.
+    and slave machines before running this script.
     
     All output is put in a folder named after the jobname. (default: 'newjob') 
 """
@@ -55,7 +56,7 @@ import subprocess
 import sys
 import time
 
-DEFAULT_SCRATCH_DIR = os.getcwd()
+DEFAULT_OUTPUT_DIR = os.getcwd() # set default to current working directory
 DEFAULT_LOCAL_SCRATCH = getpass.getuser()
 DEFAULT_JOBNAME = 'newjob'
 
@@ -63,25 +64,25 @@ DEFAULT_JOBNAME = 'newjob'
 # Setup
 
 # Here we use python's option parser to setup any run options we may want.
-# They can be prented out with the --help option from the command line:
+# They can be printed out with the --help option from the command line:
 # example: $ python runscript.py --help
 parser = optparse.OptionParser()
 
 parser.add_option('--hosts',
         dest='hostfiles',
         action='append',
-        help='Hosts file (each line "[user]@[hostname]:[port]")',
+        help='Hosts file (each line "[user@][hostname][:port]")',
         default=[])
 parser.add_option('--jobname',
         dest='jobname',
         action='store',
         help='Job name. Default is \'newjob\'',
         default=DEFAULT_JOBNAME)
-parser.add_option('--scratch',
-        dest='scratch_dir',
+parser.add_option('--outdir',
+        dest='out_dir',
         action='store',
-        help='Scratch directory. Default is current working directory',
-        default=DEFAULT_SCRATCH_DIR)
+        help='Output directory. Default is current working directory',
+        default=DEFAULT_OUTPUT_DIR)
 parser.add_option('--local-scratch',
         dest='local_scratch',
         action='store',
@@ -96,11 +97,11 @@ if not opts.hostfiles:
     sys.exit(1)
 
 # Initalize any needed variables.
-mrs_program = args[0]
-mrs_argv = args[1:]
-job_dir = os.path.join(opts.scratch_dir, opts.jobname)
+mrs_program = args[0] # get name of Mrs program
+mrs_argv = args[1:] # get input file
+job_dir = os.path.join(opts.out_dir, opts.jobname)
 local_shared = os.path.join(opts.local_scratch, opts.jobname)
-runfilename = os.path.join(job_dir, 'master.run')
+runfilename = os.path.join(job_dir, 'master.run') # this will have the port num
 host_options = ' '.join('--hosts %s' % hostfile for hostfile in opts.hostfiles)
 master_hostname = socket.gethostname()
 
@@ -121,6 +122,14 @@ def run(*args):
 ##############################################################################
 # Start Master
 
+# This is just setting up the command that will be passed to the run method
+# to start the master. The "2>%s/master.err..." line is using the stderr file 
+# discriptor (2) and the redirection symbol (>) to redirect any error messages
+# to the master.err file in the job directory. And the "|tee %s/master.out..."
+# line is piping (|) the master's output to the 'tee' command, which will split
+# the output so that it writes to both the stdout (the terminal) and be saved
+# in the master.out file.
+
 MASTER_COMMAND = ' '.join((
     'python %s' % mrs_program, ' '.join(mrs_argv), '%s/results' % job_dir,
     '--mrs=Master',
@@ -132,7 +141,7 @@ MASTER_COMMAND = ' '.join((
 
 print 'Starting the master.'
 
-# Create a screen session named after the job name and start master.
+# Create a screen session named after the job name, and then start master.
 run('screen', '-dmS', opts.jobname)
 run('screen', '-S', opts.jobname, '-p0', '-X', 'stuff', MASTER_COMMAND + '\n')
 

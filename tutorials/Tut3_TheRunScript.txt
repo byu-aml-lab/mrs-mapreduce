@@ -1,12 +1,47 @@
-Tutorial #2
+Tutorial #3
 
 
-The Run-Script
 
-This tutorial explaines the example run-script include in MRS_HOME/examples. The
-script is also written in Python and uses screen and pssh to control the master
-and slaves. 
+Using a run-script:
 
- fulton.py is a script we've used to submit MapReduce jobs to Brigham
-Young University's Fulton Supercomputing Lab. It is included just as a helpful
-example.  
+Now that you have run Mrs manually and are familiar with the Mrs interface you
+are ready to start with the run-script. A run-script allows you to easily start
+the master and hundreds of slave machines all at once. We have included an
+example script in the MRS_HOME/examples directory. It is written in Python and
+uses the screen and pssh utilities. If you are not familiar with screen or pssh
+you might want to work through one of the many online tutorials or at least
+review their man pages before proceeding. You don't need to be an expert but it
+could be very helpful to know the basic commands for manipulating  a screen
+session such as creating, attaching/disattaching a screen session, and changing
+windows from within a session.
+
+The example run-script is pretty well documented, and of course you can print
+out the run options with the --help command.
+
+    example: $ python runscript.py --help
+
+To run the script you will need to modify the MRS_HOME/examples/slaves file.
+When the program is run the slaves file will be passed to the pssh program and
+should be a text file with the name of a slave machine on each line in the
+following format:
+
+         [user@][host][:port]
+
+If the user name is left off, pssh will use the current user name, and for the
+port number, the ssh default will be used (port 22).
+    
+You will also need to set up passphraseless ssh between the master and slave
+machines before running the script. Instructions for how to do this are easly
+found online. 
+
+Finally once you have modified the slaves file and set up passphraseless ssh,
+you should be able to run it by passing it a host file, a mrs program and some
+input. 
+
+    example: $ python runscript.py --hosts slaves wordcount.py mytxt.txt
+    
+You do not need to specify an output folder as you did when running manually as
+all output is put in a folder named after the jobname. You can specify the job
+name with the --jobname option, or if you don't specify, Mrs will default to
+'newjob.'
+

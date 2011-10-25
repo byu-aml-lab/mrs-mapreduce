@@ -36,8 +36,8 @@ three minutes or less.
 
        example: $ git clone git://aml.cs.byu.edu/mrs.git
 
-    2. Navigate to the MRS_HOME folder and run setup.py as root (*see note below
-       if you don't have root access).
+    2. Navigate to the MRS_HOME folder and run setup.py as root(*see notes below
+       if you don't have root access, or if you have problems running setup.py).
 
        example: $ sudo python setup.py install
 
@@ -55,10 +55,11 @@ with their respective counts.
 
 Now what?
 
-In the MRS_HOME/tutorials folder you will find three more tutorials to help you
-get started running Mrs in parallel, creating a run-script, and an introduction
-to using some of the more advanced features. And in the MRS_HOME/examples folder
-we have included several example files that we thought you might find useful.
+In the MRS_HOME/tutorials folder you will find three more tutorials to help
+you get started running Mrs in parallel both manually and with a run-script,
+and an introduction to using some of the more advanced features that Mrs offers.
+Also, in the MRS_HOME/examples folder we have included several example files
+refernced in the tutorials that we thought you might find useful.
 
  
 
@@ -76,5 +77,19 @@ terminal configuration file to automatically do it for you. So, if you're
 using bash, for example, you would just add the example line to your .bashrc
 file.
 
-    
+
+
+* If you have problems running setup.py:
+
+You probably don't have setuptools installed. Run the following commands:
+
+    $ wget 'http://peak.telecommunity.com/dist/ez_setup.py'
+
+    $ sudo python ez_setup.py
+
+And then return to step 2. Or, follow the instructions for what to do if you
+don't have root access and skip step 2.
+
+
+ 
     

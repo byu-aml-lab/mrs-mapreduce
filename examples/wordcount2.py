@@ -21,12 +21,12 @@
 # Licensing Office, Brigham Young University, 3760 HBLL, Provo, UT 84602,
 # (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
 
-
 ################################################################################
 #
-# wordcount.py is the classic, hello world MapReduce program. This is a working
-# example and is provided to demonstrate a simple Mrs implementation. It is
-# further explained in the tutorials provided in the MRS_HOME/tutorials folder.
+# wordcount2.py is just like wordcount.py except that it allows you to pass in
+# a single file that enumerates a set of input text files. (See the examples
+# folder for an example input file.) This is done by overriding the input_data()
+# function in MRS_HOME/mrs/mapreduce.py.
 #
 ################################################################################
 
@@ -44,6 +44,16 @@ class WordCount(mrs.MapReduce):
     def reduce(self, key, values):
         yield str(sum(int(x) for x in values))
 
+    def input_data(self, job):
+        if len(self.args) < 2:
+            print >>sys.stderr, "Requires input(s) and an output."
+            return None
+        inputs = []
+        f = open(self.args[0])
+        for line in f:
+            inputs.append(line[:-1])
+        return job.file_data(inputs)
+        
 if __name__ == '__main__':
     mrs.main(WordCount)
 
