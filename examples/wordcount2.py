@@ -53,7 +53,7 @@ class WordCount(mrs.MapReduce):
         for line in f:
             inputs.append(line[:-1])
         return job.file_data(inputs)
-        
+
 if __name__ == '__main__':
     mrs.main(WordCount)
 

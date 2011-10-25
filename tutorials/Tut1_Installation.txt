@@ -1,4 +1,4 @@
-Tutorial #1 
+Tutorial #1
 
 
 
@@ -15,8 +15,8 @@ Things to consider before beginning:
 
     -Mrs is written in Python, so you will need to have it installed before
      trying to install Mrs.
-     
-    -Although, not necessary to have before installing Mrs, the following 
+
+    -Although, not necessary to have before installing Mrs, the following
      utilities can be very helpful when running Mrs in parallel:
 
             -pssh (http://code.google.com/p/parallel-ssh/)
@@ -61,7 +61,7 @@ and an introduction to using some of the more advanced features that Mrs offers.
 Also, in the MRS_HOME/examples folder we have included several example files
 refernced in the tutorials that we thought you might find useful.
 
- 
+
 
 * What to do if you don't have root access:
 
@@ -91,5 +91,5 @@ And then return to step 2. Or, follow the instructions for what to do if you
 don't have root access and skip step 2.
 
 
- 
-    
+
+

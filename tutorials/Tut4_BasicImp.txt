@@ -1,4 +1,4 @@
-Tutorial #4 
+Tutorial #4
 
 
 
@@ -22,11 +22,11 @@ The Basic format for a Mrs MapReduce program looks something like this:
     if __name__ == '__main__':
         import mrs
         mrs.main(Mrs-Program)
-    
+
 Here we create a class that extends the mapreduce.py file in MRS_HOME/mrs, and
 overrides only the required map and reduce functions. The last section of code
 (the "if __name__ == '__main__':" section) just passes the program to Mrs
-to run. 
+to run.
 
 For example, in the map function in the wordcount program, we take in a chunk of
 text as the starting value, break it up into words and yield each word as a new
@@ -38,7 +38,7 @@ But what if, instead to reading in just one textfile and counting the words as
 we've been doing, you had thousands of files that you wanted to count? This is a
 little more complicated, so you would probably want to override the input_data()
 function from mapreduce.py, by adding something like the following to your the
-wordcount program. 
+wordcount program.
 
     def input_data(self, job):
         if len(self.args) < 2:
@@ -52,10 +52,10 @@ wordcount program.
 
 Now, you can just pass in a single file containing the path to each text file on
 a line of the input file, and it will read them all in.
-        
+
 In the examples folder we have included a file called mapreduce-parse.py as an
 example of a much more complex implimentation where there was a need to extend
-several of the functions. 
+several of the functions.
 
 
 
@@ -117,18 +117,18 @@ Finally:
 
 Hopefully these examples have proven helpful in getting you started solving your
 own problems. Any issues (problems/bugs) can be reported on Mrs's Google code
-page: 
+page:
 
-    http://code.google.com/p/mrs-mapreduce/ 
+    http://code.google.com/p/mrs-mapreduce/
 
-Mrs feedback is also welcome at:
+Mrs feedback and questions are welcome at:
 
-    kseppi@byu.edu
-
-
+    mrs-mapreduce@googlegroups.com
 
 
-  
+
+
+
 
 
 

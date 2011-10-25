@@ -29,17 +29,17 @@ following format:
 
 If the user name is left off, pssh will use the current user name, and for the
 port number, the ssh default will be used (port 22).
-    
+
 You will also need to set up passphraseless ssh between the master and slave
 machines before running the script. Instructions for how to do this are easly
-found online. 
+found online.
 
 Finally once you have modified the slaves file and set up passphraseless ssh,
 you should be able to run it by passing it a host file, a mrs program and some
-input. 
+input.
 
     example: $ python runscript.py --hosts slaves wordcount.py mytxt.txt
-    
+
 You do not need to specify an output folder as you did when running manually as
 all output is put in a folder named after the jobname. You can specify the job
 name with the --jobname option, or if you don't specify, Mrs will default to

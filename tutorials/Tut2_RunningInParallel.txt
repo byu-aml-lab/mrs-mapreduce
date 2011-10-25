@@ -37,22 +37,17 @@ mode anyway.
 
     exmaple: $ python wordcount.py -I Master -P 44555 --mrs-verbose mytxt.txt outDir
 
-Next, start the Slave. The slave needs to know where to report to the master, 
-which you can specify with the -M HOST:PORT option. 
+Next, start the Slave. The slave needs to know where to report to the master,
+which you can specify with the -M HOST:PORT option.
 
     example: $ python wordcount.py -I Slave -M [masterName]:44555 --mrs-verbose
 
-And once again, if all went well, you should have the results in your outDir. 
+And once again, if all went well, you should have the results in your outDir.
 Of course, if you are intrested in MapReduce, you probably have problems that
 you need to run on many more machines than just two. Mrs tutorial #3 explains
 how to get started using a run-script.
 
 
 
-Master option: --mrs-shared=SHARED:
-     This option allows you to specify a directory for the 
 
 
-
-    
-    

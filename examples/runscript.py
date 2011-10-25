@@ -25,7 +25,7 @@
 ################################################################################
 #
 # This is the run-script referenced in Mrs tutorial #3. It should work as
-# is, but of course is meant to be adapted as needed. 
+# is, but of course is meant to be adapted as needed.
 #
 ################################################################################
 
@@ -41,11 +41,11 @@
 
     If the user name is left off, pssh will use the current user name, and
     for the port number, the ssh default will be used (port 22).
-    
+
     Note that you will need to set up passphraseless ssh between the master
     and slave machines before running this script.
-    
-    All output is put in a folder named after the jobname. (default: 'newjob') 
+
+    All output is put in a folder named after the jobname. (default: 'newjob')
 """
 
 import getpass
@@ -133,7 +133,7 @@ def run(*args):
 # Start Master
 
 # This is just setting up the command that will be passed to the run method
-# to start the master. The "2>%s/master.err..." line is using the stderr file 
+# to start the master. The "2>%s/master.err..." line is using the stderr file
 # discriptor (2) and the redirection symbol (>) to redirect any error messages
 # to the master.err file in the job directory. And the "|tee %s/master.out..."
 # line is piping (|) the master's output to the 'tee' command, which will split
