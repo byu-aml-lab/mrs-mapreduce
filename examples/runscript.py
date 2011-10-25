@@ -96,6 +96,16 @@ if not opts.hostfiles:
     print >>sys.stderr,'No hosts file specified!'
     sys.exit(1)
 
+# Make sure that pssh and screen are installed
+rtcode1 = subprocess.call(('which', 'pssh'), stdout=open('/dev/null', 'w'))
+rtcode2 = subprocess.call(('which', 'screen'), stdout=open('/dev/null', 'w'))
+if rtcode1:
+    print >>sys.stderr,'Error: Pssh not installed!'
+    sys.exit(1)
+if rtcode2:
+    print >>sys.stderr,'Error: Screen not installed!'
+    sys.exit(1)
+
 # Initalize any needed variables.
 mrs_program = args[0] # get name of Mrs program
 mrs_argv = args[1:] # get input file
