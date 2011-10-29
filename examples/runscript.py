@@ -97,12 +97,10 @@ if not opts.hostfiles:
     sys.exit(1)
 
 # Make sure that pssh and screen are installed
-rtcode1 = subprocess.call(('which', 'pssh'), stdout=open('/dev/null', 'w'))
-rtcode2 = subprocess.call(('which', 'screen'), stdout=open('/dev/null', 'w'))
-if rtcode1:
+if subprocess.call(('which', 'pssh'), stdout=open('/dev/null', 'w')):
     print >>sys.stderr,'Error: Pssh not installed!'
     sys.exit(1)
-if rtcode2:
+if subprocess.call(('which', 'screen'), stdout=open('/dev/null', 'w')):
     print >>sys.stderr,'Error: Screen not installed!'
     sys.exit(1)
 
@@ -122,7 +120,7 @@ except:
     print >>sys.stderr,'Error, job directory \"%s\" may already exist!' % job_dir
     sys.exit(1)
 
-# This method is called to run commands on the command line.
+# This method will be called to run commands on the command line.
 def run(*args):
     returncode = subprocess.call(args)
     if returncode != 0:

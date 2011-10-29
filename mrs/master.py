@@ -22,7 +22,6 @@
 
 """Mrs Master
 
-More information coming soon.
 """
 
 # Note that the actual backlog may be limited by the OS--in Linux see:

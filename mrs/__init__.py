@@ -20,12 +20,11 @@
 # Licensing Office, Brigham Young University, 3760 HBLL, Provo, UT 84602,
 # (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
 
-# TODO: fix the sample code in the following docstring:
 """Mrs: MapReduce - a Simple implementation
 
 Your Mrs MapReduce program might look something like this:
 
-class Program(mrs.MapReduce):
+class Mrs_Program(mrs.MapReduce):
     def map(key, value):
         yield newkey, newvalue
 
@@ -34,7 +33,7 @@ class Program(mrs.MapReduce):
 
 if __name__ == '__main__':
     import mrs
-    mrs.main(mapper, reducer)
+    mrs.main(Mrs_Program)
 """
 
 # Set up the default logging configuration.

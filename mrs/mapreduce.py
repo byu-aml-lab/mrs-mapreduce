@@ -22,9 +22,9 @@
 
 """Standard MapReduce programs.
 
-For now, this module consists of the MapReduce class, which provides the
-implementation for a standard MapReduce program.  However, the MapReduce class
-can be extended to create much more complex programs.
+This module consists of the MapReduce class, which provides the implementation
+for a standard MapReduce program.  However, the MapReduce class can be extended
+to create much more complex programs.
 """
 
 import sys

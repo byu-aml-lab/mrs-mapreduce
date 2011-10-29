@@ -59,7 +59,7 @@ In the MRS_HOME/tutorials folder you will find three more tutorials to help
 you get started running Mrs in parallel both manually and with a run-script,
 and an introduction to using some of the more advanced features that Mrs offers.
 Also, in the MRS_HOME/examples folder we have included several example files
-refernced in the tutorials that we thought you might find useful.
+referenced in the tutorials that we thought you might find useful.
 
 
 

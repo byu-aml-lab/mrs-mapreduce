@@ -38,7 +38,7 @@ But what if, instead to reading in just one textfile and counting the words as
 we've been doing, you had thousands of files that you wanted to count? This is a
 little more complicated, so you would probably want to override the input_data()
 function from mapreduce.py, by adding something like the following to your the
-wordcount program.
+wordcount program. (See wordcount2.py in the examples folder.)
 
     def input_data(self, job):
         if len(self.args) < 2:
@@ -51,7 +51,8 @@ wordcount program.
         return job.file_data(inputs)
 
 Now, you can just pass in a single file containing the path to each text file on
-a line of the input file, and it will read them all in.
+a line of the input file, and it will read them all in. (See input_files in the
+example folder.)
 
 In the examples folder we have included a file called mapreduce-parse.py as an
 example of a much more complex implimentation where there was a need to extend
