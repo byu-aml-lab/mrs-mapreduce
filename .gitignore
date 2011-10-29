@@ -1,4 +1,6 @@
 TODO
+dist/*
+MapReduce_Simplified.egg-info/*
 *.pyc
 *.swp
 mrs.job*
