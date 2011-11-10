@@ -6,21 +6,21 @@ Tutorial #3
 
 .. _writing-your-own:
 
-Writing Your Own Mrs Implimentation:
+Writing Your Own Mrs Program:
 ====================================
 
-The wordcount implementation that we have been working with throught the
+The wordcount program that we have been working with throught the
 previous three tutorials shows a Mrs program in it's most simple form. In this
 tutorial, we will try to explain the Basic format for a Mrs MapReduce program
-and some of the options for a more complex implimentation.
+and some of the options for a more complex program.
 
 The Basic format for a Mrs MapReduce program looks something like this ::
 
     class Mrs-Program(mrs.MapReduce):
-    
+
         def map(key, value):
             yield newkey, newvalue
-      
+
         def reduce(key, values):
             yield newvalue
 
@@ -60,7 +60,7 @@ a line of the input file, and it will read them all in. (See input_files in the
 example folder.)
 
 In the examples folder we have included a file called mapreduce-parse.py as an
-example of a much more complex implimentation where there was a need to extend
+example of a much more complex program where there was a need to extend
 several of the functions.
 
 
