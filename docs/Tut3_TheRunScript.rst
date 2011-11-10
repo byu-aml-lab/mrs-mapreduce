@@ -8,6 +8,7 @@ Tutorial #3
 .. _using-run-script:
 
 Using a run-script
+=============================
 
 Now that you have run Mrs manually and are familiar with the Mrs interface you
 are ready to start with the run-script. A run-script allows you to easily start
@@ -21,14 +22,14 @@ session such as creating, attaching/disattaching a screen session, and changing
 windows from within a session.
 
 The example run-script is pretty well documented, and of course you can print
-out the run options with the --help command.
+out the run options with the --help command.::
 
     > python runscript.py --help
 
 To run the script you will need to modify the MRS_HOME/examples/slaves file.
 When the program is run the slaves file will be passed to the pssh program and
 should be a text file with the name of a slave machine on each line in the
-following format:
+following format:::
 
          > [user@][host][:port]
 
@@ -41,7 +42,7 @@ found online.
 
 Finally once you have modified the slaves file and set up passphraseless ssh,
 you should be able to run it by passing it a host file, a mrs program and some
-input.
+input.::
 
     > python runscript.py --hosts slaves wordcount.py mytxt.txt
 
