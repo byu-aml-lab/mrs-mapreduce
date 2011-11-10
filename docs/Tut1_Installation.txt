@@ -25,9 +25,9 @@ Things to consider before beginning
     2. Although, not necessary to have before installing Mrs, the following
        utilities can be very helpful when running Mrs in parallel:
 
-            -pssh *(http://code.google.com/p/parallel-ssh/)*
-            
-            -screen *(most Linux distros already have this installed)*
+            - pssh *(http://code.google.com/p/parallel-ssh/)*
+
+            - screen *(most Linux distros already have this installed)*
 
 
 
