@@ -1,5 +1,16 @@
 
-pypi
-google code
-mailing list
-freashmeat
+*****************
+Release Checklist
+*****************
+
+
+#. Run `python setup.py check`
+#. Run `python setup.py test`
+#. Update the version number.
+  #. Update the version in setup.py
+  #. Update the version in mrs/version.py
+  #. Commit to the Git repository.
+#. Tag the new commit with `git tag vX.X`
+#. Create and upload a release tarball with `python setup.py register bdist upload`
+#. Send announcement email to the mrs-mapreduce@googlegroups.com mailing list.
+#. Announce on Freshmeat.
