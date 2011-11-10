@@ -1,5 +1,3 @@
 include LICENSE
 recursive-include examples *
-recursive-include tutorials *
-
-
+recursive-include docs *
