@@ -1,3 +1,4 @@
+html/*
 dist/*
 MapReduce_Simplified.egg-info/*
 *.pyc
