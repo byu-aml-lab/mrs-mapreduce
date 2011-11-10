@@ -36,9 +36,9 @@ Contents:
 .. toctree::
    :maxdepth: 2
    
-   Tut1_Installation.rst
-   Tut2_RunningInParallel.rst
-   Tut3_BasicImp.rst
+   Tut1_Installation.txt
+   Tut2_RunningInParallel.txt
+   Tut3_BasicImp.txt
 
 Indices and tables
 ==================
