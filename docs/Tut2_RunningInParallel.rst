@@ -1,8 +1,13 @@
+.. _Tut2_RunningInParallel:
+
+***********
 Tutorial #2
+***********
 
-
+.. _running-manually:
 
 Running Mrs in Parallel manually
+================================
 
 This tutorial will walk you through the basic configurations and options of
 running Mrs in parallel.  If you followed the installation instructions provided
@@ -15,17 +20,17 @@ In the slave terminal, ssh into the slave machine and in both, navagate to the
 MRS_HOME/examples directory.
 
 Before running anything, let's get familiar with the various options, by
-running the --help (or -h) option.
+running the --help (or -h) option. ::
 
-    example: $ python wordcount.py --help
+    > python wordcount.py --help
 
 Running this command should display a list of the available options. Take note
 of the -I IMPLEMENTATION option where IMPLEMENTATION could be Serial, Master,
 Slave or Bypass. This will be followed by options specific to the default
 implimentation, which is serial. To access the options for the other
-implimentations, you will need to specify which, as in:
+implimentations, you will need to specify which, as in: ::
 
-    example: $ python wordcount.py -I Master -h
+    > python wordcount.py -I Master -h
 
 Now, let's run our friendly wordcount program in the most simple configuration,
 and afterwords explain some of the other options that you might want to use. To
@@ -33,19 +38,68 @@ begin, start the Master. You will need to specify a port number, and of course
 the input file and an output directory. Note that if you don't specify a port
 number, Mrs will automatically choose one, but you will need to run with the
 verbose option so it will print it out. You will probably want to run in verbose
-mode anyway.
+mode anyway. ::
 
-    exmaple: $ python wordcount.py -I Master -P 44555 --mrs-verbose mytxt.txt outDir
+    > python wordcount.py -I Master -P 44555 --mrs-verbose mytxt.txt outDir
 
 Next, start the Slave. The slave needs to know where to report to the master,
-which you can specify with the -M HOST:PORT option.
+which you can specify with the -M HOST:PORT option. ::
 
-    example: $ python wordcount.py -I Slave -M [masterName]:44555 --mrs-verbose
+    > python wordcount.py -I Slave -M [masterName]:44555 --mrs-verbose
 
 And once again, if all went well, you should have the results in your outDir.
 Of course, if you are intrested in MapReduce, you probably have problems that
 you need to run on many more machines than just two. Mrs tutorial #3 explains
 how to get started using a run-script.
+
+
+
+
+.. _using-run-script:
+
+Using a run-script
+==================
+
+Now that you have run Mrs manually and are familiar with the Mrs interface you
+are ready to start with the run-script. A run-script allows you to easily start
+the master and hundreds of slave machines all at once. We have included an
+example script in the MRS_HOME/examples directory. It is written in Python and
+uses the screen and pssh utilities. If you are not familiar with screen or pssh
+you might want to work through one of the many online tutorials or at least
+review their man pages before proceeding. You don't need to be an expert but it
+could be very helpful to know the basic commands for manipulating  a screen
+session such as creating, attaching/disattaching a screen session, and changing
+windows from within a session.
+
+The example run-script is pretty well documented, and of course you can print
+out the run options with the --help command. ::
+
+    > python runscript.py --help
+
+To run the script you will need to modify the MRS_HOME/examples/slaves file.
+When the program is run the slaves file will be passed to the pssh program and
+should be a text file with the name of a slave machine on each line in the
+following format: ::
+
+         > [user@][host][:port]
+
+If the user name is left off, pssh will use the current user name, and for the
+port number, the ssh default will be used (port 22).
+
+You will also need to set up passphraseless ssh between the master and slave
+machines before running the script. Instructions for how to do this are easly
+found online.
+
+Finally once you have modified the slaves file and set up passphraseless ssh,
+you should be able to run it by passing it a host file, a mrs program and some
+input. ::
+
+    > python runscript.py --hosts slaves wordcount.py mytxt.txt
+
+You do not need to specify an output folder as you did when running manually as
+all output is put in a folder named after the jobname. You can specify the job
+name with the --jobname option, or if you don't specify, Mrs will default to
+'newjob.'
 
 
 

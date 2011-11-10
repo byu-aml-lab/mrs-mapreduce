@@ -1,21 +1,26 @@
-Tutorial #4
+.. _Tut3_BasicImp:
 
+***********
+Tutorial #3
+***********
 
+.. _writing-your-own:
 
 Writing Your Own Mrs Implimentation:
+====================================
 
 The wordcount implementation that we have been working with throught the
 previous three tutorials shows a Mrs program in it's most simple form. In this
 tutorial, we will try to explain the Basic format for a Mrs MapReduce program
 and some of the options for a more complex implimentation.
 
-The Basic format for a Mrs MapReduce program looks something like this:
+The Basic format for a Mrs MapReduce program looks something like this ::
 
     class Mrs-Program(mrs.MapReduce):
-
+    
         def map(key, value):
             yield newkey, newvalue
-
+      
         def reduce(key, values):
             yield newvalue
 
@@ -38,7 +43,7 @@ But what if, instead to reading in just one textfile and counting the words as
 we've been doing, you had thousands of files that you wanted to count? This is a
 little more complicated, so you would probably want to override the input_data()
 function from mapreduce.py, by adding something like the following to your the
-wordcount program. (See wordcount2.py in the examples folder.)
+wordcount program. (See wordcount2.py in the examples folder.) ::
 
     def input_data(self, job):
         if len(self.args) < 2:
@@ -61,9 +66,10 @@ several of the functions.
 
 
 Defining More Complex Map Functions:
+------------------------------------
 
 Let's look at how to create map functions in more detail. The simple WordCount
-mapper is:
+mapper is: ::
 
     def mapper(key, value):
         for word in value.split():
@@ -72,7 +78,7 @@ mapper is:
 This is great for simple examples, but what do you do if you need to do
 something special, like initializing the mapper with options before
 processing any key-value pairs?  The following example shows how thismay be
-done with a factory function that creates mappers:
+done with a factory function that creates mappers: ::
 
     def MapperFactory(options):
         ignore = options['ignore'].split(', ')
@@ -83,7 +89,7 @@ done with a factory function that creates mappers:
         return f
 
 The MapReduce system will initialize the mapper with the options specified by
-the user. It may do something like the following:
+the user. It may do something like the following: ::
 
     mapper = Mapper({'ignore': 'a, an, the'})
 
@@ -92,7 +98,7 @@ articles in the list.
 
 An alternative way to approach the problem is to define a class that can be
 initialized with the parameters.  The following is equivalent to the
-previous example:
+previous example: ::
 
     class MapperClass:
         def __init__(self, options):
@@ -102,7 +108,7 @@ previous example:
                 if word not in self.ignore:
                     yield (word, str(1))
 
-This Mapper class can be instantiated with options:
+This Mapper class can be instantiated with options: ::
 
     mapper = Mapper({'ignore': 'a, an, the'})
 
@@ -111,25 +117,4 @@ generator is the best way when no initialization or saved state is needed.
 The factory function is the best way when initialization is required but no
 saved state is needed. And the class is the best way when the generator needs
 to modify state while processing input.
-
-
-
-Finally:
-
-Hopefully these examples have proven helpful in getting you started solving your
-own problems. Any issues (problems/bugs) can be reported on Mrs's Google code
-page:
-
-    http://code.google.com/p/mrs-mapreduce/
-
-Mrs feedback and questions are welcome at:
-
-    mrs-mapreduce@googlegroups.com
-
-
-
-
-
-
-
 
