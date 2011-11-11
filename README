@@ -1,6 +1,11 @@
-===================
+*******************
 Introduction to Mrs
-===================
+*******************
+
+Mrs is a lightweight but scalable implementation of the well known
+MapReduce programming paradigm developed at Google. It is written entirely in
+Python and was designed for ease of use in such areas as research and education
+where the larger more complex implementations, such as Hadoop, are not needed.
 
 The name Mrs might stand for MapReduce Simplified, or MapReduce
 Straightforward, or MapReduce Spartan.  Something that starts with S,
@@ -11,19 +16,17 @@ scheduler.  Other people have written network protocols, so we use
 those.  We aren't smart enough to outsmart everybody else.
 
 To learn about the MapReduce programming model, we suggest you begin by
-reading the MapReduce paper at http://labs.google.com/papers/mapreduce.html.
-We generally do things as described in the paper.  In examples/wordcount.py,
-we show our version of the WordCount MapReduce program described in the paper.
-We think it's pretty.
+reading the `MapReduce paper <http://labs.google.com/papers/mapreduce.html>`_
+published by Google. We generally do things as described in the paper.  
+In `examples/wordcount.py <http://code.google.com/p/mrs-mapreduce/source/browse
+/examples/wordcount.py>`_, we show our version of the WordCount MapReduce
+program described in the paper. We think it's pretty.
 
-You may also find helpful the Installation instructions and tutorials we have
-included in the tutorials folder.
-
-Issues (problems/bugs) can be reported on Mrs's Google code
-page:
+Issues (bug reports, enhancements, etc.) can be reported 
+on `Mrs's Google code <http://code.google.com/p/mrs-mapreduce/>`_ page: ::
 
     http://code.google.com/p/mrs-mapreduce/
 
-Mrs feedback and questions are welcome at:
+Mrs feedback and questions are welcome at: ::
 
     mrs-mapreduce@googlegroups.com

@@ -6,8 +6,8 @@ Tutorial #3
 
 .. _writing-your-own:
 
-Writing Your Own Mrs Implimentation:
-====================================
+The basic Mrs implimentation
+============================
 
 The wordcount implementation that we have been working with throught the
 previous three tutorials shows a Mrs program in it's most simple form. In this
@@ -28,7 +28,8 @@ The Basic format for a Mrs MapReduce program looks something like this ::
         import mrs
         mrs.main(Mrs-Program)
 
-Here we create a class that extends the mapreduce.py file in MRS_HOME/mrs, and
+Here we create a class that extends the `mapreduce.py <http://code.google.com/p/
+mrs-mapreduce/source/browse/mrs/mapreduce.py>`_ file in MRS_HOME/mrs, and
 overrides only the required map and reduce functions. The last section of code
 (the "if __name__ == '__main__':" section) just passes the program to Mrs
 to run.
@@ -40,10 +41,12 @@ function sums all values associated with a particular key (word), and yields
 the result.
 
 But what if, instead to reading in just one textfile and counting the words as
-we've been doing, you had thousands of files that you wanted to count? This is a
-little more complicated, so you would probably want to override the input_data()
-function from mapreduce.py, by adding something like the following to your the
-wordcount program. (See wordcount2.py in the examples folder.) ::
+we've been doing, you had thousands of files that you neededto process? This is
+a little more complicated, so you would probably want to override the
+*input_data()* function from mapreduce.py, by adding something like the
+following to your the wordcount program. (See `wordcount2.py <http://code.google
+.com/p/mrs-mapreduce/source/browse/examples/wordcount2.py>`_ in the examples
+folder.) ::
 
     def input_data(self, job):
         if len(self.args) < 2:
@@ -56,17 +59,19 @@ wordcount program. (See wordcount2.py in the examples folder.) ::
         return job.file_data(inputs)
 
 Now, you can just pass in a single file containing the path to each text file on
-a line of the input file, and it will read them all in. (See input_files in the
+a line of the input file, and it will read them all in. (See `input_files <http:
+//code.google.com/p/mrs-mapreduce/source/browse/examples/input_files>`_ in the
 example folder.)
 
-In the examples folder we have included a file called mapreduce-parse.py as an
-example of a much more complex implimentation where there was a need to extend
-several of the functions.
+In the examples folder we have included a file called `mapreduce-parse.py <http:
+//code.google.com/p/mrs-mapreduce/source/browse/examples/mapreduce_parse.py>`_ 
+as an example of a much more complex implimentation where there was a need to 
+extend several of the functions.
 
 
 
-Defining More Complex Map Functions:
-------------------------------------
+Defining more complex map functions
+===================================
 
 Let's look at how to create map functions in more detail. The simple WordCount
 mapper is: ::
@@ -77,7 +82,7 @@ mapper is: ::
 
 This is great for simple examples, but what do you do if you need to do
 something special, like initializing the mapper with options before
-processing any key-value pairs?  The following example shows how thismay be
+processing any key-value pairs?  The following example shows how this may be
 done with a factory function that creates mappers: ::
 
     def MapperFactory(options):
@@ -97,7 +102,7 @@ This mapper works the same as the first mapper, except that it ignores the
 articles in the list.
 
 An alternative way to approach the problem is to define a class that can be
-initialized with the parameters.  The following is equivalent to the
+initialized with parameters.  The following is equivalent to the
 previous example: ::
 
     class MapperClass:

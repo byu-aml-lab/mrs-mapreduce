@@ -6,7 +6,7 @@ Tutorial #2
 
 .. _running-manually:
 
-Running Mrs in Parallel manually
+Running in parallel manually
 ================================
 
 This tutorial will walk you through the basic configurations and options of
@@ -16,25 +16,25 @@ program in serial mode and so have varified that Mrs is installed and running
 correctly on your system. Otherwise, you may want to do that before proceeding.
 
 Start by opening two terminals, one for the master and one for the slave.
-In the slave terminal, ssh into the slave machine and in both, navagate to the
+In the slave terminal, ssh into the slave machine, and in both, navagate to the
 MRS_HOME/examples directory.
 
-Before running anything, let's get familiar with the various options, by
-running the --help (or -h) option. ::
+Before running anything let's get familiar with the various options by
+running the *help* option. ::
 
     > python wordcount.py --help
 
 Running this command should display a list of the available options. Take note
 of the -I IMPLEMENTATION option where IMPLEMENTATION could be Serial, Master,
 Slave or Bypass. This will be followed by options specific to the default
-implimentation, which is serial. To access the options for the other
-implimentations, you will need to specify which, as in: ::
+implimentation which is serial. To access the options for the other
+implimentations you will need to specify which, as in: ::
 
     > python wordcount.py -I Master -h
 
-Now, let's run our friendly wordcount program in the most simple configuration,
+Now, let's run our friendly wordcount program in the most simple configuration
 and afterwords explain some of the other options that you might want to use. To
-begin, start the Master. You will need to specify a port number, and of course
+begin, start the Master. You will need to specify a port number and of course
 the input file and an output directory. Note that if you don't specify a port
 number, Mrs will automatically choose one, but you will need to run with the
 verbose option so it will print it out. You will probably want to run in verbose
@@ -48,12 +48,6 @@ which you can specify with the -M HOST:PORT option. ::
     > python wordcount.py -I Slave -M [masterName]:44555 --mrs-verbose
 
 And once again, if all went well, you should have the results in your outDir.
-Of course, if you are intrested in MapReduce, you probably have problems that
-you need to run on many more machines than just two. Mrs tutorial #3 explains
-how to get started using a run-script.
-
-
-
 
 .. _using-run-script:
 
@@ -71,8 +65,8 @@ could be very helpful to know the basic commands for manipulating  a screen
 session such as creating, attaching/disattaching a screen session, and changing
 windows from within a session.
 
-The example run-script is pretty well documented, and of course you can print
-out the run options with the --help command. ::
+The example run-script is pretty well documented and of course you can print
+out the run options with the *help* command. ::
 
     > python runscript.py --help
 
@@ -98,7 +92,7 @@ input. ::
 
 You do not need to specify an output folder as you did when running manually as
 all output is put in a folder named after the jobname. You can specify the job
-name with the --jobname option, or if you don't specify, Mrs will default to
+name with the - -jobname option, or if you don't specify, Mrs will default to
 'newjob.'
 
 
