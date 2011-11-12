@@ -8,7 +8,6 @@ Release Checklist
 #. Run `python setup.py check`
 #. Run `python setup.py test`
 #. Update the version number.
-  #. Update the version in setup.py
   #. Update the version in mrs/version.py
   #. Commit to the Git repository.
 #. Tag the new commit with `git tag vX.X`

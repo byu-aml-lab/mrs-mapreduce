@@ -1,7 +1,7 @@
-.. _Tut2_RunningInParallel:
+.. _running_parallel:
 
 ***********
-Tutorial #2
+Running Mrs
 ***********
 
 .. _running-manually:

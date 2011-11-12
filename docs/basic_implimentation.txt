@@ -1,8 +1,8 @@
 .. _Tut3_BasicImp:
 
-***********
-Tutorial #3
-***********
+****************************
+Writing a Mrs Implimentation
+****************************
 
 .. _writing-your-own:
 
@@ -28,11 +28,11 @@ The Basic format for a Mrs MapReduce program looks something like this ::
         import mrs
         mrs.main(Mrs-Program)
 
-Here we create a class that extends the `mapreduce.py <http://code.google.com/p/
-mrs-mapreduce/source/browse/mrs/mapreduce.py>`_ file in MRS_HOME/mrs, and
-overrides only the required map and reduce functions. The last section of code
-(the "if __name__ == '__main__':" section) just passes the program to Mrs
-to run.
+Here we create a class that extends the MapReduce class in the `MRS_HOME/mrs/
+mapreduce.py <http://code.google.com/p/mrs-mapreduce/source/browse/mrs/map
+reduce.py>`_ file, and overrides only the required map and reduce functions.
+The last section of code (the "if __name__ == '__main__':" section) just passes
+the program to Mrs to run.
 
 For example, in the map function in the wordcount program, we take in a chunk of
 text as the starting value, break it up into words and yield each word as a new

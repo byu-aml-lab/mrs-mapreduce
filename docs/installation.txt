@@ -1,9 +1,9 @@
-.. _Tut1_Installation:
+.. _installation:
 
 
-***********
-Tutorial #1
-***********
+************
+Installation
+************
 
 .. _installation:
 
@@ -27,6 +27,7 @@ Things to consider before Installing Mrs
             -`pssh <http://code.google.com/p/parallel-ssh/>`_
             
             -screen *(most Linux distros already have this installed)*
+
 Installation
 ------------
 

@@ -4,7 +4,7 @@
    contain the root `toctree` directive.
 
 Welcome to the Mrs-MapReduce Documentation page!
-=============================================
+================================================
 
 Mrs (pronounced "missus") is a lightweight but scalable implementation of the
 well known MapReduce programming paradigm developed at Google. It is written
@@ -39,15 +39,19 @@ feedback and questions are welcome at mrs-mapreduce@googlegroups.com
 Contents:
 ---------
 
+Installation and use:
++++++++++++++++++++++
 .. toctree::
    :maxdepth: 2
    
-   Tut1_Installation.txt
-   Tut2_RunningInParallel.txt
-   Tut3_BasicImp.txt
+   
+   
+   installation.txt
+   running_parallel.txt
+   basic_implimentation.txt
 
 Development docs:
-+++++++++
++++++++++++++++++
 
 .. toctree::
    :maxdepth: 2

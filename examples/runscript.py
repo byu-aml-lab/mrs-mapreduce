@@ -24,7 +24,7 @@
 
 ################################################################################
 #
-# This is the run-script referenced in Mrs tutorial #3. It should work as
+# This is the run-script referenced in the Mrs documentation. It should work as
 # is, but of course is meant to be adapted as needed.
 #
 ################################################################################
@@ -184,7 +184,7 @@ PSSH_COMMAND = ' '.join((
 
 print 'Starting the slaves.'
 
-# add a second window to the screen session and run slave command.
+# add a second window to the screen session and run pssh command.
 run('screen', '-S', opts.jobname, '-X', 'screen')
 run('screen', '-S', opts.jobname, '-p1', '-X', 'stuff', PSSH_COMMAND + '\n')
 
