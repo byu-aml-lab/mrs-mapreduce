@@ -1,4 +1,4 @@
-.. _Tut3_BasicImp:
+.. _writing_your_own:
 
 ****************************
 Writing a Mrs Implimentation
