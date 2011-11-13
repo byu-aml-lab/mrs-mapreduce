@@ -3,7 +3,7 @@
 from setuptools import setup
 from mrs import version
 
-setup(name="MapReduce Simplified",
+setup(name="mrs-mapreduce",
       version=version.VERSION,
       description="Mrs: A simplified MapReduce implimentation in Python",
       long_description="See README",

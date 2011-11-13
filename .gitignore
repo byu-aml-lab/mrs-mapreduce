@@ -1,6 +1,7 @@
-html/*
+build/*
+docs/build/*
 dist/*
-MapReduce_Simplified.egg-info/*
+mrs_mapreduce.egg-info/*
 *.pyc
 *.swp
 mrs.job*
