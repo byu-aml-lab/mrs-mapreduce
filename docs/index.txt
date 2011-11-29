@@ -61,6 +61,7 @@ Development docs:
    :maxdepth: 2
    
    release_checklist.txt
+   changelog.txt
 
 Indices and tables
 ==================
