@@ -60,8 +60,8 @@ Development docs:
 .. toctree::
    :maxdepth: 2
    
-   release_checklist.txt
    changelog.txt
+   release_checklist.txt
 
 Indices and tables
 ==================

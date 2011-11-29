@@ -5,7 +5,7 @@
 Installation
 ************
 
-.. _installation:
+.. _installing_mrs:
 
 
 Three minute, three step, installation instructions
