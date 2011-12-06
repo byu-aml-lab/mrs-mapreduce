@@ -6,34 +6,28 @@
 Welcome to the Mrs-MapReduce Documentation page!
 ================================================
 
-Mrs (pronounced "missus") is a lightweight but scalable implementation of the
-well known MapReduce programming paradigm developed at Google. It is written
-entirely in Python and was designed for ease of use in such areas as research
-and education where the larger more complex implementations are not needed.
+Mrs (pronounced "missus") is a lightweight implementation of MapReduce.  The
+name derives from the practice of referring to MapReduce programs by the title
+"mister" (e.g., "Mr. Wordcount").  The name "Mrs" is a natural variation on
+"Mr" and much more memorable and pronounceable than an arbitrary acronym.
 
-The name Mrs might stand for MapReduce Simplified, or MapReduce
-Straightforward, or MapReduce Spartan. Something that starts with S.
-Mrs is a MapReduce implementation that aims to be easy to use and efficient.
-We have tried to avoid reinventing the wheel. Lots of other people have written
-job schedulers, so we don't include a job scheduler. Other people have written
-network protocols, so we use those. We aren't smart enough to outsmart everybody
-else.
+Mrs is a MapReduce implementation that aims to be easy to use and reasonably
+efficient.  It is written in Python and where possible builds on existing
+solutions to remain lightweight.  Mrs is licensed under the GNU GPL.
 
-To learn about the MapReduce programming model, we suggest you begin by
-reading the `MapReduce paper <http://labs.google.com/papers/mapreduce.html>`_
-published by Google. We generally do things as described in the paper.  
-In `examples/wordcount.py <http://code.google.com/p/mrs-mapreduce/source/browse
-/examples/wordcount.py>`_, we show our version of the WordCount MapReduce
-program described in the paper. We think it's pretty.
+The `MapReduce paper <http://labs.google.com/papers/mapreduce.html>`_ provides
+an introduction to MapReduce.  The `examples/wordcount.py
+<http://code.google.com/p/mrs-mapreduce/source/browse
+/examples/wordcount.py>`_ file shows the Mrs WordCount based on the
+corresponding program described in the paper.
 
-Mrs is currently licensed under the GNU GPL. If you would like to use it in a
-proprietary program, please contact the Copyright Licensing Office, Brigham 
-Young University, 3760 HBLL, Provo, UT 84602, (801) 422-9339 or 422-3821, 
-e-mail copyright@byu.edu. 
+Helpful resources include:
 
-Issues (bug reports, enhancements, etc.) can be reported 
-on `Mrs's Google code <http://code.google.com/p/mrs-mapreduce/>`_ page. And Mrs
-feedback and questions are welcome at mrs-mapreduce@googlegroups.com
+ - the `Mrs project page <http://code.google.com/p/mrs-mapreduce/>`_ (for
+bug reports and enhancement requests)
+
+ - the `Mrs mailing list <http://groups.google.com/group/mrs-mapreduce>`_ (for
+questions and discussion)
 
 Contents:
 ---------
@@ -42,14 +36,14 @@ About Mrs:
 ++++++++++
 .. toctree::
    :maxdepth: 2
-   
+
    about_mrs.txt
 
 Installation and use:
 +++++++++++++++++++++
 .. toctree::
    :maxdepth: 2
-   
+
    installation.txt
    running_parallel.txt
    writing_your_own.txt
@@ -59,7 +53,7 @@ Development docs:
 
 .. toctree::
    :maxdepth: 2
-   
+
    changelog.txt
    release_checklist.txt
 
@@ -69,4 +63,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
