@@ -15,7 +15,7 @@ Mrs is a MapReduce implementation that aims to be easy to use and reasonably
 efficient.  It is written in Python and where possible builds on existing
 solutions to remain lightweight.  Mrs is licensed under the GNU GPL.
 
-The `MapReduce paper <http://labs.google.com/papers/mapreduce.html>`_ provides
+The `MapReduce paper <http://research.google.com/archive/mapreduce.html>`_ provides
 an introduction to MapReduce.  The `examples/wordcount.py
 <http://code.google.com/p/mrs-mapreduce/source/browse
 /examples/wordcount.py>`_ file shows the Mrs WordCount based on the
