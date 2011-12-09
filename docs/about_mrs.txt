@@ -2,14 +2,8 @@
 
 
 ************
-About Mrs
+Mrs Objectives
 ************
-
-Mrs is a simple implementation of MapReduce, Google's well-known parallel
-programming model. The name "Mrs" is a play on words. I was told that Google
-engineers often refer to MapReduce programs by the title "mister" (e.g.,
-"Mr. Wordcount"). Naturally, a simple MapReduce implementation could only be
-called Mrs.
 
 Mrs is not the only open source MapReduce implementation. In fact, Hadoop is a
 far more mature system. As pointed out on its web page, Hadoop is scalable,
@@ -17,9 +11,6 @@ economical, efficient, and reliable. However, and without any intended
 disrespect to Hadoop, I have not found it to be particularly simple. While
 Hadoop is certainly a more appropriate tool for large-scale data processing,
 Mrs intends to be more convenient for research and education.
-
-Objectives
-==========
 
 I created Mrs because I recognized that Hadoop's objectives were not always in
 line with what I needed in my research environment. Here are a few of the
