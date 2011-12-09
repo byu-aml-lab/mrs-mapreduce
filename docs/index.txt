@@ -23,11 +23,9 @@ corresponding program described in the paper.
 
 Helpful resources include:
 
- - the `Mrs project page <http://code.google.com/p/mrs-mapreduce/>`_ (for
-bug reports and enhancement requests)
+* the `Mrs project page <http://code.google.com/p/mrs-mapreduce/>`_ (for bug reports and enhancement requests)
 
- - the `Mrs mailing list <http://groups.google.com/group/mrs-mapreduce>`_ (for
-questions and discussion)
+* the `Mrs mailing list <http://groups.google.com/group/mrs-mapreduce>`_ (for questions and discussion)
 
 Contents:
 ---------
