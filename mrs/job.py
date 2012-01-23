@@ -101,7 +101,17 @@ class Job(object):
         self._manager.submit(ds)
         ds._close_callback = self._manager.close_dataset
         return ds
-
+        
+     
+    def reducemap_data(self, input, reducer, mapper, splits=None, outdir=None,
+            parter=None, format=None):
+        data = self.reduce_data(input, reducer, splits=splits, outdir=outdir, parter=parter,
+            format=format)
+        ds = self.map_data(data, mapper, splits=splits, outdir=outdir, parter=parter,
+            format=format)
+        data.close()
+        return ds
+            
     def map_data(self, input, mapper, splits=None, outdir=None, parter=None,
             format=None):
         """Define a set of data computed with a map operation.
