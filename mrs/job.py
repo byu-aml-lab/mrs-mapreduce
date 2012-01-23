@@ -102,6 +102,35 @@ class Job(object):
         ds._close_callback = self._manager.close_dataset
         return ds
 
+    def reducemap_data(self, input, reducer, mapper, splits=None, outdir=None,
+            parter=None, format=None):
+        """Define a set of data computed with the reducemap operation.
+        
+        Called from the user-specified run function.
+        """
+        #if splits is None:
+        #    splits = self._default_reduce_parts
+            
+        if outdir:
+            permanent = True
+            util.try_makedirs(outdir)
+        else:
+            permanent = False
+
+        if not parter:
+            parter = self._default_partition
+
+        reduce_name = self._registry[reducer]
+        map_name = self._registry[mapper]
+        part_name = self._registry[parter]
+        
+        ds = datasets.ComputedData(task.ReduceMapTask, input, reduce_name,
+                map_name, splits=splits, dir=outdir, part_name=part_name,
+                format=format, permanent=permanent)
+        self._manager.submit(ds)
+        ds._close_callback = self._manager.close_dataset
+        return ds   
+    
     def map_data(self, input, mapper, splits=None, outdir=None, parter=None,
             format=None):
         """Define a set of data computed with a map operation.

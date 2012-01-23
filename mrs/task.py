@@ -168,4 +168,24 @@ class ReduceTask(Task):
         raise StopIteration
 
 
+class ReduceMapTask(Task):
+    def __init__(self, input, split, source, reducer, mapper, parter, splits,
+            storage, format):
+        Task.__init__(self, input, split, source, storage, format)
+        self.reducer = reducer
+        self.mapper = mapper
+        self.partition = parter
+        self.splits = splits
+        
+    def run():
+        pass
+        
+    def reduce():
+        pass    
+    
+    def map():
+        pass    
+        
+        
+     
 # vim: et sw=4 sts=4
