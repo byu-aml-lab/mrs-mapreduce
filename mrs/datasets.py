@@ -72,7 +72,7 @@ class BaseDataset(object):
         """Number of buckets in this Dataset."""
         return len(self._data)
 
-    def __nonzero__():
+    def __nonzero__(self):
         return True
 
     def __iter__(self):
