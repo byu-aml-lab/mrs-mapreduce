@@ -52,7 +52,7 @@ from . import registry
 from . import version
 from .io import HexWriter, TextWriter
 from .main import main
-from .mapreduce import MapReduce
+from .mapreduce import MapReduce, IterativeMR
 
 VERSION = version.VERSION
 
