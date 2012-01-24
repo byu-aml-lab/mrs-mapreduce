@@ -64,7 +64,6 @@ class SerialRunner(runner.BaseRunner):
     def compute_dataset(self, dataset):
         """Called when a new ComputedData set is submitted."""
         self.worker_conn.send(dataset.id)
-  
 
     def read_worker_conn(self):
         """Read a response from the worker.
@@ -103,7 +102,7 @@ class SerialWorker(object):
                 response = SerialWorkerSuccess(dataset_id)
             except Exception, e:
                 response = SerialWorkerFailure(e, traceback.format_exc())
-                
+
             self.conn.send(response)
 
 
@@ -111,13 +110,13 @@ class SerialWorkerSuccess(object):
     """Successful response from SerialWorker."""
     def __init__(self, dataset_id):
         self.dataset_id = dataset_id
-        
-        
+
+
 class SerialWorkerFailure(object):
     """Failure response from SerialWorker."""
     def __init__(self, exception, traceback):
         self.exception = exception
         self.traceback = traceback
-        
+
 
 # vim: et sw=4 sts=4
