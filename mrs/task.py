@@ -139,8 +139,8 @@ class ReduceTask(Task):
     def grouped_read(self, input_file):
         """Yields key-iterator pairs over a sorted input_file.
 
-        This is very similar to itertools.groupby, except that we assume that the
-        input_file is sorted, and we assume key-value pairs.
+        This is very similar to itertools.groupby, except that we assume that
+        the input_file is sorted, and we assume key-value pairs.
         """
         input_itr = iter(input_file)
         input = input_itr.next()
