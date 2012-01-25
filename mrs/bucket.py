@@ -82,7 +82,6 @@ class ReadBucket(object):
         input_data = self._data
         self._data = []
         c = io.HexConsumer(self)
-        c.registerProducer(None, True)
         c.write(input_data)
 
     def __len__(self):

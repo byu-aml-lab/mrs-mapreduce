@@ -44,21 +44,6 @@ class LineConsumer(object):
         self.bucket = bucket
 
         self._buffer = ''
-        self.producer = None
-        self.streaming = False
-
-    def registerProducer(self, producer, streaming):
-        """Called by the producer when it's ready.
-
-        The streaming parameter indicates whether it's a "push producer"
-        as opposed to a "pull producer."
-        """
-        self.producer = producer
-        self.streaming = streaming
-
-    def unregisterProducer(self):
-        """Called by the producer when it's exhausted."""
-        self.producer = None
 
     def __iter__(self):
         """Iterate over key-value pairs.
@@ -85,12 +70,8 @@ class LineConsumer(object):
                 self._buffer = line
 
     def write(self, data):
-        """Called by a Producer when data are available."""
         self._buffer += data
         self.bucket.collect(self)
-
-        if not self.streaming:
-            self.producer.resumeProducing()
 
 
 class SerialProducer(object):
@@ -103,7 +84,6 @@ class SerialProducer(object):
 
     def __init__(self, url, consumer):
         self.url = url
-        consumer.registerProducer(self, streaming=True)
         self.consumer = consumer
 
     def run(self):
@@ -112,7 +92,6 @@ class SerialProducer(object):
         data = f.read()
         f.close()
         self.consumer.write(data)
-        self.consumer.unregisterProducer()
 
 
 # TODO: implement TextConsumer
