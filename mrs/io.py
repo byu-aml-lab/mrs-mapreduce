@@ -32,17 +32,16 @@ hex_encoder = codecs.getencoder('hex_codec')
 hex_decoder = codecs.getdecoder('hex_codec')
 
 
-class LineConsumer(object):
-    """Consume data (from a Producer) into a Bucket.
+class LineReader(object):
+    """Reads key-value pairs from a filelike object.
 
-    In this basic consumer, the key-value pair is composed of a line number
+    In this basic reader, the key-value pair is composed of a line number
     and line contents.  Note that the most valuable method to override in this
     class is __iter__.
     """
 
-    def __init__(self, bucket):
-        self.bucket = bucket
-
+    def __init__(self, filelike):
+        self.filelike = filelike
         self._buffer = ''
 
     def __iter__(self):
@@ -50,52 +49,12 @@ class LineConsumer(object):
 
         Inheriting classes will almost certainly override this method.
         """
-        for index, line in enumerate(self.lines()):
+        for index, line in enumerate(self.filelike):
             yield index, line
 
-    def lines(self):
-        """Iterate over complete lines in the buffer.
 
-        Note that the lines are removed.  If the last line is a partial line
-        (i.e., it doesn't have a trailing newline), it is left in the buffer.
-        Also note that the buffer must be left alone while we do this.
-        """
-        stringio = cStringIO.StringIO(self._buffer)
-        self._buffer = ''
-        for line in stringio:
-            if line[-1] == '\n':
-                yield line
-            else:
-                # premature end; save partial line back to buffer
-                self._buffer = line
-
-    def write(self, data):
-        self._buffer += data
-        self.bucket.collect(self)
-
-
-class SerialProducer(object):
-    """A Producer which reads data from any URL.
-
-    The producer will do all work when the run method is called, and it does
-    not interact with the reactor in any way.  This producer should only be
-    used in sequential code or in a non-reactor thread.
-    """
-
-    def __init__(self, url, consumer):
-        self.url = url
-        self.consumer = consumer
-
-    def run(self):
-        """Loads data and sends it to the consumer."""
-        f = open_url(self.url)
-        data = f.read()
-        f.close()
-        self.consumer.write(data)
-
-
-# TODO: implement TextConsumer
-# class TextConsumer(LineConsumer) should read lines and do:
+# TODO: implement TextReader
+# class TextReader(LineReader) should read lines and do:
 # key, value = line.split(None, 1)
 
 class TextWriter(object):
@@ -119,7 +78,7 @@ class TextWriter(object):
         self.file.close()
 
 
-class HexConsumer(LineConsumer):
+class HexReader(LineReader):
     """A key-value store using ASCII hexadecimal encoding
 
     Initialize with a Mrs Buffer.
@@ -130,7 +89,7 @@ class HexConsumer(LineConsumer):
 
     def __iter__(self):
         """Iterate over key-value pairs."""
-        for line in self.lines():
+        for line in self.filelike:
             encoded_key, encoded_value = line.split()
             key, length = hex_decoder(encoded_key)
             value, length = hex_decoder(encoded_value)
@@ -165,7 +124,7 @@ def writerformat(extension):
 
 
 def fileformat(filename):
-    """Returns the Consumer class associated with the given file extension."""
+    """Returns the Reader class associated with the given file extension."""
     extension = os.path.splitext(filename)[1]
     # strip the dot off:
     extension = extension[1:]
@@ -173,21 +132,16 @@ def fileformat(filename):
 
 
 def open_url(url):
-    """Opens a url or file and returns a filelike object."""
+    """Opens a url or file and returns an appropriate key-value reader."""
+    reader_cls = fileformat(url)
+
     parsed_url = urlparse.urlparse(url, 'file')
     if parsed_url.scheme == 'file':
         f = open(parsed_url.path)
     else:
         f = urllib2.urlopen(url)
-    return f
 
-
-def fill(url, bucket):
-    """Open a url or file and write it to a bucket."""
-    consumer_cls = fileformat(url)
-    consumer = consumer_cls(bucket)
-    producer = SerialProducer(url, consumer)
-    producer.run()
+    return reader_cls(f)
 
 
 def test():
@@ -196,13 +150,13 @@ def test():
 
 
 reader_map = {
-        'mrsx': HexConsumer,
+        'mrsx': HexReader,
         }
 writer_map = {
         'mtxt': TextWriter,
         'mrsx': HexWriter,
         }
-default_read_format = LineConsumer
+default_read_format = LineReader
 default_write_format = HexWriter
 
 # vim: et sw=4 sts=4

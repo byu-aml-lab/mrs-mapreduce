@@ -79,10 +79,10 @@ class ReadBucket(object):
     def __setstate__(self, state):
         """Unpickle (deserialize) the bucket."""
         self.__dict__ = state
-        input_data = self._data
+        filelike = cStringIO.StringIO(self._data)
         self._data = []
-        c = io.HexConsumer(self)
-        c.write(input_data)
+        reader = io.HexReader(filelike)
+        self.collect(reader)
 
     def __len__(self):
         return len(self._data)
