@@ -151,21 +151,19 @@ class BinWriter(TextWriter):
 
     def __init__(self, fileobj, close=True):
         self.fileobj = fileobj
-        self._magic_written = False
-
-    def _write_record(self, data):
-        if not self._magic_written:
-            self.fileobj.write(self.magic)
-            self._magic_written = True
-        binlen = struct.pack('<Q', len(data))
-        self.fileobj.write(binlen)
-        self.fileobj.write(data)
+        self.fileobj.write(self.magic)
 
     def writepair(self, kvpair):
         """Write a key-value pair to a HexFormat."""
         key, value = kvpair
-        self._write_record(key)
-        self._write_record(value)
+
+        binlen = struct.pack('<Q', len(key))
+        self.fileobj.write(binlen)
+        self.fileobj.write(key)
+
+        binlen = struct.pack('<Q', len(value))
+        self.fileobj.write(binlen)
+        self.fileobj.write(value)
 
 
 class BinReader(Reader):
