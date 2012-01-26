@@ -153,7 +153,7 @@ class BinWriter(TextWriter):
         self.fileobj = fileobj
         self._magic_written = False
 
-    def write_record(self, data):
+    def _write_record(self, data):
         if not self._magic_written:
             self.fileobj.write(self.magic)
             self._magic_written = True
@@ -164,8 +164,8 @@ class BinWriter(TextWriter):
     def writepair(self, kvpair):
         """Write a key-value pair to a HexFormat."""
         key, value = kvpair
-        self.write_record(key)
-        self.write_record(value)
+        self._write_record(key)
+        self._write_record(value)
 
 
 class BinReader(Reader):
