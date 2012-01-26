@@ -31,7 +31,7 @@ import threading
 from itertools import chain, izip
 
 from . import bucket
-from . import io
+from . import fileformats
 from . import util
 
 from logging import getLogger
@@ -271,7 +271,7 @@ class RemoteData(BaseDataset):
         for bucket in self:
             url = bucket.url
             if url:
-                reader = io.open_url(url)
+                reader = fileformats.open_url(url)
                 bucket.collect(reader)
                 reader.close()
 

@@ -24,7 +24,7 @@ import cStringIO
 import os
 import urlparse
 
-from . import io
+from . import fileformats
 
 from logging import getLogger
 logger = getLogger('mrs')
@@ -69,7 +69,7 @@ class ReadBucket(object):
         """Pickle (serialize) the bucket."""
         state = self.__dict__.copy()
         buf = cStringIO.StringIO()
-        with io.BinWriter(buf) as writer:
+        with fileformats.BinWriter(buf) as writer:
             for pair in self._data:
                 writer.writepair(pair)
         state['_data'] = buf.getvalue()
@@ -83,7 +83,7 @@ class ReadBucket(object):
         #with io.BytesIO(self._data) as buf:
         buf = cStringIO.StringIO(self._data)
         self._data = []
-        reader = io.BinReader(buf)
+        reader = fileformats.BinReader(buf)
         self.collect(reader)
         buf.close()
 
@@ -125,7 +125,7 @@ class WriteBucket(ReadBucket):
         super(WriteBucket, self).__init__(source, split)
         self.dir = dir
         if format is None:
-            format = io.default_write_format
+            format = fileformats.default_write_format
         self.format = format
 
         self._output_file = None

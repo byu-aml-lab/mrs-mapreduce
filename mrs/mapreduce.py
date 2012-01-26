@@ -29,7 +29,7 @@ to create much more complex programs.
 
 import sys
 
-from . import io
+from . import fileformats
 
 ITERATIVE_QMAX = 5
 
@@ -121,7 +121,7 @@ class MapReduce(object):
             intermediate = job.map_data(source, self.map)
             source.close()
             output = job.reduce_data(intermediate, self.reduce, outdir=outdir,
-                    format=io.TextWriter)
+                    format=fileformats.TextWriter)
             intermediate.close()
             output.close()
 

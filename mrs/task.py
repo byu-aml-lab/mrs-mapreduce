@@ -28,7 +28,7 @@ A Task represents a unit of work and the mechanism for carrying it out.
 from itertools import chain
 
 from . import datasets
-from . import io
+from . import fileformats
 
 
 class Task(object):
@@ -47,7 +47,7 @@ class Task(object):
         self.storage = storage
         self.dataset = None
         if format is None:
-            format = io.HexWriter
+            format = fileformats.default_write_format
         self.format = format
 
         self.output = None

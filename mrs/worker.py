@@ -31,7 +31,7 @@ import tempfile
 import traceback
 
 from . import datasets
-from . import io
+from . import fileformats
 from . import task
 from . import util
 
@@ -75,9 +75,9 @@ class WorkerMapRequest(object):
     def make_task(self, program, default_dir):
         input_data = datasets.FileData(self.inputs, splits=1)
         if self.extension:
-            format = io.writerformat(self.extension)
+            format = fileformats.writerformat(self.extension)
         else:
-            format = io.default_write_format
+            format = fileformats.default_write_format
 
         if not self.outdir:
             self.outdir = tempfile.mkdtemp(dir=default_dir,
@@ -110,9 +110,9 @@ class WorkerReduceRequest(object):
         """
         input_data = datasets.FileData(self.inputs, splits=1)
         if self.extension:
-            format = io.writerformat(self.extension)
+            format = fileformats.writerformat(self.extension)
         else:
-            format = io.default_write_format
+            format = fileformats.default_write_format
 
         if not self.outdir:
             self.outdir = tempfile.mkdtemp(dir=default_dir,
