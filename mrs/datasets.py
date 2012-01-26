@@ -271,7 +271,7 @@ class RemoteData(BaseDataset):
         for bucket in self:
             url = bucket.url
             if url:
-                reader = io.open(url)
+                reader = io.open_url(url)
                 bucket.collect(reader)
                 reader.close()
 
