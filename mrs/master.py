@@ -362,6 +362,8 @@ class RemoteSlave(object):
             self._rpc_func = self._rpc.start_map
         elif dataset.task_class == task.ReduceTask:
             self._rpc_func = self._rpc.start_reduce
+        elif dataset.task_class == task.ReduceMapTask:
+            self._rpc_func = self._rpc.start_reducemap
         else:
             assert False, 'Unknown task class: %s' % repr(dataset.task_class)
 

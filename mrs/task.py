@@ -168,7 +168,7 @@ class ReduceTask(Task):
         raise StopIteration
 
 
-class ReduceMapTask(Task):
+class ReduceMapTask(MapTask, ReduceTask):
     def __init__(self, input, split, source, reducer, mapper, parter, splits,
             storage, format):
         Task.__init__(self, input, split, source, storage, format)
@@ -178,13 +178,16 @@ class ReduceMapTask(Task):
         self.splits = splits
         
     def run():
-        pass
-        
-    def reduce():
-        pass    
     
-    def map():
-        pass    
+    
+    
+    
+    
+    
+    
+    
+        itr = self.map(self.reduce(all_input))
+        
         
         
      

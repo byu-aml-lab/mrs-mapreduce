@@ -126,6 +126,41 @@ class WorkerReduceRequest(object):
         return t
 
 
+class WorkerReduceMapRequest(object):
+    """Request the to worker to run a reducemap task."""
+
+    def __init__(self, *args):
+        (self.dataset_id, self.source, self.inputs, self.reducemap_name,
+                self.part_name, self.splits, self.outdir, self.extension
+                ) = args
+
+    def id(self):
+        return '%s_%s_%s' % (self.__class__.__name__, self.dataset_id,
+                self.source)
+
+    def make_task(self, program, default_dir):
+        """Tell this worker to start working on a reducemap task.
+
+        This will ordinarily be called from some other thread.
+        """
+        input_data = datasets.FileData(self.inputs, splits=1)
+        if self.extension:
+            format = io.writerformat(self.extension)
+        else:
+            format = io.default_write_format
+
+        if not self.outdir:
+            self.outdir = tempfile.mkdtemp(dir=default_dir,
+                    prefix=(self.dataset_id + '_'))
+
+        reducemapr = getattr(program, self.reducemap_name)
+        parter = getattr(program, self.part_name)
+
+        t = task.ReduceMapTask(input_data, 0, self.source, reducemapr, parter,
+                self.splits, self.outdir, format)
+        return t
+
+
 class WorkerQuitRequest(object):
     """Request the worker to quit."""
 

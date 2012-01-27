@@ -108,8 +108,8 @@ class Job(object):
         
         Called from the user-specified run function.
         """
-        #if splits is None:
-        #    splits = self._default_reduce_parts
+        if splits is None:
+            splits = self._default_reduce_tasks
             
         if outdir:
             permanent = True

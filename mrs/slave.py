@@ -345,6 +345,21 @@ class SlaveInterface(object):
                 func_name, part_name, splits, outdir, extension)
         return self.slave.submit_request(request)
 
+    @http.uses_host
+    def xmlrpc_start_reducemap(self, dataset_id, source, inputs, func_name,
+            part_name, splits, outdir, extension, cookie, host=None):
+        self.slave.check_cookie(cookie)
+        self.slave.update_timestamp()
+        logger.info('Received a ReduceMap assignment from the master.')
+        
+        if self.slave.url_converter:
+            convert_url = self.slave.url_converter.global_to_local
+            inputs = [convert_url(url, host) for url in inputs]
+            
+        request = worker.WorkerReduceMapRequest(dataset_id, source, inputs,
+                func_name, part_name, splits, outdir, extension)
+        return self.slave.submit_request(request)
+
     def xmlrpc_remove(self, dataset_id, source, delete, cookie):
         self.slave.check_cookie(cookie)
         self.slave.update_timestamp()
