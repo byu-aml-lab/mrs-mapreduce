@@ -57,9 +57,10 @@ class Task(object):
 
 
 class MapTask(Task):
-    def __init__(self, input, split, source, mapper, parter, splits,
+    def __init__(self, input, split, source, reducer, mapper, parter, splits,
             storage, format):
         Task.__init__(self, input, split, source, storage, format)
+        self.name = "MapTask"
         self.mapper = mapper
         self.partition = parter
         self.splits = splits
@@ -92,9 +93,10 @@ class MapTask(Task):
 
 
 class ReduceTask(Task):
-    def __init__(self, input, split, source, reducer, parter, splits,
+    def __init__(self, input, split, source, reducer, mapper, parter, splits,
             storage, format):
         Task.__init__(self, input, split, source, storage, format)
+        self.name = "ReduceTask"
         self.reducer = reducer
         self.partition = parter
         self.splits = splits
@@ -172,21 +174,32 @@ class ReduceMapTask(MapTask, ReduceTask):
     def __init__(self, input, split, source, reducer, mapper, parter, splits,
             storage, format):
         Task.__init__(self, input, split, source, storage, format)
+        self.name = "ReduceMapTask"
         self.reducer = reducer
         self.mapper = mapper
         self.partition = parter
         self.splits = splits
         
-    def run():
+    def run(self, serial=False):
+        # SETUP INPUT
+        self.input.fetchall()
+        if serial:
+            all_input = self.input.iterdata()
+        else:
+            all_input = self.input.itersplit(self.split)
+        sorted_input = sorted(all_input)
+
+        if self.storage and (self.splits > 1):
+            import tempfile
+            prefix = 'source_%s_' % self.source
+            subdir = tempfile.mkdtemp(prefix=prefix, dir=self.storage)
+        else:
+            subdir = self.storage
     
-    
-    
-    
-    
-    
-    
-    
-        itr = self.map(self.reduce(all_input))
+        # REDUCEMAP PHASE
+        itr = self.map(self.reduce(sorted_input))
+        self.output = datasets.LocalData(itr, self.splits, source=self.source,
+                parter=self.partition, dir=subdir, format=self.format)
         
         
         

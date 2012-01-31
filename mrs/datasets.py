@@ -330,17 +330,19 @@ class ComputedData(RemoteData):
 
     Attributes:
         task_class: the class used to carry out computation
-        func: name of the computing function (see registry for more info)
         parter: name of the partition function (see registry for more info)
     """
-    def __init__(self, task_class, input, func_name, part_name=None, **kwds):
+    def __init__(self, task_class, input, reduce_name, map_name,
+            part_name=None, **kwds):
         # At least for now, we create 1 task for each split in the input
         ntasks = input.splits
         super(ComputedData, self).__init__(sources=ntasks, **kwds)
-        self.id = '%s_%s' % (func_name, self.id)
+        
+        self.id = '%s_%s' % (task_class.name, self.id)
 
         self.task_class = task_class
-        self.func_name = func_name
+        self.reduce_name = reduce_name
+        self.map_name = map_name
         self.part_name = part_name
 
         self._computing = True
@@ -355,10 +357,11 @@ class ComputedData(RemoteData):
     def run_serial(self, program, datasets):
         input_data = datasets[self.input_id]
         self.splits = 1
-        func = getattr(program, self.func_name)
+        reducer = getattr(program, self.reduce_name)
+        mapper = getattr(program, self.map_name)
         parter = getattr(program, self.part_name)
-        task = self.task_class(input_data, 0, 0, func, parter, self.splits,
-                self.dir, self.format)
+        task = self.task_class(input_data, 0, 0, reducer, mapper, parter,
+                self.splits, self.dir, self.format)
 
         task.run(serial=True)
         self._use_output(task.output)
@@ -373,13 +376,14 @@ class ComputedData(RemoteData):
         directory if one was not explicitly specified.
         """
         input_data = datasets[self.input_id]
-        func = getattr(program, self.func_name)
+        reducer = getattr(program, self.reduce_name)
+        mapper = getattr(program, self.map_name)
         parter = getattr(program, self.part_name)
         if jobdir and not self.dir:
             self.dir = os.path.join(jobdir, self.id)
             os.mkdir(self.dir)
-        task = self.task_class(input_data, source, source, func, parter,
-                self.splits, self.dir, self.format)
+        task = self.task_class(input_data, source, source, reducer, mapper,
+                parter, self.splits, self.dir, self.format)
         return task
 
     def fetchall(self):
