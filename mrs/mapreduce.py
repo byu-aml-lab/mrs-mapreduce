@@ -29,7 +29,9 @@ to create much more complex programs.
 
 import sys
 
-from . import io
+from . import fileformats
+
+ITERATIVE_QMAX = 5
 
 
 class MapReduce(object):
@@ -119,7 +121,7 @@ class MapReduce(object):
             intermediate = job.map_data(source, self.map)
             source.close()
             output = job.reduce_data(intermediate, self.reduce, outdir=outdir,
-                    format=io.TextWriter)
+                    format=fileformats.TextWriter)
             intermediate.close()
             output.close()
 
@@ -173,6 +175,53 @@ class MapReduce(object):
         seed = int(self.opts.mrs__seed) + sys.maxint * offset
         return random.Random(seed)
 
+
+class IterativeMR(MapReduce):
+    """A special type of MapReduce program optimized for iterative jobs.
+
+    This class provides a run method that expects two user-provided methods:
+        producer: submits datasets
+        consumer: processes completed datasets
+    """
+    def run(self, job):
+        """Default run which repeatedly calls producer and consumer."""
+        datasets = set()
+        while True:
+            producer_active = True
+            while producer_active and len(datasets) < ITERATIVE_QMAX:
+                new_datasets = self.producer(job)
+                producer_active = bool(new_datasets)
+                datasets.update(new_datasets)
+                if not datasets:
+                    return True
+
+            ready = job.wait(*datasets)
+            for ds in ready:
+                keep_going = self.consumer(ds)
+                datasets.remove(ds)
+                if not keep_going:
+                    # TODO: job.abort()
+                    return True
+
+    def producer(self, job):
+        """Producer function.
+
+        Submits one iteration of datasets for computation.  Called whenever
+        the queue of submitted datasets begins to run low.
+
+        Returns a list of new datasets that should be given to the consumer
+        upon completion.
+        """
+        raise NotImplementedError
+
+    def consumer(self, dataset):
+        """Consumer function.
+
+        Called whenever a dataset completes.  Prints output and/or determines
+        whether stopping criteria have been met.  Returns True if execution
+        should continue.
+        """
+        raise NotImplementedError
 
 
 # vim: et sw=4 sts=4

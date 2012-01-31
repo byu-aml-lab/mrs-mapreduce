@@ -50,9 +50,9 @@ logger.addHandler(handler)
 # expected to be useful outside of Mrs internals.
 from . import registry
 from . import version
-from .io import HexWriter, TextWriter
+from .fileformats import HexWriter, TextWriter, BinWriter, ZipWriter
 from .main import main
-from .mapreduce import MapReduce
+from .mapreduce import MapReduce, IterativeMR
 
 VERSION = version.VERSION
 

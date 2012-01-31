@@ -321,11 +321,11 @@ class SlaveInterface(object):
         self.slave.check_cookie(cookie)
         self.slave.update_timestamp()
         logger.info('Received a Map assignment from the master.')
-        
+
         if self.slave.url_converter:
             convert_url = self.slave.url_converter.global_to_local
             inputs = [convert_url(url, host) for url in inputs]
-            
+
         request = worker.WorkerMapRequest(dataset_id, source, inputs,
                 func_name, part_name, splits, outdir, extension)
         return self.slave.submit_request(request)
@@ -336,11 +336,11 @@ class SlaveInterface(object):
         self.slave.check_cookie(cookie)
         self.slave.update_timestamp()
         logger.info('Received a Reduce assignment from the master.')
-        
+
         if self.slave.url_converter:
             convert_url = self.slave.url_converter.global_to_local
             inputs = [convert_url(url, host) for url in inputs]
-            
+
         request = worker.WorkerReduceRequest(dataset_id, source, inputs,
                 func_name, part_name, splits, outdir, extension)
         return self.slave.submit_request(request)

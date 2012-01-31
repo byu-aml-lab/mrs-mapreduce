@@ -127,8 +127,13 @@ class _ParamMeta(type):
             classdict['_params'] = {}
         params = classdict['_params']
 
+        has_custom_init = '__init__' in classdict
+
         # Collect the params from each of the parent classes.
         for base in bases:
+            if '__init__' in base.__dict__:
+                has_custom_init = True
+
             try:
                 baseparams = base._params
             except AttributeError:
@@ -159,7 +164,7 @@ class _ParamMeta(type):
 
         # Write a new __init__ for our classes.  If they write their own
         # __init__, we refuse to overwrite it.
-        if '__init__' not in classdict:
+        if not has_custom_init:
             def __init__(self, **kwds):
                 for key in kwds:
                     if key not in self._params:

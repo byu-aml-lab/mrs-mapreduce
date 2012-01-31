@@ -24,7 +24,7 @@ import cStringIO
 import os
 import urlparse
 
-from . import io
+from . import fileformats
 
 from logging import getLogger
 logger = getLogger('mrs')
@@ -68,22 +68,24 @@ class ReadBucket(object):
     def __getstate__(self):
         """Pickle (serialize) the bucket."""
         state = self.__dict__.copy()
-        stringio = cStringIO.StringIO()
-        writer = io.HexWriter(stringio)
-        for pair in self._data:
-            writer.writepair(pair)
-        state['_data'] = stringio.getvalue()
-        stringio.close()
+        buf = cStringIO.StringIO()
+        with fileformats.BinWriter(buf) as writer:
+            for pair in self._data:
+                writer.writepair(pair)
+        state['_data'] = buf.getvalue()
+        buf.close()
         return state
 
     def __setstate__(self, state):
         """Unpickle (deserialize) the bucket."""
         self.__dict__ = state
-        input_data = self._data
+        # TODO: Python 3 supports using context managers with BytesIO
+        #with io.BytesIO(self._data) as buf:
+        buf = cStringIO.StringIO(self._data)
         self._data = []
-        c = io.HexConsumer(self)
-        c.registerProducer(None, True)
-        c.write(input_data)
+        reader = fileformats.BinReader(buf)
+        self.collect(reader)
+        buf.close()
 
     def __len__(self):
         return len(self._data)
@@ -123,9 +125,10 @@ class WriteBucket(ReadBucket):
         super(WriteBucket, self).__init__(source, split)
         self.dir = dir
         if format is None:
-            format = io.default_write_format
+            format = fileformats.default_write_format
         self.format = format
 
+        self._output_file = None
         self._writer = None
 
     def __setstate__(self, state):
@@ -146,13 +149,18 @@ class WriteBucket(ReadBucket):
             import tempfile
             fd, self.url = tempfile.mkstemp(dir=self.dir,
                     prefix=self.prefix(), suffix='.' + self.format.ext)
-            output_file = os.fdopen(fd, 'a')
-            self._writer = self.format(output_file)
+            self._output_file = os.fdopen(fd, 'a')
+            self._writer = self.format(self._output_file)
 
     def close_writer(self):
         if self._writer:
-            self._writer.close()
+            self._writer.finish()
             self._writer = None
+        if self._output_file:
+            self._output_file.flush()
+            os.fsync(self._output_file.fileno())
+            self._output_file.close()
+            self._output_file = None
 
     def addpair(self, kvpair):
         """Collect a single key-value pair."""

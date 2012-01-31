@@ -31,7 +31,7 @@ import threading
 from itertools import chain, izip
 
 from . import bucket
-from . import io
+from . import fileformats
 from . import util
 
 from logging import getLogger
@@ -72,7 +72,7 @@ class BaseDataset(object):
         """Number of buckets in this Dataset."""
         return len(self._data)
 
-    def __nonzero__():
+    def __nonzero__(self):
         return True
 
     def __iter__(self):
@@ -271,7 +271,9 @@ class RemoteData(BaseDataset):
         for bucket in self:
             url = bucket.url
             if url:
-                io.fill(url, bucket)
+                reader = fileformats.open_url(url)
+                bucket.collect(reader)
+                reader.close()
 
         self._fetched = True
 

@@ -28,7 +28,7 @@ A Task represents a unit of work and the mechanism for carrying it out.
 from itertools import chain
 
 from . import datasets
-from . import io
+from . import fileformats
 
 
 class Task(object):
@@ -47,7 +47,7 @@ class Task(object):
         self.storage = storage
         self.dataset = None
         if format is None:
-            format = io.HexWriter
+            format = fileformats.default_write_format
         self.format = format
 
         self.output = None
@@ -139,8 +139,8 @@ class ReduceTask(Task):
     def grouped_read(self, input_file):
         """Yields key-iterator pairs over a sorted input_file.
 
-        This is very similar to itertools.groupby, except that we assume that the
-        input_file is sorted, and we assume key-value pairs.
+        This is very similar to itertools.groupby, except that we assume that
+        the input_file is sorted, and we assume key-value pairs.
         """
         input_itr = iter(input_file)
         input = input_itr.next()
