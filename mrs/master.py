@@ -371,7 +371,8 @@ class RemoteSlave(object):
         #urls = [(b.source, b.url) for b in input_ds[:, source] if b.url]
         urls = [b.url for b in input_ds[:, source] if b.url]
 
-        func_name = dataset.func_name
+        reduce_name = dataset.reduce_name
+        map_name = dataset.map_name
         part_name = dataset.part_name
         logger.info('Assigning task to slave %s: %s, %s'
                 % (self.id, dataset_id, source))
@@ -381,7 +382,7 @@ class RemoteSlave(object):
         else:
             ext = ''
 
-        self._rpc_args = (dataset_id, source, urls, func_name, part_name,
+        self._rpc_args = (dataset_id, source, urls, reduce_name, map_name, part_name,
                 dataset.splits, storage, ext, self.cookie)
 
         self.runqueue.do(self.send_assignment)
