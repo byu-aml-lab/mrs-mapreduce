@@ -273,7 +273,7 @@ class RemoteData(BaseDataset):
             if url:
                 reader = fileformats.open_url(url)
                 bucket.collect(reader)
-                reader.close()
+                reader.finish()
 
         self._fetched = True
 
