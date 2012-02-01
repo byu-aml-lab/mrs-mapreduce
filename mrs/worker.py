@@ -64,9 +64,8 @@ class WorkerMapRequest(object):
     """Request the worker to run a map task."""
 
     def __init__(self, *args):
-        (self.dataset_id, self.source, self.inputs, self.reduce_name, 
-                self.map_name, self.part_name, self.splits, self.outdir,
-                self.extension) = args
+        (self.dataset_id, self.source, self.inputs, self.map_name,
+                self.part_name, self.splits, self.outdir, self.extension) = args
 
     def id(self):
         return '%s_%s_%s' % (self.__class__.__name__, self.dataset_id,
@@ -83,12 +82,11 @@ class WorkerMapRequest(object):
             self.outdir = tempfile.mkdtemp(dir=default_dir,
                     prefix=(self.dataset_id + '_'))
 
-        reducer = getattr(program, self.reduce_name)
         mapper = getattr(program, self.map_name)
         parter = getattr(program, self.part_name)
 
-        t = task.MapTask(input_data, 0, self.source, reducer, mapper, parter,
-                self.splits, self.outdir, format)
+        t = task.MapTask(input_data, 0, self.source, None, mapper, parter, self.splits,
+                self.outdir, format)
         return t
 
 
@@ -97,7 +95,7 @@ class WorkerReduceRequest(object):
 
     def __init__(self, *args):
         (self.dataset_id, self.source, self.inputs, self.reduce_name,
-                self.map_name, self.part_name, self.splits, self.outdir,
+                self.part_name, self.splits, self.outdir,
                 self.extension) = args
 
     def id(self):
@@ -120,10 +118,9 @@ class WorkerReduceRequest(object):
                     prefix=(self.dataset_id + '_'))
 
         reducer = getattr(program, self.reduce_name)
-        mapper = getattr(program, self.map_name)
         parter = getattr(program, self.part_name)
 
-        t = task.ReduceTask(input_data, 0, self.source, reducer, mapper, parter,
+        t = task.ReduceTask(input_data, 0, self.source, reducer, None, parter,
                 self.splits, self.outdir, format)
         return t
 

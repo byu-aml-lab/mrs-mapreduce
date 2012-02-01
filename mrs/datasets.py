@@ -357,8 +357,14 @@ class ComputedData(RemoteData):
     def run_serial(self, program, datasets):
         input_data = datasets[self.input_id]
         self.splits = 1
-        reducer = getattr(program, self.reduce_name)
-        mapper = getattr(program, self.map_name)
+        if self.reduce_name is None:
+            reducer = None
+        else:
+            reducer = getattr(program, self.reduce_name)
+        if self.map_name is None:
+            mapper = None
+        else:
+            mapper = getattr(program, self.map_name)
         parter = getattr(program, self.part_name)
         task = self.task_class(input_data, 0, 0, reducer, mapper, parter,
                 self.splits, self.dir, self.format)
@@ -376,8 +382,14 @@ class ComputedData(RemoteData):
         directory if one was not explicitly specified.
         """
         input_data = datasets[self.input_id]
-        reducer = getattr(program, self.reduce_name)
-        mapper = getattr(program, self.map_name)
+        if self.reduce_name is None:
+            reducer = None
+        else:
+            reducer = getattr(program, self.reduce_name)
+        if self.map_name is None:
+            mapper = None
+        else:
+            mapper = getattr(program, self.map_name)
         parter = getattr(program, self.part_name)
         if jobdir and not self.dir:
             self.dir = os.path.join(jobdir, self.id)
