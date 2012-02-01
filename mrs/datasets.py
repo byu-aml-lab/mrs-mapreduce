@@ -273,7 +273,7 @@ class RemoteData(BaseDataset):
             if url:
                 reader = fileformats.open_url(url)
                 bucket.collect(reader)
-                reader.close()
+                #reader.close()
 
         self._fetched = True
 
@@ -338,7 +338,7 @@ class ComputedData(RemoteData):
         ntasks = input.splits
         super(ComputedData, self).__init__(sources=ntasks, **kwds)
         
-        self.id = '%s_%s' % (task_class.name, self.id)
+        self.id = '%s_%s' % (task_class, self.id)
 
         self.task_class = task_class
         self.reduce_name = reduce_name

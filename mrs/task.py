@@ -49,7 +49,6 @@ class Task(object):
         if format is None:
             format = fileformats.default_write_format
         self.format = format
-
         self.output = None
 
     def outurls(self):
