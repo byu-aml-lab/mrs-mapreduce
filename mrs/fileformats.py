@@ -187,7 +187,8 @@ class BinReader(Reader):
         if not self._magic_read:
             buf = self.fileobj.read(len(self.magic))
             if buf != self.magic:
-                raise RuntimeError('Invalid file header: "%s"' % buf)
+                raise RuntimeError('Invalid file header: %s'
+                    % buf.encode('hex_codec'))
             self._magic_read = True
 
         while True:
@@ -231,7 +232,7 @@ class ZipWriter(BinWriter):
     but the close argument makes this configurable.  Setting close to False
     is useful for StringIO/BytesIO.
     """
-    ext = 'mrsb'
+    ext = 'mrsz'
     magic = 'MrsZ'
 
     def __init__(self, fileobj):
@@ -257,7 +258,7 @@ class ZipReader(BinReader):
     def __init__(self, fileobj):
         self.original_file = fileobj
         fileobj = gzip.GzipFile(fileobj=fileobj, mode='rb')
-        super(ZipWriter, self).__init__(fileobj)
+        super(ZipReader, self).__init__(fileobj)
 
     def close(self):
         # Close the gzip file (which does not close the underlying file).

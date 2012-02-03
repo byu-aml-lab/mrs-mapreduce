@@ -338,7 +338,7 @@ class ComputedData(RemoteData):
         ntasks = input.splits
         super(ComputedData, self).__init__(sources=ntasks, **kwds)
         
-        self.id = '%s_%s' % (task_class, self.id)
+        self.id = '%s_%s_%s' % (reduce_name, map_name, self.id)
 
         self.task_class = task_class
         self.reduce_name = reduce_name

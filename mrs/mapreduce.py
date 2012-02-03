@@ -118,9 +118,9 @@ class MapReduce(object):
             return False
 
         try:
-            intermediate = job.map_data(source, self.reduce, self.map)
+            intermediate = job.map_data(source, self.map)
             source.close()
-            output = job.reduce_data(intermediate, self.reduce, self.map,
+            output = job.reduce_data(intermediate, self.reduce,
                     outdir=outdir, format=fileformats.TextWriter)
             intermediate.close()
             output.close()

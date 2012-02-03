@@ -59,7 +59,6 @@ class MapTask(Task):
     def __init__(self, input, split, source, reducer, mapper, parter, splits,
             storage, format):
         Task.__init__(self, input, split, source, storage, format)
-        self.name = "MapTask"
         self.mapper = mapper
         self.partition = parter
         self.splits = splits
@@ -95,7 +94,6 @@ class ReduceTask(Task):
     def __init__(self, input, split, source, reducer, mapper, parter, splits,
             storage, format):
         Task.__init__(self, input, split, source, storage, format)
-        self.name = "ReduceTask"
         self.reducer = reducer
         self.partition = parter
         self.splits = splits
@@ -173,7 +171,6 @@ class ReduceMapTask(MapTask, ReduceTask):
     def __init__(self, input, split, source, reducer, mapper, parter, splits,
             storage, format):
         Task.__init__(self, input, split, source, storage, format)
-        self.name = "ReduceMapTask"
         self.reducer = reducer
         self.mapper = mapper
         self.partition = parter

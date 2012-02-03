@@ -176,7 +176,7 @@ class Slave(object):
         else:
             hostname, _, _ = socket.gethostname().partition('.')
             directory = jobdir
-            prefix = hostname
+            prefix = '%s_' % hostname
         return tempfile.mkdtemp(dir=directory, prefix=prefix)
 
     def report_ready(self):
