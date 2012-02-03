@@ -35,6 +35,7 @@ import os
 import random
 import signal
 import sys
+import tempfile
 import threading
 import traceback
 
@@ -63,8 +64,6 @@ try:
 except NotImplementedError:
     import time
     DEFAULT_SEED = hash(time.time())
-
-DEFAULT_SHARED = os.getcwd()
 
 logger = logging.getLogger('mrs')
 
@@ -188,21 +187,28 @@ class Implementation(BaseImplementation):
     runner_class = None
     runner = None
     shared = None
-    keep_jobdir = False
     use_bucket_server = False
 
     def _main(self, opts, args):
         from . import job
         from . import runner
+        from . import util
 
         if self.runner_class is None:
             raise NotImplementedError('Subclasses must set runner_class.')
 
-        jobdir = self.make_jobdir(opts)
-        if jobdir:
+        if self.shared:
+            jobdir = tempfile.mkdtemp(dir=self.shared, prefix='mrs.job_')
+            self.use_bucket_server = False
             default_dir = os.path.join(jobdir, 'user_run')
             os.mkdir(default_dir)
+        elif self.tmpdir:
+            jobdir = ''
+            util.try_makedirs(self.tmpdir)
+            default_dir = tempfile.mkdtemp(dir=self.tmpdir,
+                    prefix='mrs_master_')
         else:
+            jobdir = None
             default_dir = None
 
         job_proc, job_conn, job_quit_pipe = self.make_job_process(
@@ -223,18 +229,12 @@ class Implementation(BaseImplementation):
             os.write(job_quit_pipe, '\0')
 
         # Clean up jobdir
-        if jobdir and not self.keep_jobdir:
-            from util import remove_recursive
-            remove_recursive(jobdir)
+        if not self.keep_tmp:
+            if jobdir:
+                util.remove_recursive(jobdir)
+            elif default_dir:
+                util.remove_recursive(default_dir)
 
-    def make_jobdir(self, opts):
-        """Make a temporary job directory, if appropriate."""
-        import tempfile
-        if self.shared:
-            jobdir = tempfile.mkdtemp(prefix='mrs.job_', dir=self.shared)
-        else:
-            jobdir = None
-        return jobdir
 
     def sigusr1_handler(self, signum, stack_frame):
         # Apparently the setting siginterrupt can get reset on some platforms.
@@ -249,9 +249,19 @@ class Serial(Implementation):
     """Runs a MapReduce job in serial."""
 
     runner_class = serial.SerialRunner
+    keep_tmp = False
+    tmpdir = None
 
 
-class MockParallel(Implementation):
+class FileParams(ParamObj):
+    _params = dict(
+        tmpdir=Param(default='/tmp', doc='Local temporary storage'),
+        keep_tmp=Param(type='bool',
+            doc="Do not delete temporary files at completion"),
+        )
+
+
+class MockParallel(Implementation, FileParams):
     """MapReduce execution on POSIX shared storage, such as NFS.
 
     This creates all of the tasks that are used in the normal parallel
@@ -263,10 +273,7 @@ class MockParallel(Implementation):
     the input for all reduce tasks before doing the first reduce task.
     """
     _params = dict(
-        shared=Param(default=DEFAULT_SHARED,
-            doc='Global shared area for temporary storage'),
-        keep_jobdir=Param(type='bool',
-            doc="Do not delete jobdir at completion"),
+        shared=Param(doc='Global shared area for temporary storage (optional)'),
         reduce_tasks=Param(default=1, type='int',
             doc='Default number of reduce tasks'),
         )
@@ -274,7 +281,7 @@ class MockParallel(Implementation):
     runner_class = runner.MockParallelRunner
 
 
-class Network(ParamObj):
+class NetworkParams(ParamObj):
     _params = dict(
         port=Param(default=0, type='int', shortopt='-P',
             doc='RPC Port for incoming requests'),
@@ -285,12 +292,9 @@ class Network(ParamObj):
         )
 
 
-class Master(Implementation, Network):
+class Master(Implementation, FileParams, NetworkParams):
     _params = dict(
-        shared=Param(default=DEFAULT_SHARED,
-            doc='Global shared area for temporary storage'),
-        keep_jobdir=Param(type='bool',
-            doc="Do not delete jobdir at completion"),
+        shared=Param(doc='Global shared area for temporary storage (optional)'),
         reduce_tasks=Param(default=1, type='int',
             doc='Default number of reduce tasks'),
         runfile=Param(default='',
@@ -301,11 +305,9 @@ class Master(Implementation, Network):
     use_bucket_server = True
 
 
-class Slave(BaseImplementation, Network):
+class Slave(BaseImplementation, FileParams, NetworkParams):
     _params = dict(
         master=Param(shortopt='-M', doc='URL of the Master RPC server'),
-        local_shared=Param(default=None,
-            doc='Local shared area for temporary storage'),
         )
 
     def _main(self, opts, args):
@@ -320,7 +322,7 @@ class Slave(BaseImplementation, Network):
         if not self.master:
             logger.critical('No master URL specified.')
             return 1
-        s = slave.Slave(self.program_class, self.master, self.local_shared,
+        s = slave.Slave(self.program_class, self.master, self.tmpdir,
                 self.pingdelay, self.timeout)
 
         worker_process = multiprocessing.Process(target=worker.run_worker,

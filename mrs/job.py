@@ -100,7 +100,7 @@ class Job(object):
                 bucket.url = self._url_converter.local_to_global(bucket.url)
         self._manager.submit(ds)
         ds._close_callback = self._manager.close_dataset
-        return ds   
+        return ds
 
     def map_data(self, input, mapper, splits=None, outdir=None, parter=None,
             format=None):

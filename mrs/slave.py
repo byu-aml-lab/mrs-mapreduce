@@ -67,11 +67,11 @@ class Slave(object):
         _outdirs: map from a (dataset_id, source) pair to an output directory
     """
 
-    def __init__(self, program_class, master_url, local_shared, pingdelay,
+    def __init__(self, program_class, master_url, tmpdir, pingdelay,
             timeout):
         self.program_class = program_class
         self.master_url = master_url
-        self.local_shared = local_shared
+        self.tmpdir = tmpdir
         self.pingdelay = pingdelay
         self.timeout = timeout
 
@@ -103,7 +103,7 @@ class Slave(object):
         self.id, addr, jobdir, opts, args = result
         default_dir = self.init_default_dir(jobdir)
 
-        if self.local_shared:
+        if not jobdir:
             self.start_bucket_server_thread(default_dir)
             self.url_converter = bucket.URLConverter(addr, self.bucket_port,
                     default_dir)
@@ -169,14 +169,14 @@ class Slave(object):
         return slave_id, addr, jobdir, opts, args
 
     def init_default_dir(self, jobdir):
-        if self.local_shared:
-            util.try_makedirs(self.local_shared)
-            directory = self.local_shared
-            prefix = 'mrs_slave_'
-        else:
+        if jobdir:
             hostname, _, _ = socket.gethostname().partition('.')
             directory = jobdir
             prefix = '%s_' % hostname
+        else:
+            util.try_makedirs(self.tmpdir)
+            directory = self.tmpdir
+            prefix = 'mrs_slave_'
         return tempfile.mkdtemp(dir=directory, prefix=prefix)
 
     def report_ready(self):
