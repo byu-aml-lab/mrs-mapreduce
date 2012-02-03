@@ -40,10 +40,10 @@ class Task(object):
     number that will be created by this Task.  It is just used for
     informational purposes, like naming output files.
     """
-    def __init__(self, input, split, source, storage, format):
+    def __init__(self, input, task_index, storage, format):
         self.input = input
-        self.source = source
-        self.split = split
+        self.source = task_index
+        self.split = task_index
         self.storage = storage
         self.dataset = None
         if format is None:
@@ -56,9 +56,9 @@ class Task(object):
 
 
 class MapTask(Task):
-    def __init__(self, input, split, source, mapper, parter, splits, storage,
+    def __init__(self, input, task_index, mapper, parter, splits, storage,
             format):
-        Task.__init__(self, input, split, source, storage, format)
+        Task.__init__(self, input, task_index, storage, format)
         self.mapper = mapper
         self.partition = parter
         self.splits = splits
@@ -91,9 +91,9 @@ class MapTask(Task):
 
 
 class ReduceTask(Task):
-    def __init__(self, input, split, source, reducer, parter, splits, storage,
+    def __init__(self, input, task_index, reducer, parter, splits, storage,
             format):
-        Task.__init__(self, input, split, source, storage, format)
+        Task.__init__(self, input, task_index, storage, format)
         self.reducer = reducer
         self.partition = parter
         self.splits = splits
@@ -168,9 +168,9 @@ class ReduceTask(Task):
 
 
 class ReduceMapTask(MapTask, ReduceTask):
-    def __init__(self, input, split, source, reducer, mapper, parter, splits,
+    def __init__(self, input, task_index, reducer, mapper, parter, splits,
             storage, format):
-        Task.__init__(self, input, split, source, storage, format)
+        Task.__init__(self, input, task_index, storage, format)
         self.reducer = reducer
         self.mapper = mapper
         self.partition = parter
@@ -199,21 +199,17 @@ class ReduceMapTask(MapTask, ReduceTask):
 
 
 class Operation(object):
-    task_class = None
-
     def __init__(self, **kwds):
         self.part_name = kwds.get('part_name', None)
 
 
 class MapOperation(Operation):
-    task_class = MapTask
-
     def __init__(self, **kwds):
         super(MapOperation, self).__init__(**kwds)
         self.map_name = kwds.get('map_name', None)
         self.id = '%s' % self.map_name
 
-    def make_task(self, program, input_data, source, splits, out_dir,
+    def make_task(self, program, input_data, task_index, splits, out_dir,
             out_format):
         if self.map_name is None:
             mapper = None
@@ -221,19 +217,17 @@ class MapOperation(Operation):
             mapper = getattr(program, self.map_name)
         parter = getattr(program, self.part_name)
 
-        return MapTask(input_data, source, source, mapper, parter, splits,
+        return MapTask(input_data, task_index, mapper, parter, splits,
                 out_dir, out_format)
 
 
 class ReduceOperation(Operation):
-    task_class = ReduceTask
-
     def __init__(self, **kwds):
         super(ReduceOperation, self).__init__(**kwds)
         self.reduce_name = kwds.get('reduce_name', None)
         self.id = '%s' % self.reduce_name
 
-    def make_task(self, program, input_data, source, splits, out_dir,
+    def make_task(self, program, input_data, task_index, splits, out_dir,
             out_format):
         if self.reduce_name is None:
             reducer = None
@@ -241,20 +235,18 @@ class ReduceOperation(Operation):
             reducer = getattr(program, self.reduce_name)
         parter = getattr(program, self.part_name)
 
-        return ReduceTask(input_data, source, source, reducer, parter, splits,
+        return ReduceTask(input_data, task_index, reducer, parter, splits,
                 out_dir, out_format)
 
 
 class ReduceMapOperation(Operation):
-    task_class = ReduceMapTask
-
     def __init__(self, **kwds):
         super(ReduceMapOperation, self).__init__(**kwds)
         self.reduce_name = kwds.get('reduce_name', None)
         self.map_name = kwds.get('map_name', None)
         self.id = '%s_%s' % (self.reduce_name, self.map_name)
 
-    def make_task(self, program, input_data, source, splits, out_dir,
+    def make_task(self, program, input_data, task_index, splits, out_dir,
             out_format):
         if self.reduce_name is None:
             reducer = None
@@ -266,7 +258,7 @@ class ReduceMapOperation(Operation):
             mapper = getattr(program, self.map_name)
         parter = getattr(program, self.part_name)
 
-        return ReduceMapTask(input_data, source, source, reducer, mapper,
+        return ReduceMapTask(input_data, task_index, reducer, mapper,
                 parter, splits, out_dir, out_format)
 
 

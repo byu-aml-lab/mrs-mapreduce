@@ -285,8 +285,9 @@ class RemoteData(BaseDataset):
 class FileData(RemoteData):
     """A list of static files or urls to be used as input to an operation.
 
-    For now, all of the files come from a single source, with one split for
-    each file.
+    By default, all of the files come from a single source, with one split for
+    each file.  If a split is given, then the dataset will have enough sources
+    to evenly divide the files.
 
     >>> urls = ['http://aml.cs.byu.edu/', __file__]
     >>> data = FileData(urls)
@@ -301,7 +302,8 @@ class FileData(RemoteData):
     (0, '# Mrs\\n')
     >>>
     """
-    def __init__(self, urls, sources=None, splits=None, **kwds):
+    def __init__(self, urls, sources=None, splits=None, first_source=0,
+            first_split=0, **kwds):
         n = len(urls)
 
         if sources is None and splits is None:
@@ -309,14 +311,16 @@ class FileData(RemoteData):
             sources = 1
             splits = n
         elif sources is None:
-            sources = n // splits
+            sources = first_source + n // splits
         elif splits is None:
-            splits = n // sources
+            splits = first_split + n // sources
 
         super(FileData, self).__init__(sources=sources, splits=splits, **kwds)
         for i, url in enumerate(urls):
             if url:
-                bucket = self[i // splits, i % splits]
+                source = first_source + i // splits
+                split = first_split + i % splits
+                bucket = self[source, split]
                 bucket.url = url
         self._urls_known = True
 
@@ -360,7 +364,7 @@ class ComputedData(RemoteData):
         task.output.close()
         self.computation_done()
 
-    def get_task(self, source, program, datasets, jobdir):
+    def get_task(self, task_index, program, datasets, jobdir):
         """Creates a task for the given source id.
 
         The program and datasets parameters are required for finding the
@@ -371,7 +375,7 @@ class ComputedData(RemoteData):
         if jobdir and not self.dir:
             self.dir = os.path.join(jobdir, self.id)
             os.mkdir(self.dir)
-        return self.op.make_task(program, input_data, source, self.splits,
+        return self.op.make_task(program, input_data, task_index, self.splits,
                 self.dir, self.format)
 
     def fetchall(self):

@@ -64,15 +64,16 @@ class WorkerMapRequest(object):
     """Request the worker to run a map task."""
 
     def __init__(self, *args):
-        (self.dataset_id, self.source, self.inputs, self.map_name,
+        (self.dataset_id, self.task_index, self.inputs, self.map_name,
                 self.part_name, self.splits, self.outdir, self.extension) = args
 
     def id(self):
         return '%s_%s_%s' % (self.__class__.__name__, self.dataset_id,
-                self.source)
+                self.task_index)
 
     def make_task(self, program, default_dir):
-        input_data = datasets.FileData(self.inputs, splits=1)
+        input_data = datasets.FileData(self.inputs, splits=1,
+                first_split=self.task_index)
         if self.extension:
             format = fileformats.writerformat(self.extension)
         else:
@@ -82,10 +83,9 @@ class WorkerMapRequest(object):
             self.outdir = tempfile.mkdtemp(dir=default_dir,
                     prefix=(self.dataset_id + '_'))
 
-        mapper = getattr(program, self.map_name)
-        parter = getattr(program, self.part_name)
-
-        t = task.MapTask(input_data, 0, self.source, None, mapper, parter, self.splits,
+        op = task.MapOperation(map_name=self.map_name,
+                part_name=self.part_name)
+        t = op.make_task(program, input_data, self.task_index, self.splits,
                 self.outdir, format)
         return t
 
@@ -94,20 +94,21 @@ class WorkerReduceRequest(object):
     """Request the to worker to run a reduce task."""
 
     def __init__(self, *args):
-        (self.dataset_id, self.source, self.inputs, self.reduce_name,
+        (self.dataset_id, self.task_index, self.inputs, self.reduce_name,
                 self.part_name, self.splits, self.outdir,
                 self.extension) = args
 
     def id(self):
         return '%s_%s_%s' % (self.__class__.__name__, self.dataset_id,
-                self.source)
+                self.task_index)
 
     def make_task(self, program, default_dir):
         """Tell this worker to start working on a reduce task.
 
         This will ordinarily be called from some other thread.
         """
-        input_data = datasets.FileData(self.inputs, splits=1)
+        input_data = datasets.FileData(self.inputs, splits=1,
+                first_split=self.task_index)
         if self.extension:
             format = fileformats.writerformat(self.extension)
         else:
@@ -117,11 +118,10 @@ class WorkerReduceRequest(object):
             self.outdir = tempfile.mkdtemp(dir=default_dir,
                     prefix=(self.dataset_id + '_'))
 
-        reducer = getattr(program, self.reduce_name)
-        parter = getattr(program, self.part_name)
-
-        t = task.ReduceTask(input_data, 0, self.source, reducer, None, parter,
-                self.splits, self.outdir, format)
+        op = task.ReduceOperation(reduce_name=self.reduce_name,
+                part_name=self.part_name)
+        t = op.make_task(program, input_data, self.task_index, self.splits,
+                self.outdir, format)
         return t
 
 
@@ -129,20 +129,21 @@ class WorkerReduceMapRequest(object):
     """Request the to worker to run a reducemap task."""
 
     def __init__(self, *args):
-        (self.dataset_id, self.source, self.inputs, self.reduce_name,
+        (self.dataset_id, self.task_index, self.inputs, self.reduce_name,
                 self.map_name, self.part_name, self.splits, self.outdir,
                 self.extension) = args
 
     def id(self):
         return '%s_%s_%s' % (self.__class__.__name__, self.dataset_id,
-                self.source)
+                self.task_index)
 
     def make_task(self, program, default_dir):
         """Tell this worker to start working on a reducemap task.
 
         This will ordinarily be called from some other thread.
         """
-        input_data = datasets.FileData(self.inputs, splits=1)
+        input_data = datasets.FileData(self.inputs, splits=1,
+                first_split=self.task_index)
         if self.extension:
             format = io.writerformat(self.extension)
         else:
@@ -152,12 +153,10 @@ class WorkerReduceMapRequest(object):
             self.outdir = tempfile.mkdtemp(dir=default_dir,
                     prefix=(self.dataset_id + '_'))
 
-        reducer = getattr(program, self.reduce_name)
-        mapper = getattr(program, self.map_name)
-        parter = getattr(program, self.part_name)
-
-        t = task.ReduceMapTask(input_data, 0, self.source, reducer, mapper,
-                parter, self.splits, self.outdir, format)
+        op = task.ReduceMapOperation(reduce_name=self.reduce_name,
+                map_name=self.map_name, part_name=self.part_name)
+        t = op.make_task(program, input_data, 0, self.task_index, self.splits,
+                self.outdir, format)
         return t
 
 
@@ -179,9 +178,9 @@ class WorkerSetupSuccess(object):
 
 class WorkerSuccess(object):
     """Successful response from worker."""
-    def __init__(self, dataset_id, source, outdir, outurls, request_id):
+    def __init__(self, dataset_id, task_index, outdir, outurls, request_id):
         self.dataset_id = dataset_id
-        self.source = source
+        self.task_index = task_index
         self.outdir = outdir
         self.outurls = outurls
         self.request_id = request_id
@@ -226,8 +225,9 @@ def run_worker(program_class, request_pipe):
                 logger.info('Starting to run a new task.')
                 t = request.make_task(program, default_dir)
                 t.run()
-                response = WorkerSuccess(request.dataset_id, request.source,
-                        request.outdir, t.outurls(), request.id())
+                response = WorkerSuccess(request.dataset_id,
+                        request.task_index, request.outdir, t.outurls(),
+                        request.id())
                 logger.debug('Task complete.')
         except KeyboardInterrupt:
             return

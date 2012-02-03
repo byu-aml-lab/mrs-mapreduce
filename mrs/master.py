@@ -355,36 +355,39 @@ class RemoteSlave(object):
         Called from the Runner.
         """
         assert self.set_assignment(None, assignment)
-        dataset_id, source = assignment
+        dataset_id, task_index = assignment
 
         dataset = datasets[dataset_id]
         input_ds = datasets[dataset.input_id]
-        #urls = [(b.source, b.url) for b in input_ds[:, source] if b.url]
-        urls = [b.url for b in input_ds[:, source] if b.url]
+        urls = [b.url for b in input_ds[:, task_index] if b.url]
 
-        reduce_name = dataset.reduce_name
-        map_name = dataset.map_name
-        part_name = dataset.part_name
         logger.info('Assigning task to slave %s: %s, %s'
-                % (self.id, dataset_id, source))
+                % (self.id, dataset_id, task_index))
         storage = dataset.dir if dataset.dir else ''
         if dataset.format is not None:
             ext = dataset.format.ext
         else:
             ext = ''
 
-        if dataset.task_class == task.MapTask:
+        op = dataset.op
+        part_name = op.part_name
+        if isinstance(op, task.MapOperation):
+            map_name = op.map_name
             self._rpc_func = self._rpc.start_map
-            self._rpc_args = (dataset_id, source, urls, map_name, part_name,
-                dataset.splits, storage, ext, self.cookie)
-        elif dataset.task_class == task.ReduceTask:
+            self._rpc_args = (dataset_id, task_index, urls, map_name,
+                    part_name, dataset.splits, storage, ext, self.cookie)
+        elif isinstance(op, task.ReduceOperation):
+            reduce_name = op.reduce_name
             self._rpc_func = self._rpc.start_reduce
-            self._rpc_args = (dataset_id, source, urls, reduce_name, part_name,
-                dataset.splits, storage, ext, self.cookie)
-        elif dataset.task_class == task.ReduceMapTask:
+            self._rpc_args = (dataset_id, task_index, urls, reduce_name,
+                    part_name, dataset.splits, storage, ext, self.cookie)
+        elif isinstance(op, task.ReduceMapOperation):
+            reduce_name = op.reduce_name
+            map_name = op.map_name
             self._rpc_func = self._rpc.start_reducemap
-            self._rpc_args = (dataset_id, source, urls, reduce_name, map_name,
-                part_name, dataset.splits, storage, ext, self.cookie)
+            self._rpc_args = (dataset_id, task_index, urls, reduce_name,
+                    map_name, part_name, dataset.splits, storage, ext,
+                    self.cookie)
         else:
             assert False, 'Unknown task class: %s' % repr(dataset.task_class)
 
