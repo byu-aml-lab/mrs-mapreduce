@@ -25,7 +25,9 @@ import cStringIO
 import gzip
 import os
 import struct
+import sys
 import urlparse
+import urllib
 import urllib2
 
 from itertools import islice
@@ -260,9 +262,10 @@ class ZipReader(BinReader):
         fileobj = gzip.GzipFile(fileobj=fileobj, mode='rb')
         super(ZipReader, self).__init__(fileobj)
 
-    def close(self):
+    def finish(self):
         # Close the gzip file (which does not close the underlying file).
         self.fileobj.close()
+
         self.original_file.close()
 
 
@@ -286,6 +289,13 @@ def open_url(url):
     parsed_url = urlparse.urlparse(url, 'file')
     if parsed_url.scheme == 'file':
         f = open(parsed_url.path, 'rb')
+    elif reader_cls is ZipReader and sys.version_info < (3, 2):
+        # In Python <3.2, the gzip module is broken because it depends on the
+        # underlying file being seekable (not true for url objects).
+        opener = urllib.URLopener()
+        filename, _ = opener.retrieve(url)
+        f = open(filename, 'rb')
+        os.unlink(filename)
     else:
         f = urllib2.urlopen(url)
 
