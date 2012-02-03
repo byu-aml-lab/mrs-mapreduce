@@ -5,14 +5,18 @@ Release Checklist
 *****************
 
 
-#. Run `python setup.py check`
-#. Run `python setup.py test`
+#. Run `python setup.py check`.
+#. Run `python setup.py test`.
 #. Update the version number.
 
-  #. Update the version in mrs/version.py
+  #. Update the Changelog (use `git diff` against the tag for the previous
+  version).
+  #. Update the version in `mrs/version.py`.
   #. Commit to the Git repository.
-  
-#. Tag the new commit with `git tag vX.X`
-#. Create and upload a release tarball with `python setup.py register bdist upload`
+
+#. Tag the new commit with `git tag vX.X`.
+#. Create and upload a release tarball with `python setup.py register bdist
+upload`.
+#. Upload the tarball to Google Code.
 #. Send announcement email to the mrs-mapreduce@googlegroups.com mailing list.
-#. Announce on Freshmeat.
+#. Announce on Freshcode.
