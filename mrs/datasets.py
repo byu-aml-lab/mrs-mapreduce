@@ -332,18 +332,13 @@ class ComputedData(RemoteData):
         task_class: the class used to carry out computation
         parter: name of the partition function (see registry for more info)
     """
-    def __init__(self, task_class, input, reduce_name, map_name,
-            part_name=None, **kwds):
+    def __init__(self, operation, input, **kwds):
         # At least for now, we create 1 task for each split in the input
         ntasks = input.splits
         super(ComputedData, self).__init__(sources=ntasks, **kwds)
 
-        self.id = '%s_%s_%s' % (reduce_name, map_name, self.id)
-
-        self.task_class = task_class
-        self.reduce_name = reduce_name
-        self.map_name = map_name
-        self.part_name = part_name
+        self.op = operation
+        self.id = '%s_%s' % (operation.id, self.id)
 
         self._computing = True
 
@@ -357,17 +352,8 @@ class ComputedData(RemoteData):
     def run_serial(self, program, datasets):
         input_data = datasets[self.input_id]
         self.splits = 1
-        if self.reduce_name is None:
-            reducer = None
-        else:
-            reducer = getattr(program, self.reduce_name)
-        if self.map_name is None:
-            mapper = None
-        else:
-            mapper = getattr(program, self.map_name)
-        parter = getattr(program, self.part_name)
-        task = self.task_class(input_data, 0, 0, reducer, mapper, parter,
-                self.splits, self.dir, self.format)
+        task = self.op.make_task(program, input_data, 0, self.splits,
+                self.dir, self.format)
 
         task.run(serial=True)
         self._use_output(task.output)
@@ -382,21 +368,11 @@ class ComputedData(RemoteData):
         directory if one was not explicitly specified.
         """
         input_data = datasets[self.input_id]
-        if self.reduce_name is None:
-            reducer = None
-        else:
-            reducer = getattr(program, self.reduce_name)
-        if self.map_name is None:
-            mapper = None
-        else:
-            mapper = getattr(program, self.map_name)
-        parter = getattr(program, self.part_name)
         if jobdir and not self.dir:
             self.dir = os.path.join(jobdir, self.id)
             os.mkdir(self.dir)
-        task = self.task_class(input_data, source, source, reducer, mapper,
-                parter, self.splits, self.dir, self.format)
-        return task
+        return self.op.make_task(program, input_data, source, self.splits,
+                self.dir, self.format)
 
     def fetchall(self):
         assert not self.computing, (
