@@ -120,8 +120,8 @@ class MapReduce(object):
         try:
             intermediate = job.map_data(source, self.map)
             source.close()
-            output = job.reduce_data(intermediate, self.reduce, outdir=outdir,
-                    format=fileformats.TextWriter)
+            output = job.reduce_data(intermediate, self.reduce,
+                    outdir=outdir, format=fileformats.TextWriter)
             intermediate.close()
             output.close()
 

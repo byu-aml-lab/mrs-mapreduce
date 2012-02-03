@@ -49,7 +49,6 @@ class Task(object):
         if format is None:
             format = fileformats.default_write_format
         self.format = format
-
         self.output = None
 
     def outurls(self):
@@ -57,7 +56,7 @@ class Task(object):
 
 
 class MapTask(Task):
-    def __init__(self, input, split, source, mapper, parter, splits,
+    def __init__(self, input, split, source, reducer, mapper, parter, splits,
             storage, format):
         Task.__init__(self, input, split, source, storage, format)
         self.mapper = mapper
@@ -92,7 +91,7 @@ class MapTask(Task):
 
 
 class ReduceTask(Task):
-    def __init__(self, input, split, source, reducer, parter, splits,
+    def __init__(self, input, split, source, reducer, mapper, parter, splits,
             storage, format):
         Task.__init__(self, input, split, source, storage, format)
         self.reducer = reducer
@@ -168,4 +167,37 @@ class ReduceTask(Task):
         raise StopIteration
 
 
+class ReduceMapTask(MapTask, ReduceTask):
+    def __init__(self, input, split, source, reducer, mapper, parter, splits,
+            storage, format):
+        Task.__init__(self, input, split, source, storage, format)
+        self.reducer = reducer
+        self.mapper = mapper
+        self.partition = parter
+        self.splits = splits
+        
+    def run(self, serial=False):
+        # SETUP INPUT
+        self.input.fetchall()
+        if serial:
+            all_input = self.input.iterdata()
+        else:
+            all_input = self.input.itersplit(self.split)
+        sorted_input = sorted(all_input)
+
+        if self.storage and (self.splits > 1):
+            import tempfile
+            prefix = 'source_%s_' % self.source
+            subdir = tempfile.mkdtemp(prefix=prefix, dir=self.storage)
+        else:
+            subdir = self.storage
+    
+        # REDUCEMAP PHASE
+        itr = self.map(self.reduce(sorted_input))
+        self.output = datasets.LocalData(itr, self.splits, source=self.source,
+                parter=self.partition, dir=subdir, format=self.format)
+        
+        
+        
+     
 # vim: et sw=4 sts=4

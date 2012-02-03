@@ -358,18 +358,12 @@ class RemoteSlave(object):
         dataset_id, source = assignment
 
         dataset = datasets[dataset_id]
-        if dataset.task_class == task.MapTask:
-            self._rpc_func = self._rpc.start_map
-        elif dataset.task_class == task.ReduceTask:
-            self._rpc_func = self._rpc.start_reduce
-        else:
-            assert False, 'Unknown task class: %s' % repr(dataset.task_class)
-
         input_ds = datasets[dataset.input_id]
         #urls = [(b.source, b.url) for b in input_ds[:, source] if b.url]
         urls = [b.url for b in input_ds[:, source] if b.url]
 
-        func_name = dataset.func_name
+        reduce_name = dataset.reduce_name
+        map_name = dataset.map_name
         part_name = dataset.part_name
         logger.info('Assigning task to slave %s: %s, %s'
                 % (self.id, dataset_id, source))
@@ -379,8 +373,20 @@ class RemoteSlave(object):
         else:
             ext = ''
 
-        self._rpc_args = (dataset_id, source, urls, func_name, part_name,
+        if dataset.task_class == task.MapTask:
+            self._rpc_func = self._rpc.start_map
+            self._rpc_args = (dataset_id, source, urls, map_name, part_name,
                 dataset.splits, storage, ext, self.cookie)
+        elif dataset.task_class == task.ReduceTask:
+            self._rpc_func = self._rpc.start_reduce
+            self._rpc_args = (dataset_id, source, urls, reduce_name, part_name,
+                dataset.splits, storage, ext, self.cookie)
+        elif dataset.task_class == task.ReduceMapTask:
+            self._rpc_func = self._rpc.start_reducemap
+            self._rpc_args = (dataset_id, source, urls, reduce_name, map_name,
+                part_name, dataset.splits, storage, ext, self.cookie)
+        else:
+            assert False, 'Unknown task class: %s' % repr(dataset.task_class)
 
         self.runqueue.do(self.send_assignment)
 

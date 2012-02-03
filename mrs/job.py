@@ -100,16 +100,7 @@ class Job(object):
                 bucket.url = self._url_converter.local_to_global(bucket.url)
         self._manager.submit(ds)
         ds._close_callback = self._manager.close_dataset
-        return ds
-
-    def reducemap_data(self, input, reducer, mapper, splits=None, outdir=None,
-            parter=None, format=None):
-        data = self.reduce_data(input, reducer, splits=splits, outdir=outdir, parter=parter,
-            format=format)
-        ds = self.map_data(data, mapper, splits=splits, outdir=outdir, parter=parter,
-            format=format)
-        data.close()
-        return ds
+        return ds   
 
     def map_data(self, input, mapper, splits=None, outdir=None, parter=None,
             format=None):
@@ -135,7 +126,7 @@ class Job(object):
         map_name = self._registry[mapper]
         part_name = self._registry[parter]
 
-        ds = datasets.ComputedData(task.MapTask, input, map_name,
+        ds = datasets.ComputedData(task.MapTask, input, None, map_name,
                 splits=splits, dir=outdir, part_name=part_name, format=format,
                 permanent=permanent)
         self._manager.submit(ds)
@@ -166,9 +157,38 @@ class Job(object):
         reduce_name = self._registry[reducer]
         part_name = self._registry[parter]
 
-        ds = datasets.ComputedData(task.ReduceTask, input, reduce_name,
+        ds = datasets.ComputedData(task.ReduceTask, input, reduce_name, None,
                 splits=splits, dir=outdir, part_name=part_name, format=format,
                 permanent=permanent)
+        self._manager.submit(ds)
+        ds._close_callback = self._manager.close_dataset
+        return ds
+
+    def reducemap_data(self, input, reducer, mapper, splits=None, outdir=None,
+            parter=None, format=None):
+        """Define a set of data computed with the reducemap operation.
+        
+        Called from the user-specified run function.
+        """
+        if splits is None:
+            splits = self._default_reduce_tasks
+            
+        if outdir:
+            permanent = True
+            util.try_makedirs(outdir)
+        else:
+            permanent = False
+
+        if not parter:
+            parter = self._default_partition
+
+        reduce_name = self._registry[reducer]
+        map_name = self._registry[mapper]
+        part_name = self._registry[parter]
+        
+        ds = datasets.ComputedData(task.ReduceMapTask, input, reduce_name,
+                map_name, splits=splits, dir=outdir, part_name=part_name,
+                format=format, permanent=permanent)
         self._manager.submit(ds)
         ds._close_callback = self._manager.close_dataset
         return ds
