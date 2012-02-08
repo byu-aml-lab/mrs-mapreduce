@@ -43,13 +43,13 @@ from . import master
 from . import runner
 from . import serial
 from .param import ParamObj, Param
-from .version import VERSION
+from .version import __version__
 
 
 USAGE = (""
 """%prog [OPTIONS] [ARGS]
 
-Mrs Version """ + VERSION + """
+Mrs Version """ + __version__ + """
 
 The default implementation is Serial.  Note that you can give --help
 separately for each implementation."""

@@ -56,7 +56,7 @@ from . import bucket
 from . import http
 from . import registry
 from . import util
-from .version import VERSION
+from .version import __version__
 
 from logging import getLogger
 logger = getLogger('mrs')
@@ -155,7 +155,7 @@ class Slave(object):
 
         try:
             slave_id, addr, jobdir, optdict, args = self.master_rpc.signin(
-                    VERSION, cookie, self.rpc_port, program_hash)
+                    __version__, cookie, self.rpc_port, program_hash)
         except socket.error, e:
             msg = e.args[1]
             logger.critical('Unable to contact master: %s' % msg)

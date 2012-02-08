@@ -230,9 +230,9 @@ class MasterInterface(object):
         It returns the slave_id and option dictionary.  Returns (-1, {}, [])
         if the signin is rejected.
         """
-        from version import VERSION
+        from version import __version__
 
-        if version != VERSION:
+        if version != __version__:
             logger.warning('Client tried to sign in with mismatched version.')
             return -1, '', '', {}, []
         if self.program_hash != program_hash:
