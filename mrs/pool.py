@@ -22,6 +22,7 @@
 
 """Mrs. Thread Pool and Run Queue"""
 
+from __future__ import with_statement
 
 MIN_THREADS = 1
 MAX_THREADS = 20
