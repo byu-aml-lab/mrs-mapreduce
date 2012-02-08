@@ -34,11 +34,9 @@ from . import fileformats
 class Task(object):
     """Manage input and output for a piece of a map or reduce operation.
 
-    The `split` is the split of input that will be used by this Task.  Note
-    that on the slave, this will always be 0 because the slave is unaware of
-    other input that the master may know about.  The `source` is the source
-    number that will be created by this Task.  It is just used for
-    informational purposes, like naming output files.
+    The `task_index` determines the split of the input dataset that will be
+    used by this Task, as well as the source number that will be created by
+    this Task.
     """
     def __init__(self, input, task_index, storage, format):
         self.input = input
