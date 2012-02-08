@@ -22,8 +22,8 @@
 
 from __future__ import with_statement
 
-import cStringIO
 import os
+from six.moves import cStringIO as StringIO
 import urlparse
 
 from . import fileformats

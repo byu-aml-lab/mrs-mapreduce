@@ -24,11 +24,11 @@
 # TODO: add a Dataset for resplitting input (right now we assume that input
 # files are pre-split).
 
+from itertools import chain
 import os
 import tempfile
 import threading
 
-from itertools import chain, izip
 
 from . import bucket
 from . import fileformats

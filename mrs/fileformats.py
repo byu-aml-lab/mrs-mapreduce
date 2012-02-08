@@ -21,16 +21,20 @@
 # (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
 
 import codecs
-import cStringIO
 import gzip
+from itertools import islice
 import os
 import struct
 import sys
-import urlparse
-import urllib
-import urllib2
 
-from itertools import islice
+try:
+    from urllib.parse import urlparse
+    from urllib.request import urlopen, URLopener
+except ImportError:
+    from urlparse import urlparse
+    from urllib import URLopener
+    from urllib2 import urlopen
+
 
 DEFAULT_BUFFER_SIZE = 4096
 # 1 is fast and unaggressive, 9 is slow and aggressive
@@ -286,18 +290,18 @@ def open_url(url):
     """Opens a url or file and returns an appropriate key-value reader."""
     reader_cls = fileformat(url)
 
-    parsed_url = urlparse.urlparse(url, 'file')
+    parsed_url = urlparse(url, 'file')
     if parsed_url.scheme == 'file':
         f = open(parsed_url.path, 'rb')
     elif reader_cls is ZipReader and sys.version_info < (3, 2):
         # In Python <3.2, the gzip module is broken because it depends on the
         # underlying file being seekable (not true for url objects).
-        opener = urllib.URLopener()
+        opener = URLopener()
         filename, _ = opener.retrieve(url)
         f = open(filename, 'rb')
         os.unlink(filename)
     else:
-        f = urllib2.urlopen(url)
+        f = urlopen(url)
 
     return reader_cls(f)
 
