@@ -54,9 +54,9 @@ from .fileformats import HexWriter, TextWriter, BinWriter, ZipWriter
 from .main import main
 from .mapreduce import MapReduce, IterativeMR
 
-VERSION = version.VERSION
+__version__ = version.__version__
 
 # We need to set __all__ to make sure that pydoc has everything:
-__all__ = ['logger', 'HexWriter', 'TextWriter', 'VERSION', 'main',]
+__all__ = ['logger', 'HexWriter', 'TextWriter', '__version__', 'main',]
 
 # vim: et sw=4 sts=4
