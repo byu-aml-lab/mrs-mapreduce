@@ -34,6 +34,7 @@ import multiprocessing
 import os
 import random
 import signal
+from six import b
 import sys
 import tempfile
 import threading
@@ -226,7 +227,7 @@ class Implementation(BaseImplementation):
         except KeyboardInterrupt:
             logger.critical('Quitting due to keyboard interrupt.')
         finally:
-            os.write(job_quit_pipe, '\0')
+            os.write(job_quit_pipe, b('\0'))
 
         # Clean up jobdir
         if not self.keep_tmp:
@@ -234,7 +235,6 @@ class Implementation(BaseImplementation):
                 util.remove_recursive(jobdir)
             elif default_dir:
                 util.remove_recursive(default_dir)
-
 
     def sigusr1_handler(self, signum, stack_frame):
         # Apparently the setting siginterrupt can get reset on some platforms.

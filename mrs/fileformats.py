@@ -24,6 +24,7 @@ import codecs
 import gzip
 from itertools import islice
 import os
+from six import b
 import struct
 import sys
 
@@ -153,7 +154,7 @@ class BinWriter(TextWriter):
     is useful for StringIO/BytesIO.
     """
     ext = 'mrsb'
-    magic = 'MrsB'
+    magic = b('MrsB')
 
     def __init__(self, fileobj, close=True):
         self.fileobj = fileobj
@@ -180,11 +181,11 @@ class BinReader(Reader):
     TODO: we might as well base64-encode the value, rather than hex-encoding
     it, since it doesn't need to be sortable.
     """
-    magic = 'MrsB'
+    magic = b('MrsB')
 
     def __init__(self, fileobj):
         self.fileobj = fileobj
-        self._buffer = ''
+        self._buffer = b('')
         self._magic_read = False
 
     def __iter__(self):
@@ -239,7 +240,7 @@ class ZipWriter(BinWriter):
     is useful for StringIO/BytesIO.
     """
     ext = 'mrsz'
-    magic = 'MrsZ'
+    magic = b('MrsZ')
 
     def __init__(self, fileobj):
         fileobj = gzip.GzipFile(fileobj=fileobj, mode='wb',
@@ -259,7 +260,7 @@ class ZipReader(BinReader):
     TODO: we might as well base64-encode the value, rather than hex-encoding
     it, since it doesn't need to be sortable.
     """
-    magic = 'MrsZ'
+    magic = b('MrsZ')
 
     def __init__(self, fileobj):
         self.original_file = fileobj

@@ -419,17 +419,17 @@ class _Option(optparse.Option):
             self.subgroup = None
 
     def extend(self, opt_str, value, values, parser):
-        """Imports a class and attempts to extend the parser."""
+        """Imports a ParamObj class and attempts to extend the parser."""
         if value is None:
             return
 
-        paramobj = None
+        paramcls = None
         no_attribute_msg = None
         for base in (self.search or []):
             # Look for modules in the search list.
             try:
                 full_name = '.'.join((base, value))
-                paramobj = import_object(full_name)
+                paramcls = import_object(full_name)
                 break
             except ImportError, e:
                 msg = e.args[0]
@@ -454,13 +454,13 @@ class _Option(optparse.Option):
         else:
             # Since nothing else succeeded, try importing the value directly.
             try:
-                paramobj = import_object(value)
+                paramcls = import_object(value)
             except ImportError, e:
                 if (no_attribute_msg is None
                         and msg.startswith('No attribute named ')):
                     no_attribute_msg = msg
 
-        if not paramobj:
+        if not paramcls:
             if no_attribute_msg:
                 message = no_attribute_msg
             else:
@@ -469,23 +469,24 @@ class _Option(optparse.Option):
                     % (opt_str, message))
 
         try:
-            full_path = '%s.%s' % (paramobj.__module__, paramobj.__name__)
+            full_path = '%s.%s' % (paramcls.__module__, paramcls.__name__)
         except AttributeError:
-            full_path = paramobj.__name__
+            full_path = paramcls.__name__
         setattr(values, self.dest, full_path)
 
         self.remove_suboptions(parser)
 
-        if paramobj.__metaclass__ is not _ParamMeta:
-            err = '%s sets _params without inheriting from ParamObj' % paramobj
+        if not issubclass(paramcls, ParamObj):
+            err = ('Class %s sets _params without inheriting from ParamObj'
+                    % paramcls.__name__)
             raise RuntimeError(err)
-        params = paramobj._params
+        params = paramcls._params
         if params:
             if self._long_opts:
                 prefix = self._long_opts[0][2:]
             else:
                 prefix = self._short_opts[0][1]
-            self.subgroup = parser.add_param_object(paramobj, prefix, values)
+            self.subgroup = parser.add_param_object(paramcls, prefix, values)
 
 
 ##############################################################################

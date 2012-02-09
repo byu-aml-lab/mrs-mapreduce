@@ -23,7 +23,7 @@
 from __future__ import with_statement
 
 import os
-from six.moves import cStringIO as StringIO
+from six import BytesIO
 import urlparse
 
 from . import fileformats
@@ -70,7 +70,7 @@ class ReadBucket(object):
     def __getstate__(self):
         """Pickle (serialize) the bucket."""
         state = self.__dict__.copy()
-        buf = cStringIO.StringIO()
+        buf = BytesIO()
         with fileformats.BinWriter(buf) as writer:
             for pair in self._data:
                 writer.writepair(pair)
@@ -83,7 +83,7 @@ class ReadBucket(object):
         self.__dict__ = state
         # TODO: Python 3 supports using context managers with BytesIO
         #with io.BytesIO(self._data) as buf:
-        buf = cStringIO.StringIO(self._data)
+        buf = BytesIO(self._data)
         self._data = []
         reader = fileformats.BinReader(buf)
         self.collect(reader)
@@ -151,7 +151,7 @@ class WriteBucket(ReadBucket):
             import tempfile
             fd, self.url = tempfile.mkstemp(dir=self.dir,
                     prefix=self.prefix(), suffix='.' + self.format.ext)
-            self._output_file = os.fdopen(fd, 'a')
+            self._output_file = os.fdopen(fd, 'ba')
             self._writer = self.format(self._output_file)
 
     def close_writer(self):
