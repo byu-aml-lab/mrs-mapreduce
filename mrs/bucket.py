@@ -151,7 +151,7 @@ class WriteBucket(ReadBucket):
             import tempfile
             fd, self.url = tempfile.mkstemp(dir=self.dir,
                     prefix=self.prefix(), suffix='.' + self.format.ext)
-            self._output_file = os.fdopen(fd, 'ba')
+            self._output_file = os.fdopen(fd, 'a')
             self._writer = self.format(self._output_file)
 
     def close_writer(self):
