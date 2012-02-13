@@ -24,6 +24,7 @@ from __future__ import with_statement
 
 import os
 from six import BytesIO
+import tempfile
 import urlparse
 
 from . import fileformats
@@ -146,12 +147,11 @@ class WriteBucket(ReadBucket):
         # Don't open if 1) there's no place to put it; 2) it's already saved
         # some place; or 3) it's already open.
         if self.dir and not self.url and not self._writer:
-            # Note that Python 2.6 has NamedTemporaryFile(delete=False), which
-            # would make this easier.
-            import tempfile
-            fd, self.url = tempfile.mkstemp(dir=self.dir,
-                    prefix=self.prefix(), suffix='.' + self.format.ext)
-            self._output_file = os.fdopen(fd, 'a')
+            # TODO: consider using SpooledTemporaryFile when self.dir is
+            # local (i.e., in /tmp).
+            suffix='.' + self.format.ext
+            self._output_file = tempfile.NamedTemporaryFile(delete=False,
+                    dir=self.dir, prefix=self.prefix(), suffix=suffix)
             self._writer = self.format(self._output_file)
 
     def close_writer(self):
