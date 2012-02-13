@@ -252,7 +252,14 @@ class TaskRunner(BaseRunner):
         self.ready_tasks.extend((dataset.id, i) for i in set_of_tasks)
 
     def task_done(self, dataset_id, source, urls):
-        """Report that the given source of the given dataset is computed."""
+        """Report that the given source of the given dataset is computed.
+
+        Arguments:
+            dataset_id: string
+            source: integer id of the task that produced the data
+            urls: list of (number, string) pairs representing the split and
+                url of the outputs.
+        """
         set_of_tasks = self.remaining_tasks[dataset_id]
         set_of_tasks.remove(source)
 
