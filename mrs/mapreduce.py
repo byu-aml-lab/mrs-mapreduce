@@ -28,7 +28,7 @@ to create much more complex programs.
 """
 
 import sys
-
+from six import print_
 from . import fileformats
 
 ITERATIVE_QMAX = 5
@@ -91,7 +91,7 @@ class MapReduce(object):
         self.args.
         """
         if len(self.args) < 2:
-            print >>sys.stderr, "Requires input(s) and an output."
+            print_("Requires input(s) and an output.", sys.sdterr)
             return None
         inputs = self.args[:-1]
         return job.file_data(inputs)
@@ -104,7 +104,7 @@ class MapReduce(object):
         error, None is returned.
         """
         if len(self.args) < 1:
-            print >>sys.stderr, "Requires an output."
+            print_("Requires an output.", sys.stderr)
             return None
         return self.args[-1]
 
@@ -130,10 +130,10 @@ class MapReduce(object):
                 ready = job.wait(output, timeout=2.0)
                 map_percent = 100 * job.progress(intermediate)
                 reduce_percent = 100 * job.progress(output)
-                print ('Map: %.1f%% complete. Reduce: %.1f%% complete.'
+                print('Map: %.1f%% complete. Reduce: %.1f%% complete.'
                         % (map_percent, reduce_percent))
         except KeyboardInterrupt:
-            print 'Interrupted.'
+            print('Interrupted.')
 
         return True
 

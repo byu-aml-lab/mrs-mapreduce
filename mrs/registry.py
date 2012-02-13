@@ -131,7 +131,7 @@ class Registry(object):
         for name in dir(program):
             if not name.startswith('__'):
                 attr = getattr(program, name)
-                #print 'registering:', name, attr
+                #print('registering:', name, attr)
                 try:
                     self.attrs[attr] = name
                 except TypeError:

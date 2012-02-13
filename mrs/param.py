@@ -195,7 +195,7 @@ class ParamObj(with_metaclass(_ParamMeta)):
     Example:
 
     >>> m = Rabbit()
-    >>> print m.__doc__
+    >>> print(m.__doc__)
     A small rodent, very similar to a hare, which feeds on grass and
         burrows in the earth.
     <BLANKLINE>

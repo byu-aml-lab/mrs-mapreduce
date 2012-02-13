@@ -28,6 +28,7 @@
 # /proc/sys/net/core/somaxconn (which seems to be 128 by default)
 
 from __future__ import with_statement
+from six import print_
 
 import os
 import socket
@@ -107,7 +108,7 @@ class MasterRunner(runner.TaskRunner):
         logger.info('Listening on port %s.' % port)
         if self.opts.mrs__runfile:
             with open(self.opts.mrs__runfile, 'w') as f:
-                print >>f, port
+                print_(port, j)
 
     def read_runqueue_pipe(self):
         """Reads currently available data from runqueue_pipe.
@@ -190,12 +191,12 @@ class MasterRunner(runner.TaskRunner):
 
     def debug_status(self):
         super(MasterRunner, self).debug_status()
-        print >>sys.stderr, 'Current assignments:', (
-                ', '.join('(%s, %s)' % a for a in self.current_assignments))
-        print >>sys.stderr, 'Idle slaves:', (
-                ', '.join(str(slave.id) for slave in self.idle_slaves))
-        print >>sys.stderr, 'Dead slaves:', (
-                ', '.join(str(slave.id) for slave in self.dead_slaves))
+        print_('Current assignments:', (', '.join('(%s, %s)' % a
+                for a in self.current_assignments)), sys.stderr)
+        print_('Idle slaves:', (', '.join(str(slave.id)
+                for slave in self.idle_slaves)), sys.sdterr)
+        print_('Dead slaves:', (', '.join(str(slave.id)
+                for slave in self.dead_slaves)), sys.sdterr)
 
 
 class MasterInterface(object):

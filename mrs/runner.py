@@ -29,6 +29,7 @@ import select
 import sys
 import threading
 
+from six import print_
 from . import datasets
 from . import job
 
@@ -305,15 +306,15 @@ class TaskRunner(BaseRunner):
 
     def debug_status(self):
         super(TaskRunner, self).debug_status()
-        print >>sys.stderr, 'Runnable datasets:', (
-                ', '.join(ds.id for ds in self.runnable_datasets))
-        print >>sys.stderr, 'Pending datasets:', (
-                ', '.join(ds.id for ds in self.pending_datasets))
-        print >>sys.stderr, 'Ready tasks:'
+        print_('Runnable datasets:', (', '.join(ds.id
+                for ds in self.runnable_datasets)), sys.sdterr)
+        print_('Pending datasets:', (', '.join(ds.id
+                for ds in self.pending_datasets)), sys.sdterr)
+        print_('Ready tasks:')
         datasets = set(task[0] for task in self.ready_tasks)
         for ds_id in datasets:
             sources = (str(t[1]) for t in self.ready_tasks if t[0] == ds_id)
-            print '    %s:' % ds_id, ', '.join(sources)
+            print_('    %s:' % ds_id, ', '.join(sources))
 
 
 class MockParallelRunner(TaskRunner):

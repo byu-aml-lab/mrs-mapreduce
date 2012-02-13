@@ -25,6 +25,7 @@ import gzip
 from itertools import islice
 import os
 from six import b
+from six import print_
 import struct
 import sys
 
@@ -115,7 +116,7 @@ class TextWriter(Writer):
 
     def writepair(self, kvpair):
         key, value = kvpair
-        print >>self.fileobj, key, value
+        print_(key, value, self.fileobj)
 
 
 class HexReader(Reader):
@@ -143,7 +144,7 @@ class HexWriter(TextWriter):
         key, value = kvpair
         encoded_key, length = hex_encoder(key)
         encoded_value, length = hex_encoder(value)
-        print >>self.fileobj, encoded_key, encoded_value
+        print_(encoded_key, encoded_value, self.fileobj)
 
 
 class BinWriter(TextWriter):
