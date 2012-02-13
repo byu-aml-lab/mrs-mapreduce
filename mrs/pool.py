@@ -105,7 +105,7 @@ class FunctionCaller(object):
                 f, args = result
                 try:
                     f(*args)
-                except Exception, e:
+                except Exception as e:
                     tb = traceback.format_exc()
                     msg = 'Exception in thread pool: %s' % e
                     logger.critical(msg)

@@ -236,7 +236,7 @@ def run_user_thread(program_class, opts, args, default_dir, manager,
         url_converter):
     try:
         program = program_class(opts, args)
-    except Exception, e:
+    except Exception as e:
         logger.critical('Exception while instantiating the program: %s'
                 % traceback.format_exc())
         manager.done(False)
@@ -247,7 +247,7 @@ def run_user_thread(program_class, opts, args, default_dir, manager,
 
     try:
         success = program.run(job)
-    except Exception, e:
+    except Exception as e:
         success = False
         logger.critical('Exception raised in the run function: %s'
                 % traceback.format_exc())

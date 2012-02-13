@@ -431,7 +431,7 @@ class _Option(optparse.Option):
                 full_name = '.'.join((base, value))
                 paramcls = import_object(full_name)
                 break
-            except ImportError, e:
+            except ImportError as e:
                 msg = e.args[0]
                 all_but_last, _ = full_name.rsplit('.', 1)
                 if msg.startswith('No module named '):
@@ -455,7 +455,7 @@ class _Option(optparse.Option):
             # Since nothing else succeeded, try importing the value directly.
             try:
                 paramcls = import_object(value)
-            except ImportError, e:
+            except ImportError as e:
                 if (no_attribute_msg is None
                         and msg.startswith('No attribute named ')):
                     no_attribute_msg = msg

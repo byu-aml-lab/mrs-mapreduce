@@ -90,7 +90,7 @@ class BaseRunner(object):
                     timeout = None
                 for fd, event in self.poll.poll(timeout):
                     self.handler_map[fd]()
-            except select.error, e:
+            except select.error as e:
                 if e.args[0] != errno.EINTR:
                     raise
 
@@ -320,7 +320,7 @@ class MockParallelRunner(TaskRunner):
     def run(self):
         try:
             self.program = self.program_class(self.opts, self.args)
-        except Exception, e:
+        except Exception as e:
             import traceback
             logger.critical('Exception while instantiating the program: %s'
                     % traceback.format_exc())

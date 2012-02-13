@@ -147,7 +147,7 @@ class RPCServer(SimpleXMLRPCServer.SimpleXMLRPCServer):
                 return func(*params, host=host)
             else:
                 return func(*params)
-        except Exception, e:
+        except Exception as e:
             import traceback
             msg = 'Exception in RPC Server: %s' % e
             logger.critical(msg)

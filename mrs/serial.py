@@ -43,7 +43,7 @@ class SerialRunner(runner.BaseRunner):
     def run(self):
         try:
             self.program = self.program_class(self.opts, self.args)
-        except Exception, e:
+        except Exception as e:
             logger.critical('Exception while instantiating the program: %s'
                     % traceback.format_exc())
             return
@@ -100,7 +100,7 @@ class SerialWorker(object):
                 ds = self.datasets[dataset_id]
                 ds.run_serial(self.program, self.datasets)
                 response = SerialWorkerSuccess(dataset_id)
-            except Exception, e:
+            except Exception as e:
                 response = SerialWorkerFailure(e, traceback.format_exc())
 
             self.conn.send(response)

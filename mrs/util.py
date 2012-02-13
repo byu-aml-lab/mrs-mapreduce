@@ -37,7 +37,7 @@ def try_makedirs(path):
     """Do the equivalent of mkdir -p."""
     try:
         os.makedirs(path)
-    except OSError, e:
+    except OSError as e:
         import errno
         if e.errno != errno.EEXIST:
             raise

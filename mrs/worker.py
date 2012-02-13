@@ -231,7 +231,7 @@ def run_worker(program_class, request_pipe):
                 logger.debug('Task complete.')
         except KeyboardInterrupt:
             return
-        except Exception, e:
+        except Exception as e:
             request_id = request.id() if request else None
             tb = traceback.format_exc()
             response = WorkerFailure(e, tb, request_id)

@@ -156,7 +156,7 @@ class Slave(object):
         try:
             slave_id, addr, jobdir, optdict, args = self.master_rpc.signin(
                     __version__, cookie, self.rpc_port, program_hash)
-        except socket.error, e:
+        except socket.error as e:
             msg = e.args[1]
             logger.critical('Unable to contact master: %s' % msg)
             return None
@@ -191,7 +191,7 @@ class Slave(object):
         # TODO: make this try a few times if there's a timeout
         try:
             self.master_rpc.ready(self.id, self.cookie)
-        except socket.error, e:
+        except socket.error as e:
             msg = e.args[0]
             logger.critical('Failed to report due to network error: %s' % msg)
 

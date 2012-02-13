@@ -404,18 +404,18 @@ class RemoteSlave(object):
 
             try:
                 success = self._rpc_func(*self._rpc_args)
-            except xmlrpclib.Fault, f:
+            except xmlrpclib.Fault as f:
                 logger.error('Fault in RPC call to slave %s: %s'
                         % (self.id, f.faultString))
                 success = False
-            except xmlrpclib.ProtocolError, e:
+            except xmlrpclib.ProtocolError as e:
                 logger.error('Protocol error in RPC call to slave %s: %s'
                         % (self.id, e.errmsg))
                 success = False
             except socket.timeout:
                 logger.error('Timeout in RPC call to slave %s' % self.id)
                 success = False
-            except socket.error, e:
+            except socket.error as e:
                 logger.error('Socket error in RPC call to slave %s: %s'
                         % (self.id, e.args[1]))
                 success = False
@@ -442,18 +442,18 @@ class RemoteSlave(object):
             try:
                 self._rpc.remove(dataset_id, source, delete, self.cookie)
                 success = True
-            except xmlrpclib.Fault, f:
+            except xmlrpclib.Fault as f:
                 logger.error('Fault in remove call to slave %s: %s'
                         % (self.id, f.faultString))
                 success = False
-            except xmlrpclib.ProtocolError, e:
+            except xmlrpclib.ProtocolError as e:
                 logger.error('Protocol error in remove call to slave %s: %s'
                         % (self.id, e.errmsg))
                 success = False
             except socket.timeout:
                 logger.error('Timeout in remove call to slave %s' % self.id)
                 success = False
-            except socket.error, e:
+            except socket.error as e:
                 logger.error('Socket error in remove call to slave %s: %s'
                         % (self.id, e.args[1]))
                 success = False
@@ -525,18 +525,18 @@ class RemoteSlave(object):
         try:
             self._rpc.ping(self.cookie)
             success = True
-        except xmlrpclib.Fault, f:
+        except xmlrpclib.Fault as f:
             logger.error('Fault in ping to slave %s: %s'
                     % (self.id, f.faultString))
             success = False
-        except xmlrpclib.ProtocolError, e:
+        except xmlrpclib.ProtocolError as e:
             logger.error('Protocol error in ping to slave %s: %s'
                     % (self.id, e.errmsg))
             success = False
         except socket.timeout:
             logger.error('Timeout in ping to slave %s' % self.id)
             success = False
-        except socket.error, e:
+        except socket.error as e:
             logger.error('Socket error in ping to slave %s: %s'
                     % (self.id, e.args[1]))
             success = False
@@ -573,15 +573,15 @@ class RemoteSlave(object):
             try:
                 logger.info('Sending a exit request to slave %s' % self.id)
                 self._rpc.exit(self.cookie)
-            except xmlrpclib.Fault, f:
+            except xmlrpclib.Fault as f:
                 logger.error('Fault in exit to slave %s: %s'
                         % (self.id, f.faultString))
-            except xmlrpclib.ProtocolError, e:
+            except xmlrpclib.ProtocolError as e:
                 logger.error('Protocol error in exit to slave %s: %s'
                         % (self.id, e.errmsg))
             except socket.timeout:
                 logger.error('Timeout in exit to slave %s' % self.id)
-            except socket.error, e:
+            except socket.error as e:
                 logger.error('Socket error in exit to slave %s: %s'
                         % (self.id, e.args[1]))
             self._state = 'exited'
