@@ -29,12 +29,16 @@ MAX_THREADS = 20
 
 import heapq
 import os
-import Queue
 import random
 import sys
 import threading
 import time
 import traceback
+
+try:
+    import queue
+except ImportError:
+    import Queue as queue
 
 import logging
 logger = logging.getLogger('mrs')
@@ -124,7 +128,7 @@ class RunQueue(object):
     is written to whenever this time is reduced.
     """
     def __init__(self, new_earliest_fd):
-        self._q = Queue.Queue()
+        self._q = queue.Queue()
         self._heap = []
         self._lock = threading.Lock()
 
@@ -152,7 +156,7 @@ class RunQueue(object):
     def get(self, *args, **kwds):
         """Retrieve the next (f, args) pair from the queue.
 
-        The options are the same as those provided by Queue.Queue.get.
+        The options are the same as those provided by queue.Queue.get.
         """
         return self._q.get(*args, **kwds)
 
@@ -195,7 +199,7 @@ class RunQueue(object):
             try:
                 self._q.put(item, timeout=1)
                 break
-            except Queue.Full:
+            except queue.Full:
                 pass
 
 

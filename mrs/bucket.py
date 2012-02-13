@@ -25,7 +25,11 @@ from __future__ import with_statement
 import os
 from six import BytesIO
 import tempfile
-import urlparse
+
+try:
+    from urllib.parse import urlparse, urlunparse
+except ImportError:
+    from urlparse import urlparse, urlunparse
 
 from . import fileformats
 
@@ -223,7 +227,7 @@ class URLConverter(object):
             return path
         else:
             url_components = ('http', self.netloc, url_path, None, None, None)
-            url = urlparse.urlunparse(url_components)
+            url = urlunparse(url_components)
             return url
 
     def global_to_local(self, url, master):
@@ -233,13 +237,13 @@ class URLConverter(object):
         urls if any data was created on the master.  Also, it may be possible
         to create a locally-accessible path in place of an http url.
         """
-        result = urlparse.urlparse(url)
+        result = urlparse(url)
         if result.scheme and not result.hostname:
             components = list(result)
             components[1] = master
             if result.port:
                 components[1] += ':%s' % result.port
-            url = urlparse.urlunparse(components)
+            url = urlunparse(components)
         elif (result.hostname == self.addr) and (result.port == self.port):
             path = result.path.lstrip('/')
             url = os.path.join(self.basedir, path)

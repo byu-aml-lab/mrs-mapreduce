@@ -34,7 +34,6 @@ import socket
 import sys
 import threading
 import time
-import xmlrpclib
 
 from . import datasets
 from . import http
@@ -42,6 +41,11 @@ from . import pool
 from . import registry
 from . import runner
 from . import task
+
+try:
+    from xmlrpc.client import Fault, ProtocolError
+except ImportError:
+    from xmlrpclib import Fault, ProtocolError
 
 import logging
 logger = logging.getLogger('mrs')
@@ -309,7 +313,7 @@ class RemoteSlave(object):
         self.pingdelay = slaves.pingdelay
 
         uri = "http://%s:%s" % (host, port)
-        self._rpc = http.ServerProxy(uri, slaves.rpc_timeout)
+        self._rpc = http.TimeoutServerProxy(uri, slaves.rpc_timeout)
         self._rpc_lock = threading.Lock()
 
         self._assignment = None
@@ -404,11 +408,11 @@ class RemoteSlave(object):
 
             try:
                 success = self._rpc_func(*self._rpc_args)
-            except xmlrpclib.Fault as f:
+            except Fault as f:
                 logger.error('Fault in RPC call to slave %s: %s'
                         % (self.id, f.faultString))
                 success = False
-            except xmlrpclib.ProtocolError as e:
+            except ProtocolError as e:
                 logger.error('Protocol error in RPC call to slave %s: %s'
                         % (self.id, e.errmsg))
                 success = False
@@ -442,11 +446,11 @@ class RemoteSlave(object):
             try:
                 self._rpc.remove(dataset_id, source, delete, self.cookie)
                 success = True
-            except xmlrpclib.Fault as f:
+            except Fault as f:
                 logger.error('Fault in remove call to slave %s: %s'
                         % (self.id, f.faultString))
                 success = False
-            except xmlrpclib.ProtocolError as e:
+            except ProtocolError as e:
                 logger.error('Protocol error in remove call to slave %s: %s'
                         % (self.id, e.errmsg))
                 success = False
@@ -525,11 +529,11 @@ class RemoteSlave(object):
         try:
             self._rpc.ping(self.cookie)
             success = True
-        except xmlrpclib.Fault as f:
+        except Fault as f:
             logger.error('Fault in ping to slave %s: %s'
                     % (self.id, f.faultString))
             success = False
-        except xmlrpclib.ProtocolError as e:
+        except ProtocolError as e:
             logger.error('Protocol error in ping to slave %s: %s'
                     % (self.id, e.errmsg))
             success = False
@@ -573,10 +577,10 @@ class RemoteSlave(object):
             try:
                 logger.info('Sending a exit request to slave %s' % self.id)
                 self._rpc.exit(self.cookie)
-            except xmlrpclib.Fault as f:
+            except Fault as f:
                 logger.error('Fault in exit to slave %s: %s'
                         % (self.id, f.faultString))
-            except xmlrpclib.ProtocolError as e:
+            except ProtocolError as e:
                 logger.error('Protocol error in exit to slave %s: %s'
                         % (self.id, e.errmsg))
             except socket.timeout:

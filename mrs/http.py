@@ -28,17 +28,26 @@ RPC mechanisms and HTTP servers built on Python's standard library.
 # Socket backlog (argument to socket.listen)
 BACKLOG = 100
 
-import httplib
 import os
 import posixpath
-import SimpleHTTPServer
-import SimpleXMLRPCServer
 import socket
-import SocketServer
 import sys
-import urllib
-import urlparse
-import xmlrpclib
+
+try:
+    from http.client import HTTPConnection
+    from http.server import SimpleHTTPRequestHandler
+    from urllib.parse import urlsplit, urlunsplit, unquote
+    import socketserver
+    from xmlrpc.client import ServerProxy, Transport
+    from xmlrpc.server import SimpleXMLRPCRequestHandler, SimpleXMLRPCServer
+except ImportError:
+    from httplib import HTTPConnection
+    from SimpleHTTPServer import SimpleHTTPRequestHandler
+    from SimpleXMLRPCServer import SimpleXMLRPCRequestHandler, SimpleXMLRPCServer
+    import SocketServer as socketserver
+    from urllib import unquote
+    from urlparse import urlsplit, urlunsplit
+    from xmlrpclib import ServerProxy, Transport
 
 import logging
 logger = logging.getLogger('mrs')
@@ -47,10 +56,10 @@ del logging
 
 # TODO: switch parent class to xmlrpclib.SafeTransport
 # TODO: consider using the Transport's enable_threshold setting for gzip
-class TimeoutTransport(xmlrpclib.Transport):
+class TimeoutTransport(Transport):
     """XMLRPC Transport monkeypatched to accept a timeout parameter."""
     def __init__(self, timeout):
-        xmlrpclib.Transport.__init__(self)
+        Transport.__init__(self)
         self.timeout = timeout
 
     # Variant of the basic make_connection that adds a timeout param to
@@ -78,28 +87,28 @@ class TimeoutTransport(xmlrpclib.Transport):
         def make_connection(self, host):
             prev = socket.getdefaulttimeout()
             socket.setdefaulttimeout(self.timeout)
-            value = xmlrpclib.Transport.make_connection(self, host)
+            value = Transport.make_connection(self, host)
             socket.setdefaulttimeout(prev)
             return value
 
 
 # TODO: check to make sure that we really have high latency without NO_DELAY.
-class NoDelayHTTPConnection(httplib.HTTPConnection):
+class NoDelayHTTPConnection(HTTPConnection):
     """HTTPConnection with Nagle's algorithm disabled (TCP_NODELAY enabled)."""
     def connect(self):
-        httplib.HTTPConnection.connect(self)
+        HTTPConnection.connect(self)
         self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
 
 
-class ServerProxy(xmlrpclib.ServerProxy):
+class TimeoutServerProxy(ServerProxy):
     def __init__(self, uri, timeout):
         transport = TimeoutTransport(timeout)
         uri = rpc_url(uri)
-        xmlrpclib.ServerProxy.__init__(self, uri, transport=transport)
+        ServerProxy.__init__(self, uri, transport=transport)
 
 
-class RPCRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
+class RPCRequestHandler(SimpleXMLRPCRequestHandler):
     """Simple HTTP request handler
     """
     # Tell BaseHTTPRequestHandler to support HTTP keepalive
@@ -118,7 +127,7 @@ class RPCRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
         return self.server._dispatch(method, params, host)
 
 
-class RPCServer(SimpleXMLRPCServer.SimpleXMLRPCServer):
+class RPCServer(SimpleXMLRPCServer):
     """XMLRPC Server that supports passing the client host to the method.
 
     This server takes an instance used for dispatching requests; methods of
@@ -130,7 +139,7 @@ class RPCServer(SimpleXMLRPCServer.SimpleXMLRPCServer):
     #timeout = something
 
     def __init__(self, addr, instance):
-        SimpleXMLRPCServer.SimpleXMLRPCServer.__init__(self, addr,
+        SimpleXMLRPCServer.__init__(self, addr,
                 requestHandler=RPCRequestHandler, logRequests=False)
         # Disable Nagle's algorithm to avoid [hypothetical] high latency.
         self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -157,7 +166,7 @@ class RPCServer(SimpleXMLRPCServer.SimpleXMLRPCServer):
             raise
 
 
-class ThreadingRPCServer(SocketServer.ThreadingMixIn, RPCServer):
+class ThreadingRPCServer(socketserver.ThreadingMixIn, RPCServer):
     daemon_threads = True
 
 
@@ -187,13 +196,13 @@ def rpc_url(urlstring):
     if '://' not in urlstring:
         urlstring = 'http://' + urlstring
 
-    scheme, netloc, path, query, fragment = urlparse.urlsplit(urlstring)
+    scheme, netloc, path, query, fragment = urlsplit(urlstring)
     if not path and not query and not fragment:
         path = '/RPC2'
-    return urlparse.urlunsplit((scheme, netloc, path, query, fragment))
+    return urlunsplit((scheme, netloc, path, query, fragment))
 
 
-class BucketRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
+class BucketRequestHandler(SimpleHTTPRequestHandler):
     """HTTP request handler for serving buckets from local datasets."""
 
     def list_directory(self, path):
@@ -205,7 +214,7 @@ class BucketRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         path = path.split('#',1)[0]
 
         # Remove double slashes, leading slashes, etc.
-        path = posixpath.normpath(urllib.unquote(path)).lstrip('/')
+        path = posixpath.normpath(unquote(path)).lstrip('/')
 
         # Split into components and check for an invalid path.  Note that
         # there might be many other invalid paths on Windows.
@@ -223,17 +232,17 @@ class BucketRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         return 'application/octet-stream'
 
 
-class BucketServer(SocketServer.TCPServer):
+class BucketServer(socketserver.TCPServer):
     """HTTP server for serving buckets from local datasets."""
 
     request_queue_size = BACKLOG
 
     def __init__(self, addr, basedir):
-        SocketServer.TCPServer.__init__(self, addr, BucketRequestHandler)
+        socketserver.TCPServer.__init__(self, addr, BucketRequestHandler)
         self.basedir = basedir
 
 
-class ThreadingBucketServer(SocketServer.ThreadingMixIn, BucketServer):
+class ThreadingBucketServer(socketserver.ThreadingMixIn, BucketServer):
     daemon_threads = True
 
 

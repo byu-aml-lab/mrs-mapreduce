@@ -97,7 +97,7 @@ class Slave(object):
 
     def run(self):
         self.start_rpc_server_thread()
-        self.master_rpc = http.ServerProxy(self.master_url, self.timeout)
+        self.master_rpc = http.TimeoutServerProxy(self.master_url, self.timeout)
 
         result = self.signin()
         if not result:
