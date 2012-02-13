@@ -214,7 +214,8 @@ class MasterInterface(object):
         """
         self.slaves = slaves
         self.program_hash = program_hash
-        self.opts = opts
+        opts_iter = vars(opts).items()
+        self.opts_dict = dict((k, v) for k, v in opts_iter if v is not None)
         self.args = args
         self.jobdir = jobdir
 
@@ -248,9 +249,7 @@ class MasterInterface(object):
         slave = self.slaves.new_slave(host, slave_port, cookie)
         logger.info('New slave %s on host %s' % (slave.id, host))
 
-        raw_iter = vars(self.opts).iteritems()
-        optdict = dict((k, v) for k, v in raw_iter if v is not None)
-        return (slave.id, host, self.jobdir, optdict, self.args)
+        return (slave.id, host, self.jobdir, self.opts_dict, self.args)
 
     @http.uses_host
     def xmlrpc_ready(self, slave_id, cookie, host=None):
@@ -682,11 +681,11 @@ class Slaves(object):
 
         # Each slave writes to the write_pipe when the disconnect completes.
         read_pipe, write_pipe = os.pipe()
-        for slave in self._slaves.itervalues():
+        for slave in self._slaves.values():
             slave.disconnect(write_pipe)
 
         keep_going = False
-        for slave in self._slaves.itervalues():
+        for slave in self._slaves.values():
             if not slave.exited():
                 keep_going = True
                 break
@@ -695,7 +694,7 @@ class Slaves(object):
             # The actual data read is irrelevant--this just lets us block.
             os.read(read_pipe, 4096)
             keep_going = False
-            for slave in self._slaves.itervalues():
+            for slave in self._slaves.values():
                 if not slave.exited():
                     keep_going = True
                     break

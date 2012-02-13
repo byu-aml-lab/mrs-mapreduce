@@ -160,7 +160,7 @@ class BaseDataset(object):
                 self._data[key] = bucket
                 return bucket
         elif part1 == part2 == slice(None, None, None):
-            return self._data.itervalues()
+            return self._data.values()
         else:
             if isinstance(part1, slice):
                 range1 = xrange(*part1.indices(self.sources))
@@ -202,7 +202,7 @@ class LocalData(BaseDataset):
 
         self.collected = False
         self._collect(itr, parter)
-        for key, bucket in self._data.iteritems():
+        for key, bucket in self._data.items():
             self._data[key] = bucket.readonly_copy()
         self.collected = True
 

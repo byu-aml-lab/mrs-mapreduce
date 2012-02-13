@@ -143,15 +143,14 @@ class _ParamMeta(type):
                 continue
 
             # Inherit any possible values.
-            for name, baseparam in baseparams.iteritems():
+            for name, baseparam in baseparams.items():
                 if name in params:
                     params[name].inherit(baseparam)
                 else:
                     params[name] = baseparam.copy()
 
         # Get rid of any leftover NotSpecified values.
-        #for param in params.itervalues():
-        for name, param in params.iteritems():
+        for name, param in params.items():
             param.set_defaults()
             param.check()
 
@@ -159,7 +158,7 @@ class _ParamMeta(type):
         if '__doc__' not in classdict:
             classdict['__doc__'] = '%s -- Class using Params' % classname
         docs = [('%s: %s (default=%s)' % (name, param.doc, param.default))
-                    for name, param in params.iteritems()]
+                    for name, param in params.items()]
         docs.sort()
         classdict['__doc__'] = classdict['__doc__'] + \
                 '\n    '.join(['\n%s Parameters:' % classname] + docs)
@@ -353,7 +352,7 @@ class OptionParser(optparse.OptionParser):
         title = '%s (%s)' % (param_obj.__name__, prefix)
         subgroup = optparse.OptionGroup(self, title)
         self.add_option_group(subgroup)
-        for attr, param in param_obj._params.iteritems():
+        for attr, param in param_obj._params.items():
             name = attr.replace('_', '-')
             if prefix:
                 option = '--%s-%s' % (prefix, name)
