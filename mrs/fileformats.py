@@ -116,7 +116,7 @@ class TextWriter(Writer):
 
     def writepair(self, kvpair):
         key, value = kvpair
-        print_(key, value, self.fileobj)
+        print_(key, value, file=self.fileobj)
 
 
 class HexReader(Reader):
@@ -144,7 +144,7 @@ class HexWriter(TextWriter):
         key, value = kvpair
         encoded_key, length = hex_encoder(key)
         encoded_value, length = hex_encoder(value)
-        print_(encoded_key, encoded_value, self.fileobj)
+        print_(encoded_key, encoded_value, file=self.fileobj)
 
 
 class BinWriter(TextWriter):

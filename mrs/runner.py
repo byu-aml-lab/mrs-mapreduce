@@ -307,9 +307,9 @@ class TaskRunner(BaseRunner):
     def debug_status(self):
         super(TaskRunner, self).debug_status()
         print_('Runnable datasets:', (', '.join(ds.id
-                for ds in self.runnable_datasets)), sys.sdterr)
+                for ds in self.runnable_datasets)), file=sys.sdterr)
         print_('Pending datasets:', (', '.join(ds.id
-                for ds in self.pending_datasets)), sys.sdterr)
+                for ds in self.pending_datasets)), file=sys.sdterr)
         print_('Ready tasks:')
         datasets = set(task[0] for task in self.ready_tasks)
         for ds_id in datasets:

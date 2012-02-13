@@ -108,7 +108,7 @@ class MasterRunner(runner.TaskRunner):
         logger.info('Listening on port %s.' % port)
         if self.opts.mrs__runfile:
             with open(self.opts.mrs__runfile, 'w') as f:
-                print_(port, j)
+                print_(port, file=j)
 
     def read_runqueue_pipe(self):
         """Reads currently available data from runqueue_pipe.
@@ -192,11 +192,11 @@ class MasterRunner(runner.TaskRunner):
     def debug_status(self):
         super(MasterRunner, self).debug_status()
         print_('Current assignments:', (', '.join('(%s, %s)' % a
-                for a in self.current_assignments)), sys.stderr)
+                for a in self.current_assignments)), file=sys.stderr)
         print_('Idle slaves:', (', '.join(str(slave.id)
-                for slave in self.idle_slaves)), sys.sdterr)
+                for slave in self.idle_slaves)), file=sys.sdterr)
         print_('Dead slaves:', (', '.join(str(slave.id)
-                for slave in self.dead_slaves)), sys.sdterr)
+                for slave in self.dead_slaves)), file=sys.sdterr)
 
 
 class MasterInterface(object):
