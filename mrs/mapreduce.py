@@ -172,7 +172,7 @@ class MapReduce(object):
         generate the same sequence of pseudo-random numbers.
         """
         import random
-        seed = int(self.opts.mrs__seed) + sys.maxint * offset
+        seed = int(self.opts.mrs__seed) + sys.maxsize * offset
         return random.Random(seed)
 
 
