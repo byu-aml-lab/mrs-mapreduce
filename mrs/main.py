@@ -241,7 +241,6 @@ class Implementation(BaseImplementation):
         # Apparently the setting siginterrupt can get reset on some platforms.
         signal.siginterrupt(signal.SIGUSR1, False)
         print_('Received SIGUSR1. Current stack trace:', sys.stderr)
-        sys.stderr)
         traceback.print_stack(stack_frame)
         if self.runner is not None:
             self.runner.debug_status()
