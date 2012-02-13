@@ -42,9 +42,10 @@ import threading
 import traceback
 
 from . import master
+from . import param
+from .param import ParamObj, Param
 from . import runner
 from . import serial
-from .param import ParamObj, Param
 from .version import __version__
 
 
@@ -80,8 +81,6 @@ def main(program_class, update_parser=None):
     function that takes a parser and either modifies it or returns a new one.
     Note that no option should ever have the value None.
     """
-    import param
-
     parser = option_parser()
     if update_parser:
         parser = update_parser(parser)
@@ -114,8 +113,6 @@ def option_parser():
     usage shows up in the help before the option list; the epilog appears
     after.
     """
-    import param
-
     parser = param.OptionParser(conflict_handler='resolve')
     parser.usage = USAGE
     parser.add_option('-I', '--mrs', dest='mrs', metavar='IMPLEMENTATION',
