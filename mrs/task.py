@@ -140,7 +140,7 @@ class ReduceTask(Task):
         the input_file is sorted, and we assume key-value pairs.
         """
         input_itr = iter(input_file)
-        input = input_itr.next()
+        input = next(input_itr)
         next_pair = list(input)
 
         def subiterator():
@@ -150,7 +150,7 @@ class ReduceTask(Task):
             while True:
                 yield value
                 try:
-                    input = input_itr.next()
+                    input = next(input_itr)
                 except StopIteration:
                     next_pair[0] = None
                     return

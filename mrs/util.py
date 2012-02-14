@@ -64,6 +64,6 @@ def delta_seconds(delta):
 
 def random_string(length):
     possible = string.ascii_letters + string.digits
-    return ''.join(random.choice(possible) for i in xrange(length))
+    return ''.join(random.choice(possible) for i in range(length))
 
 # vim: et sw=4 sts=4

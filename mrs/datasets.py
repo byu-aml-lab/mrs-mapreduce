@@ -72,12 +72,16 @@ class BaseDataset(object):
         """Number of buckets in this Dataset."""
         return len(self._data)
 
+    def __bool__(self):
+        return True
+
+    # For Python 2:
     def __nonzero__(self):
         return True
 
     def __iter__(self):
         """Iterate over all buckets."""
-        return self[:, :]
+        return iter(self[:, :])
 
     def iterdata(self):
         """Iterate over data from all buckets."""
