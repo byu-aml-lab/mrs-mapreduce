@@ -42,7 +42,35 @@ logger = logging.getLogger('mrs')
 
 
 class BaseRunner(object):
-    """Communicates with the job thread and keeps track of datasets."""
+    """Communicates with the job thread and keeps track of datasets.
+
+    BaseRunner is an abstract class that is used by both SerialRunner and
+    TaskRunner.  The concepts in this class, such as communicating with
+    the job process and managing the list of open datasets, are applicable
+    to both types of runners.
+
+    Arguments:
+        program_class: class (inheriting from MapReduce) which defines
+            methods such as run, map, reduce, partition, etc.
+        opts: command-line options which are sent to workers
+        args: command-line arguments which are sent to workers
+        job_conn: connection (from the multiprocessing module) to/from the
+            job process
+        jobdir: optional shared directory for storage of output datasets
+
+    Attributes:
+        close_requests: set of Datasets requested to be closed by the job
+            process (but which cannot be closed until their dependents are
+            computed)
+        computing_datasets: set of Datasets that are being or need to be
+            computed
+        data_dependents: maps a dataset id to a deque listing datasets that
+            cannot start until it has finished
+        datasets: maps a dataset id to the corresponding Dataset object
+        handler_map: map from file descriptors to methods for handling reads
+        poll: poll object (from the select module)
+        running: bool indicating whether the event loop should continue
+    """
 
     def __init__(self, program_class, opts, args, job_conn, jobdir,
             default_dir):
@@ -61,8 +89,6 @@ class BaseRunner(object):
         self.datasets = {}
         self.computing_datasets = set()
         self.data_dependents = collections.defaultdict(collections.deque)
-        # Datasets requested to be closed by the job process (but which
-        # cannot be closed until their dependents are computed).
         self.close_requests = set()
 
     def register_fd(self, fd, handler):
