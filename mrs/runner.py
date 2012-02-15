@@ -57,6 +57,7 @@ class BaseRunner(object):
         job_conn: connection (from the multiprocessing module) to/from the
             job process
         jobdir: optional shared directory for storage of output datasets
+        default_dir: temporary directory for storage of output datasets
 
     Attributes:
         close_requests: set of Datasets requested to be closed by the job
@@ -164,6 +165,7 @@ class BaseRunner(object):
     def dataset_done(self, dataset):
         """Called when a dataset's computation is finished."""
 
+        dataset.computation_done()
         self.computing_datasets.remove(dataset)
 
         # Check whether any datasets can be closed as a result of the newly
@@ -244,6 +246,13 @@ class TaskRunner(BaseRunner):
 
     By default, the tasks are evaluated in serial, but the schedule method
     may be overridden.
+
+    Attributes:
+        pending_datasets: set of datasets that are not yet runnable
+        runnable_datasets: deque of datasets that are ready to run but have
+            not yet been split into tasks
+        ready_tasks: list of (dataset, source) pairs
+        tasklists: map from a dataset id to the corresponding TaskList
     """
 
     def __init__(self, *args):
@@ -251,10 +260,8 @@ class TaskRunner(BaseRunner):
 
         self.pending_datasets = set()
         self.runnable_datasets = collections.deque()
-        # List of (dataset, source) pairs.
-        self.ready_tasks = collections.deque()
-        # Dictionary mapping from dataset to set of tasks.
-        self.remaining_tasks = {}
+        self.tasklists = {}
+        self.forward_links = collections.defaultdict(set)
 
         self.runqueue = None
         self.runqueue_pipe = None
@@ -291,56 +298,72 @@ class TaskRunner(BaseRunner):
 
         Tasks are returned as (dataset, source) pairs.
         """
-        if not self.ready_tasks:
-            if self.runnable_datasets:
-                ds = self.runnable_datasets.popleft()
-                self._make_tasks(ds)
-            else:
-                return None
-        return self.ready_tasks.popleft()
+        for ds in self.runnable_datasets:
+            tasklist = self._get_or_make_tasklist(ds)
+            t = tasklist.pop()
+            if t is not None:
+                return t
+        return None
 
-    def _make_tasks(self, dataset):
-        """Generate tasks for the given dataset, adding them to ready_tasks."""
-        set_of_tasks = set()
-        for source in range(dataset.sources):
-            for b in self.datasets[dataset.input_id][:, source]:
-                if b.url:
-                    set_of_tasks.add(source)
-                    break
-        self.remaining_tasks[dataset.id] = set_of_tasks
-        self.ready_tasks.extend((dataset.id, i) for i in set_of_tasks)
+    def _get_or_make_tasklist(self, ds):
+        """Gets a tasklist for the given dataset."""
+        assert ds.computing, "can't make tasks for a completed dataset"
+        try:
+            tasklist = self.tasklists[ds.id]
+        except KeyError:
+            tasklist = TaskList(ds, self.datasets[ds.input_id])
+            self.tasklists[ds.id] = tasklist
+            tasklist.make_tasks()
+        return tasklist
 
-    def task_done(self, dataset_id, source, urls):
+    def task_done(self, dataset_id, task_index, urls):
         """Report that the given source of the given dataset is computed.
 
         Arguments:
             dataset_id: string
-            source: integer id of the task that produced the data
+            task_index: integer id of the task that produced the data
             urls: list of (number, string) pairs representing the split and
                 url of the outputs.
         """
-        set_of_tasks = self.remaining_tasks[dataset_id]
-        set_of_tasks.remove(source)
+        tasklist = self.tasklists[dataset_id]
+        tasklist.task_done(task_index)
 
         dataset = self.datasets[dataset_id]
         if not dataset.closed:
             for split, url in urls:
-                bucket = dataset[source, split]
+                bucket = dataset[task_index, split]
                 bucket.url = url
                 if dataset_id not in self.close_requests:
                     response = job.BucketReady(dataset_id, bucket)
                     self.job_conn.send(response)
             dataset.notify_urls_known()
 
-        if not set_of_tasks:
-            del self.remaining_tasks[dataset_id]
-            dataset.computation_done()
+        if tasklist.complete():
             self.dataset_done(dataset)
 
-            for dependent_id in self.data_dependents[dataset_id]:
-                dependent_ds = self.datasets[dependent_id]
-                self.pending_datasets.remove(dependent_ds)
-                self.runnable_datasets.append(dependent_ds)
+        self._wakeup_dependents(dataset_id)
+
+    def dataset_done(self, dataset):
+        del self.tasklists[dataset.id]
+        self.runnable_datasets.remove(dataset)
+        super(TaskRunner, self).dataset_done(dataset)
+
+    def _wakeup_dependents(self, dataset_id):
+        """Move any dependent datasets possible from pending to runnable."""
+
+        ds = self.datasets[dataset_id]
+        if ds.computing:
+            percent_complete = self.tasklists[dataset_id].percent_complete()
+        else:
+            percent_complete = 1
+
+        for dependent_id in self.data_dependents[dataset_id]:
+            dep_ds = self.datasets[dependent_id]
+
+            if (dep_ds in self.pending_datasets and
+                    percent_complete == 1):
+                self.pending_datasets.remove(dep_ds)
+                self.runnable_datasets.append(dep_ds)
 
     def send_dataset_response(self, dataset):
         response = job.DatasetComputed(dataset.id, False)
@@ -375,10 +398,64 @@ class TaskRunner(BaseRunner):
         print_('Pending datasets:', (', '.join(ds.id
                 for ds in self.pending_datasets)), file=sys.stderr)
         print_('Ready tasks:')
-        datasets = set(task[0] for task in self.ready_tasks)
-        for ds_id in datasets:
-            sources = (str(t[1]) for t in self.ready_tasks if t[0] == ds_id)
-            print_('    %s:' % ds_id, ', '.join(sources))
+        for ds in self.runnable_datasets:
+            if ds in self.tasklists:
+                sources = (str(t[1]) for t in self.tasklists[ds])
+                print_('    %s:' % ds_id, ', '.join(sources))
+
+
+class TaskList(object):
+    """Manages the list of tasks associated with a single dataset."""
+
+    def __init__(self, dataset, input_ds):
+        self.dataset = dataset
+        self.input_ds = input_ds
+        self._remaining_tasks = set()
+        self._ready_tasks = collections.deque()
+        self._tasks_made = False
+
+    def make_tasks(self):
+        """Generate tasks for the given dataset, adding them to ready_tasks.
+
+        Note that a task is not created if the corresponding split in the
+        input dataset is empty.
+        """
+        for task_index in range(self.dataset.sources):
+            for b in self.input_ds[:, task_index]:
+                if b.url:
+                    self._ready_tasks.append(task_index)
+                    self._remaining_tasks.add(task_index)
+                    break
+        self._tasks_made = True
+
+    def percent_complete(self):
+        """Returns the percent of datasets that have been computed."""
+        if self._tasks_made:
+            return len(self._remaining_tasks) / self.dataset.sources
+        else:
+            return 0
+
+    def complete(self):
+        return not self._remaining_tasks
+
+    def task_done(self, task_index):
+        self._remaining_tasks.remove(task_index)
+
+    def pop(self):
+        """Pop off the next available task (or None if none are available).
+
+        Returns a (dataset_id, task_index) pair.
+        """
+        assert self._tasks_made
+        try:
+            return (self.dataset.id, self._ready_tasks.popleft())
+        except IndexError:
+            return None
+
+    def __iter__(self):
+        """Iterate over tasks ((dataset_id, task_index) pairs)."""
+        for task_index in self._ready_tasks:
+            yield (self.dataset.id, task_index)
 
 
 class MockParallelRunner(TaskRunner):
