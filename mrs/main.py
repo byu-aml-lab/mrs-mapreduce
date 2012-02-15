@@ -34,8 +34,7 @@ import multiprocessing
 import os
 import random
 import signal
-from six import b
-from six import b
+from six import b, print_
 import sys
 import tempfile
 import threading
