@@ -156,6 +156,7 @@ class WriteBucket(ReadBucket):
             suffix='.' + self.format.ext
             self._output_file = tempfile.NamedTemporaryFile(delete=False,
                     dir=self.dir, prefix=self.prefix(), suffix=suffix)
+            self.url = self._output_file.name
             self._writer = self.format(self._output_file)
 
     def close_writer(self):
