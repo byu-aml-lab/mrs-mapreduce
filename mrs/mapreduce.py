@@ -91,7 +91,7 @@ class MapReduce(object):
         self.args.
         """
         if len(self.args) < 2:
-            print_("Requires input(s) and an output.", file=sys.sdterr)
+            print_("Requires input(s) and an output.", file=sys.stderr)
             return None
         inputs = self.args[:-1]
         return job.file_data(inputs)

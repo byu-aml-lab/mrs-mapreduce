@@ -194,9 +194,9 @@ class MasterRunner(runner.TaskRunner):
         print_('Current assignments:', (', '.join('(%s, %s)' % a
                 for a in self.current_assignments)), file=sys.stderr)
         print_('Idle slaves:', (', '.join(str(slave.id)
-                for slave in self.idle_slaves)), file=sys.sdterr)
+                for slave in self.idle_slaves)), file=sys.stderr)
         print_('Dead slaves:', (', '.join(str(slave.id)
-                for slave in self.dead_slaves)), file=sys.sdterr)
+                for slave in self.dead_slaves)), file=sys.stderr)
 
 
 class MasterInterface(object):
