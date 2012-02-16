@@ -40,12 +40,14 @@ logger = logging.getLogger('mrs')
 class BaseRunner(object):
     """Communicates with the job thread and keeps track of datasets."""
 
-    def __init__(self, program_class, opts, args, job_conn, jobdir):
+    def __init__(self, program_class, opts, args, job_conn, jobdir,
+            default_dir):
         self.program_class = program_class
         self.opts = opts
         self.args = args
         self.job_conn = job_conn
         self.jobdir = jobdir
+        self.default_dir = default_dir
 
         self.handler_map = {}
         self.running = True
@@ -340,9 +342,13 @@ class MockParallelRunner(TaskRunner):
         self.eventloop()
 
     def start_worker(self):
+        if self.jobdir:
+            outdir = self.jobdir
+        else:
+            outdir = self.default_dir
         self.worker_conn, remote_worker_conn = multiprocessing.Pipe()
         worker = MockParallelWorker(self.program, self.datasets,
-                self.jobdir, remote_worker_conn)
+                outdir, remote_worker_conn)
         worker_thread = threading.Thread(target=worker.run,
                 name='MockParallel Worker')
         worker_thread.daemon = True

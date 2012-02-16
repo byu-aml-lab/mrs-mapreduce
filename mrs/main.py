@@ -219,7 +219,7 @@ class Implementation(BaseImplementation):
             signal.siginterrupt(signal.SIGUSR1, False)
 
             self.runner = self.runner_class(self.program_class, opts, args,
-                    job_conn, jobdir)
+                    job_conn, jobdir, default_dir)
             self.runner.run()
         except KeyboardInterrupt:
             logger.critical('Quitting due to keyboard interrupt.')
