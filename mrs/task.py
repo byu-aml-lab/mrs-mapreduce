@@ -25,8 +25,6 @@
 A Task represents a unit of work and the mechanism for carrying it out.
 """
 
-from itertools import chain
-
 from . import datasets
 from . import fileformats
 
@@ -50,7 +48,7 @@ class Task(object):
         self.output = None
 
     def outurls(self):
-        return [(b.split, b.url) for b in self.output if len(b)]
+        return [(b.split, b.url) for b in self.output[:, :] if len(b)]
 
 
 class MapTask(Task):
@@ -67,7 +65,7 @@ class MapTask(Task):
         if serial:
             all_input = self.input.iterdata()
         else:
-            all_input = self.input.itersplit(self.split)
+            all_input = self.input.itersplitdata(self.split)
 
         if self.storage and (self.splits > 1):
             import tempfile
@@ -102,7 +100,7 @@ class ReduceTask(Task):
         if serial:
             all_input = self.input.iterdata()
         else:
-            all_input = self.input.itersplit(self.split)
+            all_input = self.input.itersplitdata(self.split)
         sorted_input = sorted(all_input)
 
         if self.storage and (self.splits > 1):
@@ -180,7 +178,7 @@ class ReduceMapTask(MapTask, ReduceTask):
         if serial:
             all_input = self.input.iterdata()
         else:
-            all_input = self.input.itersplit(self.split)
+            all_input = self.input.itersplitdata(self.split)
         sorted_input = sorted(all_input)
 
         if self.storage and (self.splits > 1):

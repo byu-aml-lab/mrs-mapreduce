@@ -43,14 +43,19 @@ DATASET_ID_LENGTH = 10
 class BaseDataset(object):
     """Manage input to or output from a map or reduce operation.
 
-    A Dataset is naturally a two-dimensional list.  There are some number of
-    sources, and for each source, there are one or more splits.
+    A Dataset is naturally a two-dimensional list of buckets.  There are some
+    number of sources, and for each source, there are one or more splits.
+
+    Datasets supports access via the subscript operator.  In addition to
+    retrieving/setting individual buckets, the subscript operator supports
+    slicing for retrieving a view of buckets.  For example, `ds[1, :]` would
+    give an iterable view containing the buckets from source 1 for any split.
 
     Attributes:
         sources: number of input sources (e.g., tasks); to get all of the
-            data from a particular source, use itersource()
+            data from a particular source, use itersourcedata()
         splits: number of outputs per source; to get all data for a particular
-            split from all sources, use itersplit()
+            split from all sources, use itersplitdata()
     """
     def __init__(self, sources=0, splits=0, dir=None, format=None,
             permanent=True, **kwds):
@@ -68,10 +73,6 @@ class BaseDataset(object):
         """Overridable method for creating a new bucket."""
         raise NotImplementedError
 
-    def __len__(self):
-        """Number of buckets in this Dataset."""
-        return len(self._data)
-
     def __bool__(self):
         return True
 
@@ -79,23 +80,20 @@ class BaseDataset(object):
     def __nonzero__(self):
         return True
 
-    def __iter__(self):
-        """Iterate over all buckets."""
-        return iter(self[:, :])
-
     def iterdata(self):
         """Iterate over data from all buckets."""
-        return chain(*self)
+        buckets = self[:, :]
+        return chain.from_iterable(buckets)
 
-    def itersplit(self, split):
+    def itersplitdata(self, split):
         """Iterate over data from buckets for a given split."""
         buckets = self[:, split]
-        return chain(*buckets)
+        return chain.from_iterable(buckets)
 
-    def itersource(self, source):
+    def itersourcedata(self, source):
         """Iterate over data from buckets for a given source."""
         buckets = self[source, :]
-        return chain(*buckets)
+        return chain.from_iterable(buckets)
 
     def _set_close_callback(self, callback):
         self._close_callback = callback
@@ -118,7 +116,7 @@ class BaseDataset(object):
 
     def delete(self):
         """Delete current data and temporary files from the dataset."""
-        for b in self:
+        for b in self[:, :]:
             b.clean()
         if self.dir:
             # Just to make sure it's all gone:
@@ -179,6 +177,11 @@ class BaseDataset(object):
             return (data[x, y] for x in range1 for y in range2
                     if (x, y) in data)
 
+    # The __iter__ method must be defined because the default iterator falls
+    # back on __getitem__ and goes horribly wrong.
+    def __iter__(self):
+        raise TypeError('Dataset object is not iterable')
+
     def __del__(self):
         if not self.closed:
             self.close()
@@ -228,7 +231,7 @@ class LocalData(BaseDataset):
                 split = parter(key, n)
                 bucket = self[source, split]
                 bucket.addpair(kvpair)
-        for bucket in self:
+        for bucket in self[:, :]:
             bucket.close_writer()
         # Sync the containing dir to make sure the files are really written.
         if self.dir:
@@ -272,7 +275,7 @@ class RemoteData(BaseDataset):
         assert self._urls_known, (
                 'Invalid fetchall on a dataset with unknown urls.')
 
-        for bucket in self:
+        for bucket in self[:, :]:
             url = bucket.url
             if url:
                 reader = fileformats.open_url(url)

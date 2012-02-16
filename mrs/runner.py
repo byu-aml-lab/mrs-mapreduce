@@ -147,7 +147,7 @@ class BaseRunner(object):
 
     def send_dataset_response(self, dataset):
         if not (dataset.closed or dataset.id in self.close_requests):
-            for bucket in dataset:
+            for bucket in dataset[:, :]:
                 if len(bucket) or bucket.url:
                     response = job.BucketReady(dataset.id, bucket)
                     self.job_conn.send(response)
