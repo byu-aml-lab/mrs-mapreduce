@@ -97,7 +97,7 @@ class Job(object):
         ds = datasets.LocalData(itr, splits, dir=outdir, parter=parter,
                 format=format, permanent=permanent)
         if self._url_converter:
-            for bucket in ds:
+            for bucket in ds[:, :]:
                 bucket.url = self._url_converter.local_to_global(bucket.url)
         self._manager.submit(ds)
         ds._close_callback = self._manager.close_dataset
