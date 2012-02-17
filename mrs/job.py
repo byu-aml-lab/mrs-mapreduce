@@ -247,7 +247,7 @@ def run_user_thread(program_class, opts, args, default_dir, manager,
 
     try:
         if opts.mrs__profile:
-            success = util.profile_call(program.run, (job,),
+            success = util.profile_call(program.run, (job,), {},
                     'mrs-run-user.prof')
         else:
             success = program.run(job)
