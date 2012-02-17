@@ -388,10 +388,14 @@ class MockParallelWorker(object):
         self.conn = conn
 
     def run(self):
-        while True:
-            self.run_once()
+        while self.run_once():
+            pass
 
     def run_once(self):
+        """Runs one iteration of the event loop.
+
+        Returns True if it should keep running (used by profile_loop).
+        """
         try:
             dataset_id, source = self.conn.recv()
         except EOFError:
@@ -401,6 +405,7 @@ class MockParallelWorker(object):
         t.run()
 
         self.conn.send((dataset_id, source, t.outurls()))
+        return True
 
     def profiled_run(self):
         util.profile_loop(self.run_once, (), {}, 'mrs-mockp-worker.prof')

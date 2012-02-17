@@ -202,10 +202,17 @@ class Worker(object):
         self.program = None
 
     def run(self):
-        while True:
-            self.run_once()
+        while self.run_once():
+            pass
 
     def run_once(self):
+        """Runs one iteration of the event loop.
+
+        Returns True if it should keep running.
+        """
+        request = None
+        response = None
+
         try:
             request = self.request_pipe.recv()
 
@@ -219,7 +226,7 @@ class Worker(object):
                 response = WorkerSetupSuccess()
 
             elif isinstance(request, WorkerQuitRequest):
-                return
+                return False
 
             elif isinstance(request, WorkerRemoveRequest):
                 util.remove_recursive(request.directory)
@@ -242,6 +249,8 @@ class Worker(object):
 
         if response:
             self.request_pipe.send(response)
+
+        return True
 
     def profiled_run(self):
         util.profile_loop(self.run_once, (), {}, 'mrs-worker.prof')

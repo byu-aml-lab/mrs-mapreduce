@@ -80,7 +80,10 @@ def _call_under_profiler(function, args, kwds, prof):
     return returnvalue[0]
 
 def profile_loop(function, args, kwds, filename):
-    """Repeatedly uns a function (with args) and collects cumulative stats."""
+    """Repeatedly runs a function (with args) and collects cumulative stats.
+
+    Runs as long as the function returns True.
+    """
     import cProfile
     prof = cProfile.Profile()
     tmp_filename = '.' + filename
@@ -90,9 +93,10 @@ def profile_loop(function, args, kwds, filename):
     except OSError:
         pass
 
-    while True:
+    keep_going = True
+    while keep_going:
         try:
-            _call_under_profiler(function, args, kwds, prof)
+            keep_going = _call_under_profiler(function, args, kwds, prof)
         finally:
             prof.dump_stats(tmp_filename)
             os.rename(tmp_filename, filename)
