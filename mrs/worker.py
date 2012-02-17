@@ -79,14 +79,17 @@ class WorkerMapRequest(object):
         else:
             format = fileformats.default_write_format
 
-        if not self.outdir:
+        if self.outdir:
+            permanent = True
+        else:
             self.outdir = tempfile.mkdtemp(dir=default_dir,
                     prefix=(self.dataset_id + '_'))
+            permanent = False
 
         op = task.MapOperation(map_name=self.map_name,
                 part_name=self.part_name)
         t = op.make_task(program, input_data, self.task_index, self.splits,
-                self.outdir, format)
+                self.outdir, format, permanent)
         return t
 
 
@@ -114,14 +117,17 @@ class WorkerReduceRequest(object):
         else:
             format = fileformats.default_write_format
 
-        if not self.outdir:
+        if self.outdir:
+            permanent = True
+        else:
             self.outdir = tempfile.mkdtemp(dir=default_dir,
                     prefix=(self.dataset_id + '_'))
+            permanent = False
 
         op = task.ReduceOperation(reduce_name=self.reduce_name,
                 part_name=self.part_name)
         t = op.make_task(program, input_data, self.task_index, self.splits,
-                self.outdir, format)
+                self.outdir, format, permanent)
         return t
 
 
@@ -149,14 +155,17 @@ class WorkerReduceMapRequest(object):
         else:
             format = io.default_write_format
 
-        if not self.outdir:
+        if self.outdir:
+            permanent = True
+        else:
             self.outdir = tempfile.mkdtemp(dir=default_dir,
                     prefix=(self.dataset_id + '_'))
+            permanent = False
 
         op = task.ReduceMapOperation(reduce_name=self.reduce_name,
                 map_name=self.map_name, part_name=self.part_name)
         t = op.make_task(program, input_data, 0, self.task_index, self.splits,
-                self.outdir, format)
+                self.outdir, format, permanent)
         return t
 
 

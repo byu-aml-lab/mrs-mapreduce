@@ -159,13 +159,14 @@ class WriteBucket(ReadBucket):
             self.url = self._output_file.name
             self._writer = self.format(self._output_file)
 
-    def close_writer(self):
+    def close_writer(self, do_sync):
         if self._writer:
             self._writer.finish()
             self._writer = None
         if self._output_file:
             self._output_file.flush()
-            os.fsync(self._output_file.fileno())
+            if do_sync:
+                os.fsync(self._output_file.fileno())
             self._output_file.close()
             self._output_file = None
 

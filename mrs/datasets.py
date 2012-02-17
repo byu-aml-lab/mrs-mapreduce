@@ -232,12 +232,7 @@ class LocalData(BaseDataset):
                 bucket = self[source, split]
                 bucket.addpair(kvpair)
         for bucket in self[:, :]:
-            bucket.close_writer()
-        # Sync the containing dir to make sure the files are really written.
-        if self.dir:
-            fd = os.open(self.dir, os.O_RDONLY)
-            os.fsync(fd)
-            os.close(fd)
+            bucket.close_writer(self.permanent)
 
 
 class RemoteData(BaseDataset):
@@ -364,7 +359,7 @@ class ComputedData(RemoteData):
         input_data = datasets[self.input_id]
         self.splits = 1
         task = self.op.make_task(program, input_data, 0, self.splits,
-                self.dir, self.format)
+                self.dir, self.format, self.permanent)
 
         task.run(serial=True)
         self._use_output(task.output)
@@ -383,7 +378,7 @@ class ComputedData(RemoteData):
             self.dir = os.path.join(jobdir, self.id)
             os.mkdir(self.dir)
         return self.op.make_task(program, input_data, task_index, self.splits,
-                self.dir, self.format)
+                self.dir, self.format, self.permanent)
 
     def fetchall(self):
         assert not self.computing, (

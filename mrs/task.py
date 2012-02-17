@@ -36,7 +36,7 @@ class Task(object):
     used by this Task, as well as the source number that will be created by
     this Task.
     """
-    def __init__(self, input, task_index, storage, format):
+    def __init__(self, input, task_index, storage, format, permanent):
         self.input = input
         self.source = task_index
         self.split = task_index
@@ -45,6 +45,7 @@ class Task(object):
         if format is None:
             format = fileformats.default_write_format
         self.format = format
+        self.permanent = permanent
         self.output = None
 
     def outurls(self):
@@ -53,8 +54,8 @@ class Task(object):
 
 class MapTask(Task):
     def __init__(self, input, task_index, mapper, parter, splits, storage,
-            format):
-        Task.__init__(self, input, task_index, storage, format)
+            format, permanent):
+        Task.__init__(self, input, task_index, storage, format, permanent)
         self.mapper = mapper
         self.partition = parter
         self.splits = splits
@@ -77,7 +78,8 @@ class MapTask(Task):
         # MAP PHASE
         itr = self.map(all_input)
         self.output = datasets.LocalData(itr, self.splits, source=self.source,
-                parter=self.partition, dir=subdir, format=self.format)
+                parter=self.partition, dir=subdir, format=self.format,
+                permanent=self.permanent)
 
     def map(self, input):
         """Yields map output iterating over the entries in input."""
@@ -88,8 +90,8 @@ class MapTask(Task):
 
 class ReduceTask(Task):
     def __init__(self, input, task_index, reducer, parter, splits, storage,
-            format):
-        Task.__init__(self, input, task_index, storage, format)
+            format, permanent):
+        Task.__init__(self, input, task_index, storage, format, permanent)
         self.reducer = reducer
         self.partition = parter
         self.splits = splits
@@ -119,7 +121,8 @@ class ReduceTask(Task):
         # REDUCE PHASE
         itr = self.reduce(sorted_input)
         self.output = datasets.LocalData(itr, self.splits, source=self.source,
-                parter=self.partition, dir=subdir, format=self.format)
+                parter=self.partition, dir=subdir, format=self.format,
+                permanent=self.permanent)
 
     def reduce(self, input):
         """Yields reduce output iterating over the entries in input.
@@ -165,8 +168,8 @@ class ReduceTask(Task):
 
 class ReduceMapTask(MapTask, ReduceTask):
     def __init__(self, input, task_index, reducer, mapper, parter, splits,
-            storage, format):
-        Task.__init__(self, input, task_index, storage, format)
+            storage, format, permanent):
+        Task.__init__(self, input, task_index, storage, format, permanent)
         self.reducer = reducer
         self.mapper = mapper
         self.partition = parter
@@ -191,7 +194,8 @@ class ReduceMapTask(MapTask, ReduceTask):
         # REDUCEMAP PHASE
         itr = self.map(self.reduce(sorted_input))
         self.output = datasets.LocalData(itr, self.splits, source=self.source,
-                parter=self.partition, dir=subdir, format=self.format)
+                parter=self.partition, dir=subdir, format=self.format,
+                permanent=self.permanent)
 
 
 class Operation(object):
@@ -206,7 +210,7 @@ class MapOperation(Operation):
         self.id = '%s' % self.map_name
 
     def make_task(self, program, input_data, task_index, splits, out_dir,
-            out_format):
+            out_format, permanent):
         if self.map_name is None:
             mapper = None
         else:
@@ -214,7 +218,7 @@ class MapOperation(Operation):
         parter = getattr(program, self.part_name)
 
         return MapTask(input_data, task_index, mapper, parter, splits,
-                out_dir, out_format)
+                out_dir, out_format, permanent)
 
 
 class ReduceOperation(Operation):
@@ -224,7 +228,7 @@ class ReduceOperation(Operation):
         self.id = '%s' % self.reduce_name
 
     def make_task(self, program, input_data, task_index, splits, out_dir,
-            out_format):
+            out_format, permanent):
         if self.reduce_name is None:
             reducer = None
         else:
@@ -232,7 +236,7 @@ class ReduceOperation(Operation):
         parter = getattr(program, self.part_name)
 
         return ReduceTask(input_data, task_index, reducer, parter, splits,
-                out_dir, out_format)
+                out_dir, out_format, permanent)
 
 
 class ReduceMapOperation(Operation):
@@ -243,7 +247,7 @@ class ReduceMapOperation(Operation):
         self.id = '%s_%s' % (self.reduce_name, self.map_name)
 
     def make_task(self, program, input_data, task_index, splits, out_dir,
-            out_format):
+            out_format, permanent):
         if self.reduce_name is None:
             reducer = None
         else:
@@ -255,7 +259,7 @@ class ReduceMapOperation(Operation):
         parter = getattr(program, self.part_name)
 
         return ReduceMapTask(input_data, task_index, reducer, mapper,
-                parter, splits, out_dir, out_format)
+                parter, splits, out_dir, out_format, permanent)
 
 
 # vim: et sw=4 sts=4
