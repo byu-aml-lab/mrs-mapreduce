@@ -28,6 +28,7 @@ import multiprocessing
 import select
 import sys
 import threading
+import util
 
 from six import print_
 from . import datasets
@@ -349,7 +350,11 @@ class MockParallelRunner(TaskRunner):
         self.worker_conn, remote_worker_conn = multiprocessing.Pipe()
         worker = MockParallelWorker(self.program, self.datasets,
                 outdir, remote_worker_conn)
-        worker_thread = threading.Thread(target=worker.run,
+        if self.opts.mrs__profile:
+            target = worker.profiled_run
+        else:
+            target = worker.run
+        worker_thread = threading.Thread(target=target,
                 name='MockParallel Worker')
         worker_thread.daemon = True
         worker_thread.start()
@@ -384,14 +389,21 @@ class MockParallelWorker(object):
 
     def run(self):
         while True:
-            try:
-                dataset_id, source = self.conn.recv()
-            except EOFError:
-                return
-            ds = self.datasets[dataset_id]
-            t = ds.get_task(source, self.program, self.datasets, self.jobdir)
-            t.run()
+            self.run_once()
 
-            self.conn.send((dataset_id, source, t.outurls()))
+    def run_once(self):
+        try:
+            dataset_id, source = self.conn.recv()
+        except EOFError:
+            return
+        ds = self.datasets[dataset_id]
+        t = ds.get_task(source, self.program, self.datasets, self.jobdir)
+        t.run()
+
+        self.conn.send((dataset_id, source, t.outurls()))
+
+    def profiled_run(self):
+        util.profile_loop('self.run_once()', globals(), locals(),
+            'mrs-mockp-worker.prof')
 
 # vim: et sw=4 sts=4

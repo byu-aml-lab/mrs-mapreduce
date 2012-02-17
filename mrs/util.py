@@ -66,4 +66,17 @@ def random_string(length):
     possible = string.ascii_letters + string.digits
     return ''.join(random.choice(possible) for i in range(length))
 
+def profile_loop(statement, locals, globals, filename):
+    import cProfile
+    prof = cProfile.Profile()
+    tmp_filename = '.' + filename
+
+    while True:
+        try:
+            prof.runctx(statement, locals, globals)
+        except SystemExit:
+            pass
+        prof.dump_stats(tmp_filename)
+        os.rename(tmp_filename, filename)
+
 # vim: et sw=4 sts=4
