@@ -323,8 +323,13 @@ class Slave(BaseImplementation, FileParams, NetworkParams):
         s = slave.Slave(self.program_class, self.master, self.tmpdir,
                 self.pingdelay, self.timeout)
 
-        worker_process = multiprocessing.Process(target=worker.run_worker,
-                name='Worker', args=(self.program_class, s.request_pipe_worker))
+        w = worker.Worker(self.program_class, s.request_pipe_worker)
+        if opts.mrs__profile:
+            target = w.profiled_run
+        else:
+            target = w.run
+
+        worker_process = multiprocessing.Process(target=target, name='Worker')
         worker_process.start()
 
         s.run()

@@ -85,7 +85,11 @@ def profile_loop(function, args, kwds, filename):
     prof = cProfile.Profile()
     tmp_filename = '.' + filename
 
-    os.remove(filename)
+    try:
+        os.remove(filename)
+    except OSError:
+        pass
+
     while True:
         try:
             _call_under_profiler(function, args, kwds, prof)
@@ -102,7 +106,11 @@ def profile_call(function, args, kwds, filename):
     prof = cProfile.Profile()
     tmp_filename = '.' + filename
 
-    os.remove(filename)
+    try:
+        os.remove(filename)
+    except OSError:
+        pass
+
     try:
         return _call_under_profiler(function, args, kwds, prof)
     finally:

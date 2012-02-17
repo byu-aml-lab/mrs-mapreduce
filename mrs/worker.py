@@ -186,7 +186,7 @@ class WorkerSuccess(object):
         self.request_id = request_id
 
 
-def run_worker(program_class, request_pipe):
+class Worker(object):
     """Execute map tasks and reduce tasks.
 
     The worker waits for other threads to make assignments by calling
@@ -195,23 +195,27 @@ def run_worker(program_class, request_pipe):
     This needs to run in a daemon thread rather than in the main thread so
     that it can be killed by other threads.
     """
-    default_dir = None
-    program = None
+    def __init__(self, program_class, request_pipe):
+        self.program_class = program_class
+        self.request_pipe = request_pipe
+        self.default_dir = None
+        self.program = None
 
-    while True:
-        request = None
-        response = None
+    def run(self):
+        while True:
+            self.run_once()
 
+    def run_once(self):
         try:
-            request = request_pipe.recv()
+            request = self.request_pipe.recv()
 
             if isinstance(request, WorkerSetupRequest):
-                assert program is None
+                assert self.program is None
                 opts = request.opts
                 args = request.args
                 logger.debug('Starting to run the user setup function.')
-                program = program_class(opts, args)
-                default_dir = request.default_dir
+                self.program = self.program_class(opts, args)
+                self.default_dir = request.default_dir
                 response = WorkerSetupSuccess()
 
             elif isinstance(request, WorkerQuitRequest):
@@ -221,9 +225,9 @@ def run_worker(program_class, request_pipe):
                 util.remove_recursive(request.directory)
 
             else:
-                assert program is not None
+                assert self.program is not None
                 logger.info('Starting to run a new task.')
-                t = request.make_task(program, default_dir)
+                t = request.make_task(self.program, self.default_dir)
                 t.run()
                 response = WorkerSuccess(request.dataset_id,
                         request.task_index, request.outdir, t.outurls(),
@@ -237,7 +241,10 @@ def run_worker(program_class, request_pipe):
             response = WorkerFailure(e, tb, request_id)
 
         if response:
-            request_pipe.send(response)
+            self.request_pipe.send(response)
+
+    def profiled_run(self):
+        util.profile_loop(self.run_once, (), {}, 'mrs-worker.prof')
 
 
 # vim: et sw=4 sts=4
