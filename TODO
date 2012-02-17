@@ -1,0 +1,3 @@
+- tests, tests, tests
+- switch to argparse, which will make param.py much, much simpler
+- add profiling for all possible threads (several are currently missing)
