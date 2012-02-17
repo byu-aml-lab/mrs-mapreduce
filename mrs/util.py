@@ -66,16 +66,46 @@ def random_string(length):
     possible = string.ascii_letters + string.digits
     return ''.join(random.choice(possible) for i in range(length))
 
-def profile_loop(statement, locals, globals, filename):
+def _call_under_profiler(function, args, prof):
+    """Calls a function with arguments under the given profiler.
+
+    Returns the return value of the function, or None if it is unavailable.
+    """
+    returnvalue = []
+    def f():
+        value = function(*args)
+        returnvalue.append(value)
+
+    prof.runctx('f()', locals(), globals())
+    return returnvalue[0]
+
+def profile_loop(function, args, filename):
+    """Repeatedly uns a function (with args) and collects cumulative stats."""
     import cProfile
     prof = cProfile.Profile()
     tmp_filename = '.' + filename
 
+    os.remove(filename)
     while True:
         try:
-            prof.runctx(statement, locals, globals)
-        except SystemExit:
-            pass
+            _call_under_profiler(function, args, prof)
+        finally:
+            prof.dump_stats(tmp_filename)
+            os.rename(tmp_filename, filename)
+
+def profile_call(function, args, filename):
+    """Profiles a function with args, outputing stats to a file.
+
+    Returns the return value of the function, or None if it is unavailable.
+    """
+    import cProfile
+    prof = cProfile.Profile()
+    tmp_filename = '.' + filename
+
+    os.remove(filename)
+    try:
+        return _call_under_profiler(function, args, prof)
+    finally:
         prof.dump_stats(tmp_filename)
         os.rename(tmp_filename, filename)
 

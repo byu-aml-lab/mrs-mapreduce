@@ -246,13 +246,15 @@ def run_user_thread(program_class, opts, args, default_dir, manager,
     job = Job(manager, reg, opts, program.partition, default_dir, url_converter)
 
     try:
-        success = program.run(job)
+        if opts.mrs__profile:
+            success = util.profile_call(program.run, (job,),
+                    'mrs-run-user.prof')
+        else:
+            success = program.run(job)
     except Exception as e:
         success = False
         logger.critical('Exception raised in the run function: %s'
                 % traceback.format_exc())
-        manager.done(False)
-        return
 
     manager.done(success)
 

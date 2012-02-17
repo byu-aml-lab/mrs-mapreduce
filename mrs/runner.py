@@ -403,7 +403,6 @@ class MockParallelWorker(object):
         self.conn.send((dataset_id, source, t.outurls()))
 
     def profiled_run(self):
-        util.profile_loop('self.run_once()', globals(), locals(),
-            'mrs-mockp-worker.prof')
+        util.profile_loop(self.run_once, (), 'mrs-mockp-worker.prof')
 
 # vim: et sw=4 sts=4
