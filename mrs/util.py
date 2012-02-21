@@ -28,6 +28,7 @@ import os
 import random
 import string
 import subprocess
+import time
 
 from logging import getLogger
 logger = getLogger('mrs')
@@ -79,10 +80,11 @@ def _call_under_profiler(function, args, kwds, prof):
     prof.runctx('f()', locals(), globals())
     return returnvalue[0]
 
-def profile_loop(function, args, kwds, filename):
+def profile_loop(function, args, kwds, filename, min_delay=5):
     """Repeatedly runs a function (with args) and collects cumulative stats.
 
-    Runs as long as the function returns True.
+    Runs as long as the function returns True.  The min_delay parameter
+    determines the minimum delay, in seconds, between dumps to the stats file.
     """
     import cProfile
     prof = cProfile.Profile()
@@ -94,12 +96,16 @@ def profile_loop(function, args, kwds, filename):
         pass
 
     keep_going = True
+    last_time = time.time()
     while keep_going:
         try:
             keep_going = _call_under_profiler(function, args, kwds, prof)
         finally:
-            prof.dump_stats(tmp_filename)
-            os.rename(tmp_filename, filename)
+            now = time.time()
+            if (now - last_time > min_delay) or not keep_going:
+                last_time = now
+                prof.dump_stats(tmp_filename)
+                os.rename(tmp_filename, filename)
 
 def profile_call(function, args, kwds, filename):
     """Profiles a function with args, outputing stats to a file.
