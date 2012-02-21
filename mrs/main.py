@@ -221,7 +221,10 @@ class Implementation(BaseImplementation):
 
             self.runner = self.runner_class(self.program_class, opts, args,
                     job_conn, jobdir, default_dir)
-            self.runner.run()
+            if opts.mrs__profile:
+                util.profile_call(self.runner.run, (), {}, 'mrs-runner.prof')
+            else:
+                self.runner.run()
         except KeyboardInterrupt:
             logger.critical('Quitting due to keyboard interrupt.')
         finally:
