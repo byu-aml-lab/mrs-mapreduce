@@ -81,7 +81,7 @@ class SerialRunner(runner.BaseRunner):
         except EOFError:
             return
         ds = self.datasets[dataset_id]
-        self.dataset_computed(ds)
+        self.dataset_done(ds)
 
 
 class SerialWorker(object):

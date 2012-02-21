@@ -132,7 +132,7 @@ class BaseRunner(object):
         """Called when a new ComputedData set is submitted."""
         raise NotImplementedError
 
-    def dataset_computed(self, dataset):
+    def dataset_done(self, dataset):
         """Called when a dataset's computation is finished."""
 
         self.computing_datasets.remove(dataset)
@@ -280,7 +280,7 @@ class TaskRunner(BaseRunner):
         if not set_of_tasks:
             del self.remaining_tasks[dataset_id]
             dataset.computation_done()
-            self.dataset_computed(dataset)
+            self.dataset_done(dataset)
 
             for dependent_id in self.data_dependents[dataset_id]:
                 dependent_ds = self.datasets[dependent_id]
