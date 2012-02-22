@@ -38,7 +38,6 @@ import time
 
 from . import datasets
 from . import http
-from . import pool
 from . import registry
 from . import runner
 from . import task
@@ -67,18 +66,8 @@ class MasterRunner(runner.TaskRunner):
         self.rpc_thread = None
         self.sched_pipe = None
 
-        self.runqueue = None
-        self.runqueue_pipe = None
-
     def run(self):
-        self.runqueue_pipe, runqueue_write_pipe = os.pipe()
-        self.register_fd(self.runqueue_pipe, self.read_runqueue_pipe)
-        self.runqueue = pool.RunQueue(runqueue_write_pipe)
-        threadpool = pool.ThreadPool(self.runqueue)
-        threadpool_thread = threading.Thread(target=threadpool.run,
-                name='Thread Pool')
-        threadpool_thread.daemon = True
-        threadpool_thread.start()
+        self.start_runqueue()
 
         self.sched_pipe, sched_write_pipe = os.pipe()
         self.register_fd(self.sched_pipe, self.read_sched_pipe)
@@ -109,14 +98,6 @@ class MasterRunner(runner.TaskRunner):
         if self.opts.mrs__runfile:
             with open(self.opts.mrs__runfile, 'w') as f:
                 print_(port, file=j)
-
-    def read_runqueue_pipe(self):
-        """Reads currently available data from runqueue_pipe.
-
-        The actual data is ignored--the pipe is just a mechanism for
-        interrupting the select loop if it's blocking.
-        """
-        os.read(self.runqueue_pipe, 4096)
 
     def maintain_runqueue(self):
         """Maintains the runqueue and returns the timeout value for poll."""

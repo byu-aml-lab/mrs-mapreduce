@@ -25,6 +25,7 @@
 import collections
 import errno
 import multiprocessing
+import os
 import select
 import sys
 import threading
@@ -33,6 +34,7 @@ import util
 from six import print_
 from . import datasets
 from . import job
+from . import pool
 
 import logging
 logger = logging.getLogger('mrs')
@@ -227,6 +229,32 @@ class TaskRunner(BaseRunner):
         # Dictionary mapping from dataset to set of tasks.
         self.remaining_tasks = {}
 
+        self.runqueue = None
+        self.runqueue_pipe = None
+
+    def start_runqueue(self):
+        """Starts the RunQueue thread for asynchronous I/O-bound tasks.
+
+        Note that this method should only be called after all forking has
+        completed.  Threads and forking do not play well together.
+        """
+        self.runqueue_pipe, runqueue_write_pipe = os.pipe()
+        self.register_fd(self.runqueue_pipe, self.read_runqueue_pipe)
+        self.runqueue = pool.RunQueue(runqueue_write_pipe)
+        threadpool = pool.ThreadPool(self.runqueue)
+        threadpool_thread = threading.Thread(target=threadpool.run,
+                name='Thread Pool')
+        threadpool_thread.daemon = True
+        threadpool_thread.start()
+
+    def read_runqueue_pipe(self):
+        """Reads currently available data from runqueue_pipe.
+
+        The actual data is ignored--the pipe is just a mechanism for
+        interrupting the select loop if it's blocking.
+        """
+        os.read(self.runqueue_pipe, 4096)
+
     def compute_dataset(self, dataset):
         if self._runnable_or_pending(dataset):
             self.schedule()
@@ -307,6 +335,12 @@ class TaskRunner(BaseRunner):
     def schedule(self):
         raise NotImplementedError
 
+    def remove_dataset(self, dataset):
+        if dataset.permanent:
+            dataset.clear()
+        else:
+            self.runqueue.do(dataset.delete)
+
     def debug_status(self):
         super(TaskRunner, self).debug_status()
         print_('Runnable datasets:', (', '.join(ds.id
@@ -337,17 +371,23 @@ class MockParallelRunner(TaskRunner):
                     % traceback.format_exc())
             return
 
+        self.start_runqueue()
         self.start_worker()
 
-        self.register_fd(self.worker_conn.fileno(), self.read_worker_conn)
         self.eventloop()
 
     def start_worker(self):
+        """Starts the worker thread.
+
+        Note that this method should only be called after all forking has
+        completed.  Threads and forking do not play well together.
+        """
         if self.jobdir:
             outdir = self.jobdir
         else:
             outdir = self.default_dir
         self.worker_conn, remote_worker_conn = multiprocessing.Pipe()
+        self.register_fd(self.worker_conn.fileno(), self.read_worker_conn)
         worker = MockParallelWorker(self.program, self.datasets,
                 outdir, remote_worker_conn)
         if self.opts.mrs__profile:
