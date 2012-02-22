@@ -325,6 +325,6 @@ writer_map = {
         'mrsz': ZipWriter,
         }
 default_read_format = LineReader
-default_write_format = ZipWriter
+default_write_format = BinWriter
 
 # vim: et sw=4 sts=4
