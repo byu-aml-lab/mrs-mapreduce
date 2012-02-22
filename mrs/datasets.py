@@ -26,6 +26,7 @@
 
 from itertools import chain
 import os
+from six.moves import xrange as range
 import tempfile
 import threading
 
@@ -165,11 +166,11 @@ class BaseDataset(object):
             return self._data.values()
         else:
             if isinstance(part1, slice):
-                range1 = xrange(*part1.indices(self.sources))
+                range1 = range(*part1.indices(self.sources))
             else:
                 range1 = (part1,)
             if isinstance(part2, slice):
-                range2 = xrange(*part2.indices(self.splits))
+                range2 = range(*part2.indices(self.splits))
             else:
                 range2 = (part2,)
             data = self._data
