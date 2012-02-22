@@ -26,12 +26,16 @@ from __future__ import division
 
 import os
 import random
+from six.moves import xrange as range
 import string
 import subprocess
 import time
 
 from logging import getLogger
 logger = getLogger('mrs')
+
+ID_CHARACTERS = string.ascii_letters + string.digits
+TEMPFILE_FLAGS = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
 
 
 def try_makedirs(path):
@@ -64,8 +68,31 @@ def delta_seconds(delta):
     return total
 
 def random_string(length):
-    possible = string.ascii_letters + string.digits
-    return ''.join(random.choice(possible) for i in range(length))
+    """Returns a string of the given length suitable for a random ID."""
+    # Note that we do this by hand instead of calling random.choice because
+    # somehow it's almost 50% faster (and we call it a lot).
+    choices = len(ID_CHARACTERS)
+    return ''.join(ID_CHARACTERS[int(random.random() * choices)] for
+            i in range(length))
+
+def tempfile(dir, prefix, suffix):
+    """Creates and opens a new temporary file with a unique filename.
+
+    Returns a (file object, path) pair.  The file is opened in binary write
+    mode.  This falls back to tempfile.NamedTemporaryFile if necessary, but by
+    default it uses the faster strategy of not adding random characters to the
+    filename.  Note that to save time, we don't set O_CLOEXEC, which is not
+    necessary in Mrs.
+    """
+    path = os.path.join(dir, prefix + suffix)
+    try:
+        fd = os.open(path, TEMPFILE_FLAGS, 0600)
+        f = os.fdopen(fd, 'wb')
+    except OSError:
+        f = tempfile.NamedTemporaryFile(delete=False, dir=dir,
+                prefix=prefix, suffix=suffix)
+        path = f.name
+    return f, path
 
 def _call_under_profiler(function, args, kwds, prof):
     """Calls a function with arguments under the given profiler.

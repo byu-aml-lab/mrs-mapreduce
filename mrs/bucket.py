@@ -24,7 +24,8 @@ from __future__ import with_statement
 
 import os
 from six import BytesIO
-import tempfile
+
+from . import util
 
 try:
     from urllib.parse import urlparse, urlunparse
@@ -160,9 +161,8 @@ class WriteBucket(ReadBucket):
             # TODO: consider using SpooledTemporaryFile when self.dir is
             # local (i.e., in /tmp).
             suffix='.' + self.format.ext
-            self._output_file = tempfile.NamedTemporaryFile(delete=False,
-                    dir=self.dir, prefix=self.prefix(), suffix=suffix)
-            self.url = self._output_file.name
+            self._output_file, self.url = util.tempfile(self.dir,
+                    self.prefix(), suffix)
             self._writer = self.format(self._output_file)
 
     def close_writer(self, do_sync):
