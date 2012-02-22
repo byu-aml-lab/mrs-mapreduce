@@ -75,24 +75,30 @@ class ReadBucket(object):
     def __getstate__(self):
         """Pickle (serialize) the bucket."""
         state = self.__dict__.copy()
-        buf = BytesIO()
-        with fileformats.BinWriter(buf) as writer:
-            for pair in self._data:
-                writer.writepair(pair)
-        state['_data'] = buf.getvalue()
-        buf.close()
+        if self._data:
+            buf = BytesIO()
+            with fileformats.BinWriter(buf) as writer:
+                for pair in self._data:
+                    writer.writepair(pair)
+            state['_data'] = buf.getvalue()
+            buf.close()
+        else:
+            state['_data'] = ''
         return state
 
     def __setstate__(self, state):
         """Unpickle (deserialize) the bucket."""
         self.__dict__ = state
-        # TODO: Python 3 supports using context managers with BytesIO
-        #with io.BytesIO(self._data) as buf:
-        buf = BytesIO(self._data)
-        self._data = []
-        reader = fileformats.BinReader(buf)
-        self.collect(reader)
-        buf.close()
+        if self._data == '':
+            self._data = []
+        else:
+            # TODO: Python 3 supports using context managers with BytesIO
+            #with io.BytesIO(self._data) as buf:
+            buf = BytesIO(self._data)
+            self._data = []
+            reader = fileformats.BinReader(buf)
+            self.collect(reader)
+            buf.close()
 
     def __len__(self):
         return len(self._data)
