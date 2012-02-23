@@ -170,8 +170,8 @@ class WriteBucket(ReadBucket):
             self._writer.finish()
             self._writer = None
         if self._output_file:
-            self._output_file.flush()
             if do_sync:
+                self._output_file.flush()
                 os.fsync(self._output_file.fileno())
             self._output_file.close()
             self._output_file = None
