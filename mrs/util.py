@@ -24,6 +24,7 @@
 
 from __future__ import division
 
+import math
 import os
 import random
 from six.moves import xrange as range
@@ -34,8 +35,11 @@ import time
 from logging import getLogger
 logger = getLogger('mrs')
 
-ID_CHARACTERS = string.ascii_letters + string.digits
 TEMPFILE_FLAGS = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+ID_CHARACTERS = string.ascii_letters + string.digits
+BITS_IN_DOUBLE = 53
+ID_MAXLEN = int(BITS_IN_DOUBLE * math.log(2) / math.log(len(ID_CHARACTERS)))
+ID_RANGES = [len(ID_CHARACTERS) ** i for i in range(ID_MAXLEN + 1)]
 
 
 def try_makedirs(path):
@@ -68,12 +72,21 @@ def delta_seconds(delta):
     return total
 
 def random_string(length):
-    """Returns a string of the given length suitable for a random ID."""
+    """Returns a string of the given (short) length suitable for a random ID."""
     # Note that we do this by hand instead of calling random.choice because
-    # somehow it's almost 50% faster (and we call it a lot).
+    # it's much, much faster (and we call it a lot).
     choices = len(ID_CHARACTERS)
-    return ''.join(ID_CHARACTERS[int(random.random() * choices)] for
-            i in range(length))
+    try:
+        r = int(random.random() * ID_RANGES[length])
+    except IndexError:
+        raise RuntimeError('Cannot create a string of length %s' % length)
+
+    s = ''
+    for place in range(length):
+        index = int(r % choices)
+        s += ID_CHARACTERS[index]
+        r /= choices
+    return s
 
 def tempfile(dir, prefix, suffix):
     """Creates and opens a new temporary file with a unique filename.

@@ -38,7 +38,7 @@ from . import util
 from logging import getLogger
 logger = getLogger('mrs')
 
-DATASET_ID_LENGTH = 10
+DATASET_ID_LENGTH = 8
 
 
 class BaseDataset(object):
