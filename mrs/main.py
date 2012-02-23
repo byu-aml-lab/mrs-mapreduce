@@ -36,7 +36,6 @@ import random
 import signal
 from six import b, print_
 import sys
-import tempfile
 import threading
 import traceback
 
@@ -45,6 +44,7 @@ from . import param
 from .param import ParamObj, Param
 from . import runner
 from . import serial
+from . import util
 from .version import __version__
 
 
@@ -197,15 +197,14 @@ class Implementation(BaseImplementation):
             raise NotImplementedError('Subclasses must set runner_class.')
 
         if self.shared:
-            jobdir = tempfile.mkdtemp(dir=self.shared, prefix='mrs.job_')
+            jobdir = util.mktempdir(self.shared, 'mrs.job_')
             self.use_bucket_server = False
             default_dir = os.path.join(jobdir, 'user_run')
             os.mkdir(default_dir)
         elif self.tmpdir:
             jobdir = ''
             util.try_makedirs(self.tmpdir)
-            default_dir = tempfile.mkdtemp(dir=self.tmpdir,
-                    prefix='mrs_master_')
+            default_dir = util.mktempdir(self.tmpdir, 'mrs_master_')
         else:
             jobdir = None
             default_dir = None

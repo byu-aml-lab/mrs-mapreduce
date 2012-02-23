@@ -47,7 +47,6 @@ import multiprocessing
 import optparse
 import select
 import socket
-import tempfile
 import threading
 import urlparse
 import worker
@@ -179,7 +178,7 @@ class Slave(object):
             util.try_makedirs(self.tmpdir)
             directory = self.tmpdir
             prefix = 'mrs_slave_'
-        return tempfile.mkdtemp(dir=directory, prefix=prefix)
+        return util.mktempdir(directory, prefix)
 
     def report_ready(self):
         """Report to the master that we are ready to accept tasks.

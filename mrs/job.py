@@ -26,7 +26,6 @@ from __future__ import with_statement
 import multiprocessing
 import os
 import select
-import tempfile
 import threading
 import traceback
 import weakref
@@ -85,8 +84,7 @@ class Job(object):
         permanent = True
         if not outdir:
             if self._default_dir:
-                outdir = tempfile.mkdtemp(prefix='output_',
-                        dir=self._default_dir)
+                outdir = util.mktempdir(self._default_dir, 'output_')
                 permanent = self._keep_jobdir
         if outdir:
             util.try_makedirs(outdir)

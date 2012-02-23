@@ -27,7 +27,6 @@ That's it.  It just does what the main slave process tells it to.  The worker
 process is terminated when the main process quits.
 """
 
-import tempfile
 import traceback
 
 from . import datasets
@@ -82,8 +81,7 @@ class WorkerMapRequest(object):
         if self.outdir:
             permanent = True
         else:
-            self.outdir = tempfile.mkdtemp(dir=default_dir,
-                    prefix=(self.dataset_id + '_'))
+            self.outdir = util.mktempdir(default_dir, self.dataset_id + '_')
             permanent = False
 
         op = task.MapOperation(map_name=self.map_name,
@@ -120,8 +118,7 @@ class WorkerReduceRequest(object):
         if self.outdir:
             permanent = True
         else:
-            self.outdir = tempfile.mkdtemp(dir=default_dir,
-                    prefix=(self.dataset_id + '_'))
+            self.outdir = util.mktempdir(default_dir, self.dataset_id + '_')
             permanent = False
 
         op = task.ReduceOperation(reduce_name=self.reduce_name,
@@ -158,8 +155,7 @@ class WorkerReduceMapRequest(object):
         if self.outdir:
             permanent = True
         else:
-            self.outdir = tempfile.mkdtemp(dir=default_dir,
-                    prefix=(self.dataset_id + '_'))
+            self.outdir = util.mktempdir(default_dir, self.dataset_id + '_')
             permanent = False
 
         op = task.ReduceMapOperation(reduce_name=self.reduce_name,

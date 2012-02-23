@@ -30,6 +30,7 @@ import random
 from six.moves import xrange as range
 import string
 import subprocess
+import tempfile
 import time
 
 from logging import getLogger
@@ -88,7 +89,7 @@ def random_string(length):
         r /= choices
     return s
 
-def tempfile(dir, prefix, suffix):
+def mktempfile(dir, prefix, suffix):
     """Creates and opens a new temporary file with a unique filename.
 
     Returns a (file object, path) pair.  The file is opened in binary write
@@ -97,7 +98,7 @@ def tempfile(dir, prefix, suffix):
     filename.  Note that to save time, we don't set O_CLOEXEC, which is not
     necessary in Mrs.
     """
-    path = os.path.join(dir, prefix + suffix)
+    path = dir + '/' + prefix + suffix
     try:
         fd = os.open(path, TEMPFILE_FLAGS, 0600)
         f = os.fdopen(fd, 'wb')
@@ -106,6 +107,15 @@ def tempfile(dir, prefix, suffix):
                 prefix=prefix, suffix=suffix)
         path = f.name
     return f, path
+
+def mktempdir(dir, prefix):
+    for i in range(tempfile.TMP_MAX):
+        name = dir + '/' + prefix + random_string(6)
+        try:
+            os.mkdir(name, 0700)
+            return name
+        except OSError:
+            pass
 
 def _call_under_profiler(function, args, kwds, prof):
     """Calls a function with arguments under the given profiler.

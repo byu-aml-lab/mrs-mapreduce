@@ -27,6 +27,7 @@ A Task represents a unit of work and the mechanism for carrying it out.
 
 from . import datasets
 from . import fileformats
+from . import util
 
 
 class Task(object):
@@ -69,9 +70,8 @@ class MapTask(Task):
             all_input = self.input.itersplitdata(self.split)
 
         if self.storage and (self.splits > 1):
-            import tempfile
             prefix = 'source_%s_' % self.source
-            subdir = tempfile.mkdtemp(prefix=prefix, dir=self.storage)
+            subdir = util.mktempdir(self.storage, prefix)
         else:
             subdir = self.storage
 
@@ -106,9 +106,8 @@ class ReduceTask(Task):
         sorted_input = sorted(all_input)
 
         if self.storage and (self.splits > 1):
-            import tempfile
             prefix = 'source_%s_' % self.source
-            subdir = tempfile.mkdtemp(prefix=prefix, dir=self.storage)
+            subdir = util.mktempdir(self.storage, prefix)
         else:
             subdir = self.storage
 
@@ -185,9 +184,8 @@ class ReduceMapTask(MapTask, ReduceTask):
         sorted_input = sorted(all_input)
 
         if self.storage and (self.splits > 1):
-            import tempfile
             prefix = 'source_%s_' % self.source
-            subdir = tempfile.mkdtemp(prefix=prefix, dir=self.storage)
+            subdir = util.mktempdir(self.storage, prefix)
         else:
             subdir = self.storage
 

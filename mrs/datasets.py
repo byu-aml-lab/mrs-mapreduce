@@ -27,9 +27,7 @@
 from itertools import chain
 import os
 from six.moves import xrange as range
-import tempfile
 import threading
-
 
 from . import bucket
 from . import fileformats

@@ -161,7 +161,7 @@ class WriteBucket(ReadBucket):
             # TODO: consider using SpooledTemporaryFile when self.dir is
             # local (i.e., in /tmp).
             suffix='.' + self.format.ext
-            self._output_file, self.url = util.tempfile(self.dir,
+            self._output_file, self.url = util.mktempfile(self.dir,
                     self.prefix(), suffix)
             self._writer = self.format(self._output_file)
 
