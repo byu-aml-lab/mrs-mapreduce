@@ -52,9 +52,9 @@ class BaseDataset(object):
 
     Attributes:
         sources: number of input sources (e.g., tasks); to get all of the
-            data from a particular source, use itersourcedata()
+            data from a particular source, use sourcedata()
         splits: number of outputs per source; to get all data for a particular
-            split from all sources, use itersplitdata()
+            split from all sources, use splitdata()
     """
     def __init__(self, sources=0, splits=0, dir=None, format=None,
             permanent=True, **kwds):
@@ -79,17 +79,17 @@ class BaseDataset(object):
     def __nonzero__(self):
         return True
 
-    def iterdata(self):
+    def data(self):
         """Iterate over data from all buckets."""
         buckets = self[:, :]
         return chain.from_iterable(buckets)
 
-    def itersplitdata(self, split):
+    def splitdata(self, split):
         """Iterate over data from buckets for a given split."""
         buckets = self[:, split]
         return chain.from_iterable(buckets)
 
-    def itersourcedata(self, source):
+    def sourcedata(self, source):
         """Iterate over data from buckets for a given source."""
         buckets = self[source, :]
         return chain.from_iterable(buckets)

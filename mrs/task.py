@@ -65,9 +65,9 @@ class MapTask(Task):
         # SETUP INPUT
         self.input.fetchall()
         if serial:
-            all_input = self.input.iterdata()
+            all_input = self.input.data()
         else:
-            all_input = self.input.itersplitdata(self.split)
+            all_input = self.input.splitdata(self.split)
 
         if self.storage and (self.splits > 1):
             prefix = 'source_%s_' % self.source
@@ -100,9 +100,9 @@ class ReduceTask(Task):
         # SORT PHASE
         self.input.fetchall()
         if serial:
-            all_input = self.input.iterdata()
+            all_input = self.input.data()
         else:
-            all_input = self.input.itersplitdata(self.split)
+            all_input = self.input.splitdata(self.split)
         sorted_input = sorted(all_input)
 
         if self.storage and (self.splits > 1):
@@ -178,9 +178,9 @@ class ReduceMapTask(MapTask, ReduceTask):
         # SETUP INPUT
         self.input.fetchall()
         if serial:
-            all_input = self.input.iterdata()
+            all_input = self.input.data()
         else:
-            all_input = self.input.itersplitdata(self.split)
+            all_input = self.input.splitdata(self.split)
         sorted_input = sorted(all_input)
 
         if self.storage and (self.splits > 1):
