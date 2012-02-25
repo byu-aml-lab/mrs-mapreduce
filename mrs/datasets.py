@@ -24,6 +24,7 @@
 # TODO: add a Dataset for resplitting input (right now we assume that input
 # files are pre-split).
 
+import collections
 from itertools import chain
 import os
 from six.moves import xrange as range
@@ -66,7 +67,10 @@ class BaseDataset(object):
         self.permanent = permanent
         self.closed = False
         self._close_callback = None
+
         self._data = {}
+        self._splits_per_source = collections.defaultdict(set)
+        self._sources_per_split = collections.defaultdict(set)
 
     def _make_bucket(self, source, split):
         """Overridable method for creating a new bucket."""
@@ -140,41 +144,74 @@ class BaseDataset(object):
 
     def __setitem__(self, key, bucket):
         self._data[key] = bucket
+        source, split = key
+        self._splits_per_source[source].add(split)
+        self._sources_per_split[split].add(source)
 
-    def __getitem__(self, key):
-        """Retrieve a bucket or split.
+    def __getitem__(self, key_pair):
+        """Retrieve a bucket or iterator, given a (source_key, split_key) pair.
 
-        At the moment, we're not very consistent about whether what we return
-        is a view or a [shallow] copy.  Write at your own risk.
+        Returns an iterator over buckets if either key is a slice.
         """
         # Separate the two dimensions:
         try:
-            part1, part2 = key
+            source_key, split_key = key_pair
         except (TypeError, ValueError):
             raise TypeError("Requires a pair of keys.")
 
-        if not isinstance(part1, slice) and not isinstance(part2, slice):
-            try:
-                return self._data[key]
-            except KeyError:
-                bucket = self._make_bucket(part1, part2)
-                self._data[key] = bucket
-                return bucket
-        elif part1 == part2 == slice(None, None, None):
-            return self._data.values()
-        else:
-            if isinstance(part1, slice):
-                range1 = range(*part1.indices(self.sources))
-            else:
-                range1 = (part1,)
-            if isinstance(part2, slice):
-                range2 = range(*part2.indices(self.splits))
-            else:
-                range2 = (part2,)
-            data = self._data
+        source_key_is_slice = isinstance(source_key, slice)
+        split_key_is_slice = isinstance(split_key, slice)
 
-            return (data[x, y] for x in range1 for y in range2
-                    if (x, y) in data)
+        if not source_key_is_slice and not split_key_is_slice:
+            # Special case: single bucket
+            try:
+                bucket = self._data[key_pair]
+            except KeyError:
+                bucket = self._make_bucket(source_key, split_key)
+                self[key_pair] = bucket
+            return bucket
+
+        all_sources = (source_key_is_slice and None == source_key.start ==
+                source_key.stop == source_key.step)
+        all_splits = (split_key_is_slice and None == split_key.start ==
+                split_key.stop == split_key.step)
+
+        data = self._data
+
+        if all_sources and all_splits:
+            # Special case: the entire set
+            return data.values()
+        elif all_sources and not split_key_is_slice:
+            # Special case: an entire split
+            sources = self._sources_per_split.get(split_key)
+            if sources is None:
+                return iter(())
+            else:
+                return (data[x, split_key] for x in sources)
+        elif all_splits and not source_key_is_slice:
+            # Special case: an entire source
+            splits = self._splits_per_source.get(source_key)
+            if splits is None:
+                return iter(())
+            else:
+                return (data[source_key, y] for y in splits)
+
+        # General case (not particularly useful in practice).
+
+        # Convert the source_key into an iterator.
+        if source_key_is_slice:
+            source_range = range(*source_key.indices(self.sources))
+        else:
+            source_range = (source_key,)
+
+        # Convert the split_key into an iterator.
+        if split_key_is_slice:
+            split_range = range(*split_key.indices(self.splits))
+        else:
+            split_range = (split_key,)
+
+        return (data[x, y] for x in source_range for y in split_range
+                if (x, y) in data)
 
     # The __iter__ method must be defined because the default iterator falls
     # back on __getitem__ and goes horribly wrong.
