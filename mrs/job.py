@@ -58,6 +58,13 @@ class Job(object):
         self._default_reduce_parts = 1
         self._default_reduce_tasks = getattr(opts, 'mrs__reduce_tasks', 1)
         self._keep_jobdir = getattr(opts, 'mrs__keep_jobdir', False)
+        
+    def set_default_splits(self, splits):
+        self._default_reduce_tasks = splits
+        self._default_reduce_parts = splits
+        
+    def set_default_parter(self, parter):
+        self._default_partition = parter
 
     def wait(self, *datasets, **kwds):
         """Wait for any of the given Datasets to complete.
