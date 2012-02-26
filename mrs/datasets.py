@@ -52,15 +52,12 @@ class BaseDataset(object):
     give an iterable view containing the buckets from source 1 for any split.
 
     Attributes:
-        sources: number of input sources (e.g., tasks); to get all of the
-            data from a particular source, use sourcedata()
         splits: number of outputs per source; to get all data for a particular
             split from all sources, use splitdata()
     """
-    def __init__(self, sources=0, splits=0, dir=None, format=None,
-            permanent=True, **kwds):
+    def __init__(self, splits=0, dir=None, format=None, permanent=True,
+            **kwds):
         self.id = util.random_string(DATASET_ID_LENGTH)
-        self.sources = sources
         self.splits = splits
         self.dir = dir
         self.format = format
@@ -231,7 +228,7 @@ class LocalData(BaseDataset):
     >>>
     """
     def __init__(self, itr, splits, source=0, parter=None, **kwds):
-        super(LocalData, self).__init__(sources=1, splits=splits, **kwds)
+        super(LocalData, self).__init__(splits=splits, **kwds)
         self.id = 'local_' + self.id
         self.fixed_source = source
 
@@ -338,20 +335,18 @@ class FileData(RemoteData):
     (0, '# Mrs\\n')
     >>>
     """
-    def __init__(self, urls, sources=None, splits=None, first_source=0,
-            first_split=0, **kwds):
+    def __init__(self, urls, splits=None, first_source=0, first_split=0,
+            **kwds):
         n = len(urls)
 
-        if sources is None and splits is None:
-            # Nothing specified, so we assume one split per url
-            sources = 1
-            splits = n
-        elif sources is None:
-            sources = first_source + n // splits
-        elif splits is None:
-            splits = first_split + n // sources
+        if splits is None:
+            if sources is None:
+                # Nothing specified, so we assume one split per url
+                splits = n
+            else:
+                splits = first_split + n // sources
 
-        super(FileData, self).__init__(sources=sources, splits=splits, **kwds)
+        super(FileData, self).__init__(splits=splits, **kwds)
         for i, url in enumerate(urls):
             if url:
                 source = first_source + i // splits
@@ -373,9 +368,9 @@ class ComputedData(RemoteData):
         parter: name of the partition function (see registry for more info)
     """
     def __init__(self, operation, input, **kwds):
-        # At least for now, we create 1 task for each split in the input
-        ntasks = input.splits
-        super(ComputedData, self).__init__(sources=ntasks, **kwds)
+        # Create exactly one task for each split in the input.
+        self.ntasks = input.splits
+        super(ComputedData, self).__init__(**kwds)
 
         self.op = operation
         self.id = '%s_%s' % (operation.id, self.id)
@@ -422,7 +417,6 @@ class ComputedData(RemoteData):
     def _use_output(self, output):
         """Uses the contents of the given LocalData."""
         self._data = output._data
-        self.sources = 1
         self.splits = len(output._data)
         self._fetched = True
 

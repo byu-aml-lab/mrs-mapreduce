@@ -75,8 +75,7 @@ class Job(object):
         ds._close_callback = self._manager.close_dataset
         return ds
 
-    def local_data(self, itr, splits=None, outdir=None, parter=None,
-            format=None):
+    def local_data(self, itr, splits=None, outdir=None, parter=None, **kwds):
         """Defines a set of data to be built locally from a given iterator."""
         if splits is None:
             splits = self._default_reduce_tasks
@@ -93,7 +92,7 @@ class Job(object):
             parter = self._default_partition
 
         ds = datasets.LocalData(itr, splits, dir=outdir, parter=parter,
-                format=format, permanent=permanent)
+                permanent=permanent, **kwds)
         if self._url_converter:
             for bucket in ds[:, :]:
                 bucket.url = self._url_converter.local_to_global(bucket.url)
@@ -102,7 +101,7 @@ class Job(object):
         return ds
 
     def map_data(self, input, mapper, splits=None, outdir=None, parter=None,
-            format=None):
+            **kwds):
         """Define a set of data computed with a map operation.
 
         Specify the input dataset and a mapper function.  The mapper must be
@@ -127,13 +126,13 @@ class Job(object):
 
         op = task.MapOperation(map_name=map_name, part_name=part_name)
         ds = datasets.ComputedData(op, input, splits=splits, dir=outdir,
-                format=format, permanent=permanent)
+                permanent=permanent, **kwds)
         self._manager.submit(ds)
         ds._close_callback = self._manager.close_dataset
         return ds
 
     def reduce_data(self, input, reducer, splits=None, outdir=None,
-            parter=None, format=None):
+            parter=None, **kwds):
         """Define a set of data computed with a reducer operation.
 
         Specify the input dataset and a reducer function.  The reducer must be
@@ -159,13 +158,13 @@ class Job(object):
         op = task.ReduceOperation(reduce_name=reduce_name,
                 part_name=part_name)
         ds = datasets.ComputedData(op, input, splits=splits, dir=outdir,
-                format=format, permanent=permanent)
+                permanent=permanent, **kwds)
         self._manager.submit(ds)
         ds._close_callback = self._manager.close_dataset
         return ds
 
     def reducemap_data(self, input, reducer, mapper, splits=None, outdir=None,
-            parter=None, format=None):
+            parter=None, **kwds):
         """Define a set of data computed with the reducemap operation.
 
         Called from the user-specified run function.
@@ -189,7 +188,7 @@ class Job(object):
         op = task.ReduceMapOperation(reduce_name=reduce_name,
                 map_name=map_name, part_name=part_name)
         ds = datasets.ComputedData(op, input, splits=splits, dir=outdir,
-                format=format, permanent=permanent)
+                permanent=permanent, **kwds)
         self._manager.submit(ds)
         ds._close_callback = self._manager.close_dataset
         return ds
@@ -401,7 +400,7 @@ class DatasetStatus(object):
     """Keeps track of the status of current datasets."""
     def __init__(self, dataset):
         self.id = dataset.id
-        self.total_sources = dataset.sources
+        self.total_sources = dataset.ntasks
         self.max_source_seen = -1
 
     def source_seen(self, source):

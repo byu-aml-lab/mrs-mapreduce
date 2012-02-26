@@ -357,9 +357,11 @@ class TaskRunner(BaseRunner):
         else:
             percent_complete = 1
 
+        if percent_complete < 1:
+            return
+
         for dependent_id in self.data_dependents[dataset_id]:
             dep_ds = self.datasets[dependent_id]
-
             if (dep_ds in self.pending_datasets and
                     percent_complete == 1):
                 self.pending_datasets.remove(dep_ds)
@@ -420,7 +422,7 @@ class TaskList(object):
         Note that a task is not created if the corresponding split in the
         input dataset is empty.
         """
-        for task_index in range(self.dataset.sources):
+        for task_index in range(self.dataset.ntasks):
             for b in self.input_ds[:, task_index]:
                 if b.url:
                     self._ready_tasks.append(task_index)
@@ -431,7 +433,7 @@ class TaskList(object):
     def percent_complete(self):
         """Returns the percent of datasets that have been computed."""
         if self._tasks_made:
-            return len(self._remaining_tasks) / self.dataset.sources
+            return len(self._remaining_tasks) / self.dataset.ntasks
         else:
             return 0
 
