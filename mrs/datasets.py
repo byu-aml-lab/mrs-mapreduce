@@ -76,6 +76,17 @@ class BaseDataset(object):
         """Overridable method for creating a new bucket."""
         raise NotImplementedError
 
+    def extend_split(self, split, buckets):
+        """Extend a split from an iterable collection of buckets.
+
+        Each bucket will be assigned an arbitrary source number larger than
+        any other source number in the dataset.
+        """
+        source = max(self._splits_per_source.keys())
+        for bucket in buckets:
+            source += 1
+            self[source, split] = bucket
+
     def __bool__(self):
         return True
 
