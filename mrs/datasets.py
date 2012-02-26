@@ -171,47 +171,28 @@ class BaseDataset(object):
                 self[key_pair] = bucket
             return bucket
 
-        all_sources = (source_key_is_slice and None == source_key.start ==
-                source_key.stop == source_key.step)
-        all_splits = (split_key_is_slice and None == split_key.start ==
-                split_key.stop == split_key.step)
+        if ((source_key_is_slice and (source_key.start != None or
+                source_key.stop != None or  source_key.step != None)) or
+                (split_key_is_slice and (split_key.start != None or
+                split_key.stop != None or  split_key.step != None))):
+            raise TypeError("General slicing is not supported")
 
         data = self._data
 
-        if all_sources and all_splits:
-            # Special case: the entire set
+        if source_key_is_slice and split_key_is_slice:
             return data.values()
-        elif all_sources and not split_key_is_slice:
-            # Special case: an entire split
-            sources = self._sources_per_split.get(split_key)
-            if sources is None:
-                return iter(())
-            else:
-                return (data[x, split_key] for x in sources)
-        elif all_splits and not source_key_is_slice:
-            # Special case: an entire source
+        elif split_key_is_slice:
             splits = self._splits_per_source.get(source_key)
             if splits is None:
                 return iter(())
             else:
                 return (data[source_key, y] for y in splits)
-
-        # General case (not particularly useful in practice).
-
-        # Convert the source_key into an iterator.
-        if source_key_is_slice:
-            source_range = range(*source_key.indices(self.sources))
-        else:
-            source_range = (source_key,)
-
-        # Convert the split_key into an iterator.
-        if split_key_is_slice:
-            split_range = range(*split_key.indices(self.splits))
-        else:
-            split_range = (split_key,)
-
-        return (data[x, y] for x in source_range for y in split_range
-                if (x, y) in data)
+        elif source_key_is_slice:
+            sources = self._sources_per_split.get(split_key)
+            if sources is None:
+                return iter(())
+            else:
+                return (data[x, split_key] for x in sources)
 
     # The __iter__ method must be defined because the default iterator falls
     # back on __getitem__ and goes horribly wrong.
@@ -288,10 +269,16 @@ class RemoteData(BaseDataset):
     def __getstate__(self):
         """Pickle without getting certain forbidden/unnecessary elements."""
         state = self.__dict__.copy()
-        state['_close_callback'] = None
+        del state['_close_callback']
+        del state['_fetched']
         if self.closed:
             state['_data'] = None
         return state
+
+    def __setstate__(self, dict):
+        self.__dict__ = dict
+        self._close_callback = None
+        self._fetched = False
 
     # TODO: consider parallelizing this to use multiple downloading threads.
     def fetchall(self):
