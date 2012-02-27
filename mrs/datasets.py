@@ -67,6 +67,7 @@ class BaseDataset(object):
         self.permanent = permanent
         self.closed = False
         self._close_callback = None
+        self._extended_sources = 0
 
         self._data = {}
         self._splits_per_source = collections.defaultdict(set)
@@ -79,12 +80,11 @@ class BaseDataset(object):
     def extend_split(self, split, buckets):
         """Extend a split from an iterable collection of buckets.
 
-        Each bucket will be assigned an arbitrary source number larger than
-        any other source number in the dataset.
+        Each bucket will be assigned a arbitrary negative source number.
         """
-        source = max(self._splits_per_source.keys())
         for bucket in buckets:
-            source += 1
+            self._extended_sources += 1
+            source = -self._extended_sources
             self[source, split] = bucket
 
     def __bool__(self):
