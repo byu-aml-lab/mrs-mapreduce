@@ -22,6 +22,8 @@
 
 """Mrs Runner"""
 
+from __future__ import division
+
 import collections
 import multiprocessing
 import os
@@ -152,6 +154,11 @@ class BaseRunner(object):
         response = job.DatasetComputed(dataset.id, not dataset.closed)
         self.job_conn.send(response)
 
+    def close_dataset(self, dataset):
+        """Close the given dataset, performing any necessary cleanup."""
+        logger.debug('Closing dataset: %s' % dataset.id)
+        dataset.close()
+
     def try_to_close_dataset(self, dataset_id):
         """Try to close the given dataset and remove its parent."""
         if dataset_id not in self.close_requests:
@@ -170,8 +177,7 @@ class BaseRunner(object):
             if getattr(dependent_ds, 'computing', False):
                 return
 
-        logger.debug('Closing dataset: %s' % dataset_id)
-        ds.close()
+        self.close_dataset(ds)
         self.close_requests.remove(dataset_id)
 
         input_id = getattr(ds, 'input_id', None)
@@ -185,24 +191,35 @@ class BaseRunner(object):
         If a dataset is not closed or if any of its direct dependents are not
         closed, then it will not be removed.
         """
+        if self.can_remove_dataset(dataset_id):
+            self.remove_dataset(self.datasets[dataset_id])
+
+    def can_remove_dataset(self, dataset_id):
+        """Determine whether the given dataset can be safely removed.
+
+        If a dataset is not closed or if any of its direct dependents are not
+        closed, then it will not be removed.
+        """
         ds = self.datasets.get(dataset_id, None)
         if ds is None:
-            return
+            return False
         if not ds.closed:
-            return
+            return False
 
         deplist = self.data_dependents[dataset_id]
-        if not deplist:
-            logger.debug('Removing dataset: %s' % dataset_id)
-            self.remove_dataset(ds)
-            del self.datasets[dataset_id]
-            del self.data_dependents[dataset_id]
+        if deplist:
+            return False
+
+        return True
 
     def remove_dataset(self, dataset):
+        logger.info('Removing dataset: %s' % dataset.id)
         if dataset.permanent:
             dataset.clear()
         else:
             dataset.delete()
+        del self.datasets[dataset.id]
+        del self.data_dependents[dataset.id]
 
     def debug_status(self):
         """Print out the debug info about the current status of the runner."""
@@ -221,8 +238,11 @@ class TaskRunner(BaseRunner):
             not yet been split into tasks
         ready_tasks: list of (dataset, source) pairs
         tasklists: map from a dataset id to the corresponding TaskList
+        forward_links: map from a dataset id to a set of ids representing
+            the transitive closure of datasets that backlink to it
+        transitive_backlinks: map from a dataset id to the set of all other
+            ids that map to it in forward_links
     """
-
     def __init__(self, *args):
         super(TaskRunner, self).__init__(*args)
 
@@ -230,6 +250,7 @@ class TaskRunner(BaseRunner):
         self.runnable_datasets = collections.deque()
         self.tasklists = {}
         self.forward_links = collections.defaultdict(set)
+        self.transitive_backlinks = collections.defaultdict(set)
 
         self.chore_queue_pipe, chore_queue_write_pipe = os.pipe()
         self.event_loop.register_fd(self.chore_queue_pipe,
@@ -238,7 +259,7 @@ class TaskRunner(BaseRunner):
         self.peon_thread_count = 0
 
     def start_peon_thread(self):
-        """Starts a PeonThreads.
+        """Starts a PeonThread.
 
         Note that this method should only be called after all forking has
         completed.  Threads and forking do not play well together.
@@ -255,13 +276,51 @@ class TaskRunner(BaseRunner):
         os.read(self.chore_queue_pipe, 4096)
 
     def compute_dataset(self, dataset):
+        backlink_id = dataset.backlink_id
+        while backlink_id and backlink_id in self.datasets:
+            self.forward_links[backlink_id].add(dataset.id)
+            self.transitive_backlinks[dataset.id].add(backlink_id)
+
+            backlink_ds = self.datasets[backlink_id]
+            backlink_id = backlink_ds.backlink_id
+
         if self._runnable_or_pending(dataset):
             self.schedule()
+
+    def close_dataset(self, dataset):
+        """Close the given dataset.
+
+        Cleans up forward links that point to the dataset.
+        """
+        backlinks = self.transitive_backlinks.get(dataset.id)
+        if backlinks is not None:
+            for backlink_id in backlinks:
+                self.forward_links[backlink_id].remove(dataset.id)
+            del self.transitive_backlinks[dataset.id]
+
+        super(TaskRunner, self).close_dataset(dataset)
+
+    def can_remove_dataset(self, dataset_id):
+        """Determine whether the given dataset can be safely removed.
+
+        If a dataset is not closed or if any of its direct dependents are not
+        closed, then it will not be removed.
+        """
+        if not super(TaskRunner, self).can_remove_dataset(dataset_id):
+            return False
+        if 'dataset_id' not in self.forward_links:
+            return False
+
+        if self.forward_links['dataset_id']:
+            return False
+        else:
+            del self.forward_links['dataset_id']
+            return True
 
     def next_task(self):
         """Returns the next available task, or None if none are available.
 
-        Tasks are returned as (dataset, source) pairs.
+        Tasks are returned as (dataset_id, task_index) pairs.
         """
         for ds in self.runnable_datasets:
             try:
@@ -273,22 +332,66 @@ class TaskRunner(BaseRunner):
                 return t
         return None
 
+    def available_tasks(self):
+        """Returns the number of available tasks."""
+        count = 0
+        for ds in self.runnable_datasets:
+            tasklist = self.tasklists.get(ds.id)
+            if tasklist is not None:
+                count += len(tasklist)
+        return count
+
     def make_tasklist(self, ds):
-        """Makes a tasklist for the given dataset."""
+        """Makes a tasklist for the given dataset.
+
+        Additionally, pulls forward any completed backlinked data.
+        """
         logger.info('Starting work on dataset: %s' % ds.id)
         assert ds.computing, "can't make tasks for a completed dataset"
-        tasklist = TaskList(ds, self.datasets[ds.input_id])
+
+        input_ds = self.datasets[ds.input_id]
+        incomplete_sources = ()
+        backlink_tasks = set()
+        done_tasks = set()
+
+        if ds.backlink_id is not None:
+            backlink_ds = self.datasets[ds.backlink_id]
+            backlink_tasklist = self.tasklists[ds.backlink_id]
+            backlink_tasks = backlink_tasklist.async_incomplete()
+
+            for task_index in backlink_tasks:
+                # If the task has completed since the time that the
+                # async_incomplete set was fixed, full it forword now.
+                if backlink_tasklist.is_task_done(task_index):
+                    done_tasks.add(task_index)
+                    for bucket in backlink_ds[task_index, :]:
+                        ds[task_index, bucket.split] = bucket
+
+                # For backlinking datasets that start asynchronously, some
+                # splits from the input dataset would otherwise be lost
+                # because the task that should consume them is backlinked.
+                ds.extend_split(task_index, input_ds[:, task_index])
+
+        # Note: LocalData datasets don't have task lists.
+        input_tasklist = self.tasklists.get(ds.input_id)
+        # If the input dataset ended early (asynchronously), don't read
+        # from any sources that had not completed at the time that the
+        # async_incomplete set was fixed.
+        if input_tasklist is not None:
+            incomplete_sources = input_tasklist.async_incomplete()
+
+        tasklist = TaskList(ds, input_ds)
         self.tasklists[ds.id] = tasklist
-        tasklist.make_tasks()
+        tasklist.make_tasks(done_tasks, backlink_tasks, incomplete_sources)
         return tasklist
 
-    def task_done(self, dataset_id, task_index, urls):
+    def task_done(self, dataset_id, task_index, outurls, backlinked=False):
         """Report that the given source of the given dataset is computed.
 
         Arguments:
             dataset_id: string
             task_index: integer id of the task that produced the data
-            urls: list of (number, string) pairs representing the split and
+            outurls: list of (number, string) pairs representing the split and
                 url of the outputs.
         """
         tasklist = self.tasklists[dataset_id]
@@ -296,7 +399,7 @@ class TaskRunner(BaseRunner):
 
         dataset = self.datasets[dataset_id]
         if not dataset.closed:
-            for split, url in urls:
+            for split, url in outurls:
                 bucket = dataset[task_index, split]
                 bucket.url = url
                 if dataset_id not in self.close_requests:
@@ -307,6 +410,17 @@ class TaskRunner(BaseRunner):
         if tasklist.complete():
             self.dataset_done(dataset)
 
+        # Call task_done for all active datasets that backlink to this one.
+        if not backlinked:
+            forward_link_ids = self.forward_links.get(dataset_id)
+            if forward_link_ids:
+                for forward_ds_id in forward_link_ids:
+                    # Skip datasets that haven't started running yet.
+                    if forward_ds_id not in self.tasklists:
+                        continue
+                    self.task_done(forward_ds_id, task_index, outurls,
+                            backlinked=True)
+
         self._wakeup_dependents(dataset_id)
 
     def task_lost(self, dataset_id, task_index):
@@ -316,7 +430,6 @@ class TaskRunner(BaseRunner):
             tasklist.push(task_index)
 
     def dataset_done(self, dataset):
-        del self.tasklists[dataset.id]
         self.runnable_datasets.remove(dataset)
         super(TaskRunner, self).dataset_done(dataset)
 
@@ -333,14 +446,23 @@ class TaskRunner(BaseRunner):
             percent_complete = 1
 
         if percent_complete < 1:
-            return
+            if percent_complete < ds.blocking_percent:
+                return
+            if self.available_tasks() >= self.available_workers():
+                return
 
+        wakeup_count = 0
         for dependent_id in self.data_dependents[dataset_id]:
             dep_ds = self.datasets[dependent_id]
             if (dep_ds in self.pending_datasets and
-                    percent_complete == 1):
+                    (percent_complete == 1 or dep_ds.async_start)):
+                wakeup_count += 1
                 self.pending_datasets.remove(dep_ds)
                 self.runnable_datasets.append(dep_ds)
+
+        if wakeup_count and percent_complete < 1:
+            logger.info('Wakeup children of %s at %.2f complete' %
+                    (dataset_id, percent_complete))
 
     def send_dataset_response(self, dataset):
         response = job.DatasetComputed(dataset.id, False)
@@ -362,7 +484,12 @@ class TaskRunner(BaseRunner):
     def schedule(self):
         raise NotImplementedError
 
+    def available_workers(self):
+        """Returns the total number of idle workers."""
+        raise NotImplementedError
+
     def remove_dataset(self, dataset):
+        del self.tasklists[dataset.id]
         if dataset.permanent:
             dataset.clear()
         else:
@@ -390,20 +517,41 @@ class TaskList(object):
         self._remaining_tasks = set()
         self._ready_tasks = collections.deque()
         self._tasks_made = False
+        self._async_incomplete = None
 
-    def make_tasks(self):
+    def make_tasks(self, done_tasks, backlink_tasks, incomplete_sources):
         """Generate tasks for the given dataset, adding them to ready_tasks.
 
         Note that a task is not created if the corresponding split in the
-        input dataset is empty.
+        input dataset is empty.  Any sources in the input dataset which
+        are in the given incomplete_sources set will be ignored.
+
+        Backlinked tasks get added to the remaining_tasks set but not to the
+        ready_tasks set.  Done tasks aren't added to either.
         """
         for task_index in range(self.dataset.ntasks):
-            for b in self.input_ds[:, task_index]:
-                if b.url:
-                    self._ready_tasks.append(task_index)
-                    self._remaining_tasks.add(task_index)
-                    break
+            if task_index in done_tasks:
+                pass
+            elif task_index in backlink_tasks:
+                self._remaining_tasks.add(task_index)
+            else:
+                for b in self.input_ds[:, task_index]:
+                    # Don't add empty or incomplete sources.
+                    if b.url and (b.source not in incomplete_sources):
+                        self._ready_tasks.append(task_index)
+                        self._remaining_tasks.add(task_index)
+                        break
         self._tasks_made = True
+
+    def async_incomplete(self):
+        """Give the set of incomplete task indices (for asynchronous children).
+
+        Triggers a snapshot of the set of incomplete task indices.  Called
+        when a child dataset starts.
+        """
+        if self._async_incomplete is None:
+            self._async_incomplete = self._remaining_tasks.copy()
+        return self._async_incomplete
 
     def percent_complete(self):
         """Returns the percent of datasets that have been computed."""
@@ -418,6 +566,10 @@ class TaskList(object):
     def task_done(self, task_index):
         self._remaining_tasks.remove(task_index)
 
+    def is_task_done(self, task_index):
+        """Returns True if the task has been completed."""
+        return task_index not in self._remaining_tasks
+
     def pop(self):
         """Pop off the next available task (or None if none are available).
 
@@ -425,7 +577,8 @@ class TaskList(object):
         """
         assert self._tasks_made
         try:
-            return (self.dataset.id, self._ready_tasks.popleft())
+            task_index = self._ready_tasks.popleft()
+            return (self.dataset.id, task_index)
         except IndexError:
             return None
 
@@ -440,6 +593,9 @@ class TaskList(object):
         """Iterate over tasks ((dataset_id, task_index) pairs)."""
         for task_index in self._ready_tasks:
             yield (self.dataset.id, task_index)
+
+    def __len__(self):
+        return len(self._ready_tasks)
 
 
 class MockParallelRunner(TaskRunner, worker.WorkerManager):
@@ -467,6 +623,10 @@ class MockParallelRunner(TaskRunner, worker.WorkerManager):
             request = worker.WorkerTaskRequest(*task.to_args())
             result = self.submit_request(request)
             assert result
+
+    def available_workers(self):
+        """Returns the total number of idle workers."""
+        return False
 
     def worker_success(self, r):
         """Called when a worker sends a WorkerSuccess."""

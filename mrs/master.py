@@ -135,20 +135,6 @@ class MasterRunner(runner.TaskRunner):
         for dataset_id, task_index in self.slaves.get_failed_tasks():
             self.task_lost(dataset_id, task_index)
 
-        for slave, dataset_id, source, urls in self.slaves.get_results():
-            try:
-                self.result_maps[dataset_id].add(slave, source)
-            except KeyError:
-                # Dataset already deleted, so this source should be removed.
-                self.remove_source(slave, dataset_id, source, delete=True)
-
-            if (dataset_id, source) in self.current_assignments:
-                self.task_done(dataset_id, source, urls)
-                self.current_assignments.remove((dataset_id, source))
-            else:
-                logger.info('Ignoring a redundant result (%s, %s).' %
-                        (dataset_id, source))
-
         for slave in self.slaves.get_changed_slaves():
             if slave.alive():
                 self.dead_slaves.discard(slave)
@@ -162,6 +148,23 @@ class MasterRunner(runner.TaskRunner):
                 if assignment is not None:
                     dataset_id, task_index = assignment
                     self.task_lost(dataset_id, task_index)
+
+        for slave, dataset_id, source, urls in self.slaves.get_results():
+            try:
+                self.result_maps[dataset_id].add(slave, source)
+            except KeyError:
+                # Dataset already deleted, so this source should be removed.
+                self.remove_source(slave, dataset_id, source, delete=True)
+
+            if (dataset_id, source) in self.current_assignments:
+                # Not: if this is the last task in the dataset, this will wake
+                # up datasets.  Thus this happens _after_ slaves are added to
+                # the idle_slaves set.
+                self.task_done(dataset_id, source, urls)
+                self.current_assignments.remove((dataset_id, source))
+            else:
+                logger.info('Ignoring a redundant result (%s, %s).' %
+                        (dataset_id, source))
 
         # Add one peon thread for each new active slave (minus dead slaves).
         if self.peon_thread_count < MAX_PEON_THREADS:
@@ -205,6 +208,10 @@ class MasterRunner(runner.TaskRunner):
 
             slave.assign(next, self.datasets)
             self.current_assignments.add(next)
+
+    def available_workers(self):
+        """Returns the total number of idle workers."""
+        return len(self.idle_slaves)
 
     def make_tasklist(self, dataset):
         tasklist = super(MasterRunner, self).make_tasklist(dataset)
@@ -348,9 +355,9 @@ class MasterInterface(object):
         slave = self.slaves.get_slave(slave_id, cookie)
         if slave is not None:
             logger.error('Slave %s reported failure of task: %s, %s'
-                    % (slave_id, dataset_id, source))
+                    % (slave_id, dataset_id, task_index))
             slave.update_timestamp()
-            self.slaves.slave_failed(slave, dataset_id, source)
+            self.slaves.slave_failed(slave, dataset_id, task_index)
             return True
         else:
             logger.error('Invalid slave reported failed (host %s, id %s).'
