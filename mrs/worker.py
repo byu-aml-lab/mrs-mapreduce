@@ -70,7 +70,7 @@ class WorkerMapRequest(object):
         return '%s_%s_%s' % (self.__class__.__name__, self.dataset_id,
                 self.task_index)
 
-    def make_task(self, program, default_dir):
+    def make_task(self, default_dir):
         input_data = datasets.FileData(self.inputs, splits=1,
                 first_split=self.task_index)
         if self.extension:
@@ -86,7 +86,7 @@ class WorkerMapRequest(object):
 
         op = task.MapOperation(map_name=self.map_name,
                 part_name=self.part_name)
-        t = op.make_task(program, input_data, self.task_index, self.splits,
+        t = op.make_task(input_data, self.task_index, self.splits,
                 self.outdir, format, permanent)
         return t
 
@@ -103,7 +103,7 @@ class WorkerReduceRequest(object):
         return '%s_%s_%s' % (self.__class__.__name__, self.dataset_id,
                 self.task_index)
 
-    def make_task(self, program, default_dir):
+    def make_task(self, default_dir):
         """Tell this worker to start working on a reduce task.
 
         This will ordinarily be called from some other thread.
@@ -123,7 +123,7 @@ class WorkerReduceRequest(object):
 
         op = task.ReduceOperation(reduce_name=self.reduce_name,
                 part_name=self.part_name)
-        t = op.make_task(program, input_data, self.task_index, self.splits,
+        t = op.make_task(input_data, self.task_index, self.splits,
                 self.outdir, format, permanent)
         return t
 
@@ -140,7 +140,7 @@ class WorkerReduceMapRequest(object):
         return '%s_%s_%s' % (self.__class__.__name__, self.dataset_id,
                 self.task_index)
 
-    def make_task(self, program, default_dir):
+    def make_task(self, default_dir):
         """Tell this worker to start working on a reducemap task.
 
         This will ordinarily be called from some other thread.
@@ -160,7 +160,7 @@ class WorkerReduceMapRequest(object):
 
         op = task.ReduceMapOperation(reduce_name=self.reduce_name,
                 map_name=self.map_name, part_name=self.part_name)
-        t = op.make_task(program, input_data, 0, self.task_index, self.splits,
+        t = op.make_task(input_data, 0, self.task_index, self.splits,
                 self.outdir, format, permanent)
         return t
 
@@ -239,8 +239,8 @@ class Worker(object):
             else:
                 assert self.program is not None
                 logger.info('Starting to run a new task.')
-                t = request.make_task(self.program, self.default_dir)
-                t.run()
+                t = request.make_task(self.default_dir)
+                t.run(self.program)
                 response = WorkerSuccess(request.dataset_id,
                         request.task_index, request.outdir, t.outurls(),
                         request.id())

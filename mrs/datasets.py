@@ -387,15 +387,15 @@ class ComputedData(RemoteData):
     def run_serial(self, program, datasets):
         input_data = datasets[self.input_id]
         self.splits = 1
-        task = self.op.make_task(program, input_data, 0, self.splits,
-                self.dir, self.format, self.permanent)
+        task = self.op.make_task(input_data, 0, self.splits, self.dir,
+                self.format, self.permanent)
 
-        task.run(serial=True)
+        task.run(program, serial=True)
         self._use_output(task.output)
         task.output.close()
         self.computation_done()
 
-    def get_task(self, task_index, program, datasets, jobdir):
+    def get_task(self, task_index, datasets, jobdir):
         """Creates a task for the given source id.
 
         The program and datasets parameters are required for finding the
@@ -406,7 +406,7 @@ class ComputedData(RemoteData):
         if jobdir and not self.dir:
             self.dir = os.path.join(jobdir, self.id)
             os.mkdir(self.dir)
-        return self.op.make_task(program, input_data, task_index, self.splits,
+        return self.op.make_task(input_data, task_index, self.splits,
                 self.dir, self.format, self.permanent)
 
     def fetchall(self):

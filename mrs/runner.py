@@ -547,8 +547,8 @@ class MockParallelWorker(object):
         except EOFError:
             return
         ds = self.datasets[dataset_id]
-        t = ds.get_task(source, self.program, self.datasets, self.jobdir)
-        t.run()
+        t = ds.get_task(source, self.datasets, self.jobdir)
+        t.run(self.program)
 
         self.conn.send((dataset_id, source, t.outurls()))
         return True

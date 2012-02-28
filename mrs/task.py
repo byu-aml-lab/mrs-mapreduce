@@ -54,14 +54,16 @@ class Task(object):
 
 
 class MapTask(Task):
-    def __init__(self, input, task_index, mapper, parter, splits, storage,
+    def __init__(self, map_name, part_name, input, task_index, splits, storage,
             format, permanent):
         Task.__init__(self, input, task_index, storage, format, permanent)
-        self.mapper = mapper
-        self.partition = parter
+        self.map_name = map_name
+        self.part_name = part_name
         self.splits = splits
 
-    def run(self, serial=False):
+    def run(self, program, serial=False):
+        op = MapOperation(map_name=self.map_name, part_name=self.part_name)
+
         # SETUP INPUT
         self.input.fetchall()
         if serial:
@@ -76,27 +78,24 @@ class MapTask(Task):
             subdir = self.storage
 
         # MAP PHASE
-        itr = self.map(all_input)
-        self.output = datasets.LocalData(itr, self.splits, source=self.source,
-                parter=self.partition, dir=subdir, format=self.format,
-                permanent=self.permanent)
-
-    def map(self, input):
-        """Yields map output iterating over the entries in input."""
-        for inkey, invalue in input:
-            for key, value in self.mapper(inkey, invalue):
-                yield (key, value)
+        map_itr = op.map(program, all_input)
+        self.output = datasets.LocalData(map_itr, self.splits,
+                source=self.source, parter=op.parter(program), dir=subdir,
+                format=self.format, permanent=self.permanent)
 
 
 class ReduceTask(Task):
-    def __init__(self, input, task_index, reducer, parter, splits, storage,
-            format, permanent):
+    def __init__(self, reduce_name, part_name, input, task_index, splits,
+            storage, format, permanent):
         Task.__init__(self, input, task_index, storage, format, permanent)
-        self.reducer = reducer
-        self.partition = parter
+        self.reduce_name = reduce_name
+        self.part_name = part_name
         self.splits = splits
 
-    def run(self, serial=False):
+    def run(self, program, serial=False):
+        op = ReduceOperation(reduce_name=self.reduce_name,
+                part_name=self.part_name)
+
         # SORT PHASE
         self.input.fetchall()
         if serial:
@@ -118,63 +117,26 @@ class ReduceTask(Task):
         #io.hexfile_sort(interm_names, sorted_name)
 
         # REDUCE PHASE
-        itr = self.reduce(sorted_input)
-        self.output = datasets.LocalData(itr, self.splits, source=self.source,
-                parter=self.partition, dir=subdir, format=self.format,
-                permanent=self.permanent)
+        reduce_itr = op.reduce(program, sorted_input)
+        self.output = datasets.LocalData(reduce_itr, self.splits,
+                source=self.source, parter=op.parter(program), dir=subdir,
+                format=self.format, permanent=self.permanent)
 
-    def reduce(self, input):
-        """Yields reduce output iterating over the entries in input.
-
-        A reducer is an iterator taking a key and an iterator over values for
-        that key.  It yields values for that key.
-        """
-        for key, iterator in self.grouped_read(input):
-            for value in self.reducer(key, iterator):
-                yield (key, value)
-
-    def grouped_read(self, input_file):
-        """Yields key-iterator pairs over a sorted input_file.
-
-        This is very similar to itertools.groupby, except that we assume that
-        the input_file is sorted, and we assume key-value pairs.
-        """
-        input_itr = iter(input_file)
-        input = next(input_itr)
-        next_pair = list(input)
-
-        def subiterator():
-            # Closure warning: don't rebind next_pair anywhere in this function
-            group_key, value = next_pair
-
-            while True:
-                yield value
-                try:
-                    input = next(input_itr)
-                except StopIteration:
-                    next_pair[0] = None
-                    return
-                key, value = input
-                if key != group_key:
-                    # A new key has appeared.
-                    next_pair[:] = key, value
-                    return
-
-        while next_pair[0] is not None:
-            yield next_pair[0], subiterator()
-        raise StopIteration
 
 
 class ReduceMapTask(MapTask, ReduceTask):
-    def __init__(self, input, task_index, reducer, mapper, parter, splits,
-            storage, format, permanent):
+    def __init__(self, reduce_name, map_name, part_name, input, task_index,
+            splits, storage, format, permanent):
         Task.__init__(self, input, task_index, storage, format, permanent)
-        self.reducer = reducer
-        self.mapper = mapper
-        self.partition = parter
+        self.reduce_name = reduce_name
+        self.map_name = map_name
+        self.part_name = part_name
         self.splits = splits
 
-    def run(self, serial=False):
+    def run(self, program, serial=False):
+        op = ReduceMapOperation(reduce_name=self.reduce_name,
+                map_name=self.map_name, part_name=self.part_name)
+
         # SETUP INPUT
         self.input.fetchall()
         if serial:
@@ -190,15 +152,19 @@ class ReduceMapTask(MapTask, ReduceTask):
             subdir = self.storage
 
         # REDUCEMAP PHASE
-        itr = self.map(self.reduce(sorted_input))
-        self.output = datasets.LocalData(itr, self.splits, source=self.source,
-                parter=self.partition, dir=subdir, format=self.format,
-                permanent=self.permanent)
+        reduce_itr = op.reduce(program, sorted_input)
+        map_itr = op.map(program, reduce_itr)
+        self.output = datasets.LocalData(map_itr, self.splits,
+                source=self.source, parter=op.parter(program), dir=subdir,
+                format=self.format, permanent=self.permanent)
 
 
 class Operation(object):
     def __init__(self, **kwds):
         self.part_name = kwds.get('part_name', None)
+
+    def parter(self, program):
+        return getattr(program, self.part_name)
 
 
 class MapOperation(Operation):
@@ -207,16 +173,21 @@ class MapOperation(Operation):
         self.map_name = kwds.get('map_name', None)
         self.id = '%s' % self.map_name
 
-    def make_task(self, program, input_data, task_index, splits, out_dir,
-            out_format, permanent):
+    def map(self, program, input):
+        """Yields map output iterating over the entries in input."""
         if self.map_name is None:
             mapper = None
         else:
             mapper = getattr(program, self.map_name)
-        parter = getattr(program, self.part_name)
 
-        return MapTask(input_data, task_index, mapper, parter, splits,
-                out_dir, out_format, permanent)
+        for inkey, invalue in input:
+            for key, value in mapper(inkey, invalue):
+                yield (key, value)
+
+    def make_task(self, input_data, task_index, splits, out_dir, out_format,
+            permanent):
+        return MapTask(self.map_name, self.part_name, input_data, task_index,
+                splits, out_dir, out_format, permanent)
 
 
 class ReduceOperation(Operation):
@@ -225,39 +196,70 @@ class ReduceOperation(Operation):
         self.reduce_name = kwds.get('reduce_name', None)
         self.id = '%s' % self.reduce_name
 
-    def make_task(self, program, input_data, task_index, splits, out_dir,
-            out_format, permanent):
+    def reduce(self, program, input):
+        """Yields reduce output iterating over the entries in input.
+
+        A reducer is an iterator taking a key and an iterator over values for
+        that key.  It yields values for that key.
+        """
         if self.reduce_name is None:
             reducer = None
         else:
             reducer = getattr(program, self.reduce_name)
-        parter = getattr(program, self.part_name)
 
-        return ReduceTask(input_data, task_index, reducer, parter, splits,
-                out_dir, out_format, permanent)
+        for key, iterator in grouped_read(input):
+            for value in reducer(key, iterator):
+                yield (key, value)
+
+    def make_task(self, input_data, task_index, splits, out_dir, out_format,
+            permanent):
+        return ReduceTask(self.reduce_name, self.part_name, input_data,
+                task_index, splits, out_dir, out_format, permanent)
 
 
-class ReduceMapOperation(Operation):
+class ReduceMapOperation(MapOperation, ReduceOperation):
     def __init__(self, **kwds):
         super(ReduceMapOperation, self).__init__(**kwds)
         self.reduce_name = kwds.get('reduce_name', None)
         self.map_name = kwds.get('map_name', None)
         self.id = '%s_%s' % (self.reduce_name, self.map_name)
 
-    def make_task(self, program, input_data, task_index, splits, out_dir,
-            out_format, permanent):
-        if self.reduce_name is None:
-            reducer = None
-        else:
-            reducer = getattr(program, self.reduce_name)
-        if self.map_name is None:
-            mapper = None
-        else:
-            mapper = getattr(program, self.map_name)
-        parter = getattr(program, self.part_name)
+    def make_task(self, input_data, task_index, splits, out_dir, out_format,
+            permanent):
+        return ReduceMapTask(self.reduce_name, self.map_name, self.part_name,
+                input_data, task_index, splits, out_dir, out_format,
+                permanent)
 
-        return ReduceMapTask(input_data, task_index, reducer, mapper,
-                parter, splits, out_dir, out_format, permanent)
 
+def grouped_read(input_file):
+    """Yields key-iterator pairs over a sorted input_file.
+
+    This is very similar to itertools.groupby, except that we assume that
+    the input_file is sorted, and we assume key-value pairs.
+    """
+    input_itr = iter(input_file)
+    input = next(input_itr)
+    next_pair = list(input)
+
+    def subiterator():
+        # Closure warning: don't rebind next_pair anywhere in this function
+        group_key, value = next_pair
+
+        while True:
+            yield value
+            try:
+                input = next(input_itr)
+            except StopIteration:
+                next_pair[0] = None
+                return
+            key, value = input
+            if key != group_key:
+                # A new key has appeared.
+                next_pair[:] = key, value
+                return
+
+    while next_pair[0] is not None:
+        yield next_pair[0], subiterator()
+    raise StopIteration
 
 # vim: et sw=4 sts=4
