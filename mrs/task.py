@@ -37,10 +37,10 @@ class Task(object):
     used by this Task, as well as the source number that will be created by
     this Task.
     """
-    def __init__(self, input, task_index, storage, format, permanent):
+    def __init__(self, input, task_index, splits, storage, format, permanent):
         self.input = input
-        self.source = task_index
-        self.split = task_index
+        self.splits = splits
+        self.task_index = task_index
         self.storage = storage
         self.dataset = None
         if format is None:
@@ -54,12 +54,10 @@ class Task(object):
 
 
 class MapTask(Task):
-    def __init__(self, map_name, part_name, input, task_index, splits, storage,
-            format, permanent):
-        Task.__init__(self, input, task_index, storage, format, permanent)
+    def __init__(self, map_name, part_name, *args):
+        Task.__init__(self, *args)
         self.map_name = map_name
         self.part_name = part_name
-        self.splits = splits
 
     def run(self, program, serial=False):
         op = MapOperation(map_name=self.map_name, part_name=self.part_name)
@@ -69,10 +67,10 @@ class MapTask(Task):
         if serial:
             all_input = self.input.data()
         else:
-            all_input = self.input.splitdata(self.split)
+            all_input = self.input.splitdata(self.task_index)
 
         if self.storage and (self.splits > 1):
-            prefix = 'source_%s_' % self.source
+            prefix = 'source_%s_' % self.task_index
             subdir = util.mktempdir(self.storage, prefix)
         else:
             subdir = self.storage
@@ -80,17 +78,15 @@ class MapTask(Task):
         # MAP PHASE
         map_itr = op.map(program, all_input)
         self.output = datasets.LocalData(map_itr, self.splits,
-                source=self.source, parter=op.parter(program), dir=subdir,
+                source=self.task_index, parter=op.parter(program), dir=subdir,
                 format=self.format, permanent=self.permanent)
 
 
 class ReduceTask(Task):
-    def __init__(self, reduce_name, part_name, input, task_index, splits,
-            storage, format, permanent):
-        Task.__init__(self, input, task_index, storage, format, permanent)
+    def __init__(self, reduce_name, part_name, *args):
+        Task.__init__(self, *args)
         self.reduce_name = reduce_name
         self.part_name = part_name
-        self.splits = splits
 
     def run(self, program, serial=False):
         op = ReduceOperation(reduce_name=self.reduce_name,
@@ -101,11 +97,11 @@ class ReduceTask(Task):
         if serial:
             all_input = self.input.data()
         else:
-            all_input = self.input.splitdata(self.split)
+            all_input = self.input.splitdata(self.task_index)
         sorted_input = sorted(all_input)
 
         if self.storage and (self.splits > 1):
-            prefix = 'source_%s_' % self.source
+            prefix = 'source_%s_' % self.task_index
             subdir = util.mktempdir(self.storage, prefix)
         else:
             subdir = self.storage
@@ -119,19 +115,17 @@ class ReduceTask(Task):
         # REDUCE PHASE
         reduce_itr = op.reduce(program, sorted_input)
         self.output = datasets.LocalData(reduce_itr, self.splits,
-                source=self.source, parter=op.parter(program), dir=subdir,
+                source=self.task_index, parter=op.parter(program), dir=subdir,
                 format=self.format, permanent=self.permanent)
 
 
 
 class ReduceMapTask(MapTask, ReduceTask):
-    def __init__(self, reduce_name, map_name, part_name, input, task_index,
-            splits, storage, format, permanent):
-        Task.__init__(self, input, task_index, storage, format, permanent)
+    def __init__(self, reduce_name, map_name, part_name, *args):
+        Task.__init__(self, *args)
         self.reduce_name = reduce_name
         self.map_name = map_name
         self.part_name = part_name
-        self.splits = splits
 
     def run(self, program, serial=False):
         op = ReduceMapOperation(reduce_name=self.reduce_name,
@@ -142,11 +136,11 @@ class ReduceMapTask(MapTask, ReduceTask):
         if serial:
             all_input = self.input.data()
         else:
-            all_input = self.input.splitdata(self.split)
+            all_input = self.input.splitdata(self.task_index)
         sorted_input = sorted(all_input)
 
         if self.storage and (self.splits > 1):
-            prefix = 'source_%s_' % self.source
+            prefix = 'source_%s_' % self.task_index
             subdir = util.mktempdir(self.storage, prefix)
         else:
             subdir = self.storage
@@ -155,7 +149,7 @@ class ReduceMapTask(MapTask, ReduceTask):
         reduce_itr = op.reduce(program, sorted_input)
         map_itr = op.map(program, reduce_itr)
         self.output = datasets.LocalData(map_itr, self.splits,
-                source=self.source, parter=op.parter(program), dir=subdir,
+                source=self.task_index, parter=op.parter(program), dir=subdir,
                 format=self.format, permanent=self.permanent)
 
 
