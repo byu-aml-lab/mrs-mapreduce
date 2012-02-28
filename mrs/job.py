@@ -186,8 +186,8 @@ class Job(object):
         map_name = self._registry[mapper]
         part_name = self._registry[parter]
 
-        op = task.ReduceOperation(reduce_name=reduce_name, map_name=map_name,
-                part_name=part_name)
+        op = task.ReduceMapOperation(reduce_name=reduce_name,
+                map_name=map_name, part_name=part_name)
         ds = datasets.ComputedData(op, input, splits=splits, dir=outdir,
                 format=format, permanent=permanent)
         self._manager.submit(ds)
