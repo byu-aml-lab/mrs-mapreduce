@@ -54,14 +54,11 @@ class Task(object):
 
 
 class MapTask(Task):
-    def __init__(self, map_name, part_name, *args):
+    def __init__(self, map_op, *args):
         Task.__init__(self, *args)
-        self.map_name = map_name
-        self.part_name = part_name
+        self.map_op = map_op
 
     def run(self, program, serial=False):
-        op = MapOperation(map_name=self.map_name, part_name=self.part_name)
-
         # SETUP INPUT
         self.input.fetchall()
         if serial:
@@ -76,22 +73,18 @@ class MapTask(Task):
             subdir = self.storage
 
         # MAP PHASE
-        map_itr = op.map(program, all_input)
+        map_itr = self.map_op.map(program, all_input)
         self.output = datasets.LocalData(map_itr, self.splits,
-                source=self.task_index, parter=op.parter(program), dir=subdir,
-                format=self.format, permanent=self.permanent)
+                source=self.task_index, parter=self.map_op.parter(program),
+                dir=subdir, format=self.format, permanent=self.permanent)
 
 
 class ReduceTask(Task):
-    def __init__(self, reduce_name, part_name, *args):
+    def __init__(self, reduce_op, *args):
         Task.__init__(self, *args)
-        self.reduce_name = reduce_name
-        self.part_name = part_name
+        self.reduce_op = reduce_op
 
     def run(self, program, serial=False):
-        op = ReduceOperation(reduce_name=self.reduce_name,
-                part_name=self.part_name)
-
         # SORT PHASE
         self.input.fetchall()
         if serial:
@@ -113,24 +106,20 @@ class ReduceTask(Task):
         #io.hexfile_sort(interm_names, sorted_name)
 
         # REDUCE PHASE
-        reduce_itr = op.reduce(program, sorted_input)
+        reduce_itr = self.reduce_op.reduce(program, sorted_input)
         self.output = datasets.LocalData(reduce_itr, self.splits,
-                source=self.task_index, parter=op.parter(program), dir=subdir,
-                format=self.format, permanent=self.permanent)
+                source=self.task_index, parter=self.reduce_op.parter(program),
+                dir=subdir, format=self.format, permanent=self.permanent)
 
 
 
-class ReduceMapTask(MapTask, ReduceTask):
-    def __init__(self, reduce_name, map_name, part_name, *args):
+class ReduceMapTask(Task):
+    def __init__(self, reduce_op, map_op, *args):
         Task.__init__(self, *args)
-        self.reduce_name = reduce_name
-        self.map_name = map_name
-        self.part_name = part_name
+        self.reduce_op = reduce_op
+        self.map_op = map_op
 
     def run(self, program, serial=False):
-        op = ReduceMapOperation(reduce_name=self.reduce_name,
-                map_name=self.map_name, part_name=self.part_name)
-
         # SETUP INPUT
         self.input.fetchall()
         if serial:
@@ -146,11 +135,11 @@ class ReduceMapTask(MapTask, ReduceTask):
             subdir = self.storage
 
         # REDUCEMAP PHASE
-        reduce_itr = op.reduce(program, sorted_input)
-        map_itr = op.map(program, reduce_itr)
+        reduce_itr = self.reduce_op.reduce(program, sorted_input)
+        map_itr = self.map_op.map(program, reduce_itr)
         self.output = datasets.LocalData(map_itr, self.splits,
-                source=self.task_index, parter=op.parter(program), dir=subdir,
-                format=self.format, permanent=self.permanent)
+                source=self.task_index, parter=self.reduce_op.parter(program),
+                dir=subdir, format=self.format, permanent=self.permanent)
 
 
 class Operation(object):
@@ -180,8 +169,8 @@ class MapOperation(Operation):
 
     def make_task(self, input_data, task_index, splits, out_dir, out_format,
             permanent):
-        return MapTask(self.map_name, self.part_name, input_data, task_index,
-                splits, out_dir, out_format, permanent)
+        return MapTask(self, input_data, task_index, splits, out_dir,
+                out_format, permanent)
 
 
 class ReduceOperation(Operation):
@@ -207,8 +196,8 @@ class ReduceOperation(Operation):
 
     def make_task(self, input_data, task_index, splits, out_dir, out_format,
             permanent):
-        return ReduceTask(self.reduce_name, self.part_name, input_data,
-                task_index, splits, out_dir, out_format, permanent)
+        return ReduceTask(self, input_data, task_index, splits, out_dir,
+                out_format, permanent)
 
 
 class ReduceMapOperation(MapOperation, ReduceOperation):
@@ -220,9 +209,8 @@ class ReduceMapOperation(MapOperation, ReduceOperation):
 
     def make_task(self, input_data, task_index, splits, out_dir, out_format,
             permanent):
-        return ReduceMapTask(self.reduce_name, self.map_name, self.part_name,
-                input_data, task_index, splits, out_dir, out_format,
-                permanent)
+        return ReduceMapTask(self, self, input_data, task_index, splits,
+                out_dir, out_format, permanent)
 
 
 def grouped_read(input_file):
