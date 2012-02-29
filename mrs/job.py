@@ -125,7 +125,7 @@ class Job(object):
         map_name = self._registry[mapper]
         part_name = self._registry[parter]
 
-        op = tasks.MapOperation(map_name=map_name, part_name=part_name)
+        op = tasks.MapOperation(map_name, part_name)
         ds = computed_data.ComputedData(op, input, splits=splits, dir=outdir,
                 permanent=permanent, **kwds)
         self._manager.submit(ds)
@@ -156,8 +156,7 @@ class Job(object):
         reduce_name = self._registry[reducer]
         part_name = self._registry[parter]
 
-        op = tasks.ReduceOperation(reduce_name=reduce_name,
-                part_name=part_name)
+        op = tasks.ReduceOperation(reduce_name, part_name)
         ds = computed_data.ComputedData(op, input, splits=splits, dir=outdir,
                 permanent=permanent, **kwds)
         self._manager.submit(ds)
@@ -186,8 +185,7 @@ class Job(object):
         map_name = self._registry[mapper]
         part_name = self._registry[parter]
 
-        op = tasks.ReduceMapOperation(reduce_name=reduce_name,
-                map_name=map_name, part_name=part_name)
+        op = tasks.ReduceMapOperation(reduce_name, map_name, part_name)
         ds = computed_data.ComputedData(op, input, splits=splits, dir=outdir,
                 permanent=permanent, **kwds)
         self._manager.submit(ds)

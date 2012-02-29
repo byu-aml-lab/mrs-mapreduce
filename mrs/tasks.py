@@ -37,14 +37,14 @@ class Task(object):
     used by this Task, as well as the source number that will be created by
     this Task.
     """
-    def __init__(self, op, dataset_id, task_index, input, splits, storage,
+    def __init__(self, op, input_ds, dataset_id, task_index, splits, storage,
             ext):
         self.op = op
+        self.input_ds = input_ds
         self.dataset_id = dataset_id
         self.task_index = task_index
-        self.input = input
         self.splits = splits
-        self.storage = storage
+        self.storage = storage if (storage is not None) else ''
         self.ext = ext
 
         self.outdir = None
@@ -55,15 +55,35 @@ class Task(object):
 
     @staticmethod
     def from_op(op, *args):
-        if isinstance(op, ReduceMapOperation):
-            task_class = ReduceMapTask
-        elif isinstance(op, MapOperation):
-            task_class = MapTask
-        elif isinstance(op, ReduceOperation):
-            task_class = ReduceTask
-        else:
-            raise RuntimeError('Unknown operation type')
-        return task_class(op, *args)
+        return op.task_class(op, *args)
+
+    @staticmethod
+    def from_args(op_args, urls, dataset_id, task_index, splits, storage,
+            ext):
+        """Converts from a simple tuple to a Task.
+
+        The elements of the tuple correspond to the arguments of the
+        Task.__init__ method, with the difference that the first argument
+        is an Operation args tuple, and the second is a list of urls.
+        """
+        op = Operation.from_args(*op_args)
+        input_ds = datasets.FileData(urls, splits=1, first_split=task_index)
+        return Task.from_op(op, input_ds, dataset_id, task_index, splits,
+                storage, ext)
+
+    def to_args(self):
+        """Converts the Task to a simple tuple.
+
+        The elements of the tuple correspond to arguments of the Task.__init__
+        method.  The first two elements of the tuples are lists of strings.
+        The first is a list-of-strings representation of an operation, and the
+        second is a list of urls.  The remaining elements are identical
+        to the corresponding elements of the init method.
+        """
+        op_args = self.op.to_args()
+        urls = [b.url for b in self.input_ds[:, self.task_index] if b.url]
+        return (op_args, urls, self.dataset_id, self.task_index,
+                self.splits, self.storage, self.ext)
 
     def make_outdir(self, default_dir):
         """Makes an output directory if necessary.
@@ -98,11 +118,11 @@ class MapTask(Task):
         assert isinstance(self.op, MapOperation)
 
         # SETUP INPUT
-        self.input.fetchall()
+        self.input_ds.fetchall()
         if serial:
-            all_input = self.input.data()
+            all_input = self.input_ds.data()
         else:
-            all_input = self.input.splitdata(self.task_index)
+            all_input = self.input_ds.splitdata(self.task_index)
 
         # SETUP OUTPUT
         permanent = self.make_outdir(default_dir)
@@ -119,11 +139,11 @@ class ReduceTask(Task):
         assert isinstance(self.op, ReduceOperation)
 
         # SETUP INPUT
-        self.input.fetchall()
+        self.input_ds.fetchall()
         if serial:
-            all_input = self.input.data()
+            all_input = self.input_ds.data()
         else:
-            all_input = self.input.splitdata(self.task_index)
+            all_input = self.input_ds.splitdata(self.task_index)
 
         # SORT PHASE
         sorted_input = sorted(all_input)
@@ -143,11 +163,11 @@ class ReduceMapTask(Task):
         assert isinstance(self.op, ReduceMapOperation)
 
         # SETUP INPUT
-        self.input.fetchall()
+        self.input_ds.fetchall()
         if serial:
-            all_input = self.input.data()
+            all_input = self.input_ds.data()
         else:
-            all_input = self.input.splitdata(self.task_index)
+            all_input = self.input_ds.splitdata(self.task_index)
 
         # SORT PHASE
         sorted_input = sorted(all_input)
@@ -170,12 +190,18 @@ class Operation(object):
     def parter(self, program):
         return getattr(program, self.part_name)
 
+    @staticmethod
+    def from_args(op_name, *args):
+        cls = OP_CLASSES[op_name]
+        return cls(*args)
+
 
 class MapOperation(Operation):
-    def __init__(self, **kwds):
-        map_name = kwds['map_name']
-        del kwds['map_name']
-        super(MapOperation, self).__init__(**kwds)
+    op_name = 'map'
+    task_class = MapTask
+
+    def __init__(self, map_name, *args):
+        Operation.__init__(self, *args)
         self.map_name = map_name
         self.id = '%s' % self.map_name
 
@@ -190,12 +216,16 @@ class MapOperation(Operation):
             for key, value in mapper(inkey, invalue):
                 yield (key, value)
 
+    def to_args(self):
+        return (self.op_name, self.map_name, self.part_name)
+
 
 class ReduceOperation(Operation):
-    def __init__(self, **kwds):
-        reduce_name = kwds['reduce_name']
-        del kwds['reduce_name']
-        super(ReduceOperation, self).__init__(**kwds)
+    op_name = 'reduce'
+    task_class = ReduceTask
+
+    def __init__(self, reduce_name, *args):
+        Operation.__init__(self, *args)
         self.reduce_name = reduce_name
         self.id = '%s' % self.reduce_name
 
@@ -214,11 +244,22 @@ class ReduceOperation(Operation):
             for value in reducer(key, iterator):
                 yield (key, value)
 
+    def to_args(self):
+        return (self.op_name, self.reduce_name, self.part_name)
+
 
 class ReduceMapOperation(MapOperation, ReduceOperation):
-    def __init__(self, **kwds):
-        super(ReduceMapOperation, self).__init__(**kwds)
+    op_name = 'reducemap'
+    task_class = ReduceMapTask
+
+    def __init__(self, reduce_name, map_name, *args):
+        Operation.__init__(self, *args)
+        self.reduce_name = reduce_name
+        self.map_name = map_name
         self.id = '%s_%s' % (self.reduce_name, self.map_name)
+
+    def to_args(self):
+        return (self.op_name, self.reduce_name, self.map_name, self.part_name)
 
 
 def grouped_read(input_file):
@@ -251,5 +292,9 @@ def grouped_read(input_file):
     while next_pair[0] is not None:
         yield next_pair[0], subiterator()
     raise StopIteration
+
+
+OP_CLASSES = dict((op.op_name, op) for op in (MapOperation, ReduceOperation,
+    ReduceMapOperation))
 
 # vim: et sw=4 sts=4

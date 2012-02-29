@@ -65,7 +65,7 @@ class ComputedData(datasets.RemoteData):
             ext = self.format.ext
         else:
             ext = ''
-        task = Task.from_op(self.op, self.id, 0, input_data, self.splits,
+        task = Task.from_op(self.op, input_data, self.id, 0, self.splits,
                 self.dir, ext)
 
         task.run(program, None, serial=True)
@@ -88,7 +88,7 @@ class ComputedData(datasets.RemoteData):
             ext = self.format.ext
         else:
             ext = ''
-        return Task.from_op(self.op, self.id, task_index, input_data,
+        return Task.from_op(self.op, input_data, self.id, task_index,
                 self.ntasks, self.dir, ext)
 
     def fetchall(self):

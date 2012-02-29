@@ -58,78 +58,16 @@ class WorkerRemoveRequest(object):
         return self.__class__.__name__
 
 
-class WorkerMapRequest(object):
-    """Request the worker to run a map task."""
+class WorkerTaskRequest(object):
+    """Request the to worker to run a task."""
 
     def __init__(self, *args):
-        (self.dataset_id, self.task_index, self.inputs, self.map_name,
-                self.part_name, self.splits, self.storage,
-                self.extension) = args
+        _, _, self.dataset_id, self.task_index, _, _, _ = args
+        self.args = args
 
     def id(self):
         return '%s_%s_%s' % (self.__class__.__name__, self.dataset_id,
                 self.task_index)
-
-    def make_task(self, default_dir):
-        input_data = datasets.FileData(self.inputs, splits=1,
-                first_split=self.task_index)
-        op = tasks.MapOperation(map_name=self.map_name,
-                part_name=self.part_name)
-        t = tasks.MapTask(op, self.dataset_id, self.task_index, input_data,
-                self.splits, self.storage, self.extension)
-        return t
-
-
-class WorkerReduceRequest(object):
-    """Request the to worker to run a reduce task."""
-
-    def __init__(self, *args):
-        (self.dataset_id, self.task_index, self.inputs, self.reduce_name,
-                self.part_name, self.splits, self.storage,
-                self.extension) = args
-
-    def id(self):
-        return '%s_%s_%s' % (self.__class__.__name__, self.dataset_id,
-                self.task_index)
-
-    def make_task(self, default_dir):
-        """Tell this worker to start working on a reduce task.
-
-        This will ordinarily be called from some other thread.
-        """
-        input_data = datasets.FileData(self.inputs, splits=1,
-                first_split=self.task_index)
-        op = tasks.ReduceOperation(reduce_name=self.reduce_name,
-                part_name=self.part_name)
-        t = tasks.ReduceTask(op, self.dataset_id, self.task_index,input_data,
-                self.splits, self.storage, self.extension)
-        return t
-
-
-class WorkerReduceMapRequest(object):
-    """Request the to worker to run a reducemap task."""
-
-    def __init__(self, *args):
-        (self.dataset_id, self.task_index, self.inputs, self.reduce_name,
-                self.map_name, self.part_name, self.splits, self.storage,
-                self.extension) = args
-
-    def id(self):
-        return '%s_%s_%s' % (self.__class__.__name__, self.dataset_id,
-                self.task_index)
-
-    def make_task(self, default_dir):
-        """Tell this worker to start working on a reducemap task.
-
-        This will ordinarily be called from some other thread.
-        """
-        input_data = datasets.FileData(self.inputs, splits=1,
-                first_split=self.task_index)
-        op = tasks.ReduceMapOperation(reduce_name=self.reduce_name,
-                map_name=self.map_name, part_name=self.part_name)
-        t = tasks.ReduceMapTask(op, self.dataset_id, self.task_index,
-                input_data, self.splits, self.storage, self.extension)
-        return t
 
 
 class WorkerQuitRequest(object):
@@ -206,7 +144,7 @@ class Worker(object):
             else:
                 assert self.program is not None
                 logger.info('Starting to run a new task.')
-                t = request.make_task(self.default_dir)
+                t = tasks.Task.from_args(*request.args)
                 t.run(self.program, self.default_dir)
                 response = WorkerSuccess(request.dataset_id,
                         request.task_index, t.outdir, t.outurls(),

@@ -265,9 +265,7 @@ class Slave(object):
 
         Called from the RPC thread.
         """
-        if (isinstance(request, worker.WorkerMapRequest) or
-                isinstance(request, worker.WorkerReduceRequest) or
-                isinstance(request, worker.WorkerReduceMapRequest)):
+        if isinstance(request, worker.WorkerTaskRequest):
             if self.current_request_id is not None:
                 return False
             self.current_request_id = request.id()
@@ -318,50 +316,19 @@ class SlaveInterface(object):
         self.slave = slave
 
     @http.uses_host
-    def xmlrpc_start_map(self, dataset_id, task_index, inputs, map_name,
-            part_name, splits, outdir, extension, cookie, host=None):
+    def xmlrpc_start_task(self, op_args, urls, dataset_id, task_index, splits,
+            storage, ext, cookie, host=None):
         self.slave.check_cookie(cookie)
         self.slave.update_timestamp()
-        logger.info('Received a Map assignment from the master.')
+        op_name = op_args[0]
+        logger.info('Received a %s assignment from the master.' % op_name)
 
         if self.slave.url_converter:
             convert_url = self.slave.url_converter.global_to_local
-            inputs = [convert_url(url, host) for url in inputs]
+            urls = [convert_url(url, host) for url in urls]
 
-        request = worker.WorkerMapRequest(dataset_id, task_index, inputs,
-                map_name, part_name, splits, outdir, extension)
-        return self.slave.submit_request(request)
-
-    @http.uses_host
-    def xmlrpc_start_reduce(self, dataset_id, task_index, inputs, reduce_name,
-            part_name, splits, outdir, extension, cookie, host=None):
-        self.slave.check_cookie(cookie)
-        self.slave.update_timestamp()
-        logger.info('Received a Reduce assignment from the master.')
-
-        if self.slave.url_converter:
-            convert_url = self.slave.url_converter.global_to_local
-            inputs = [convert_url(url, host) for url in inputs]
-
-        request = worker.WorkerReduceRequest(dataset_id, task_index, inputs,
-                reduce_name, part_name, splits, outdir, extension)
-        return self.slave.submit_request(request)
-
-    @http.uses_host
-    def xmlrpc_start_reducemap(self, dataset_id, task_index, inputs,
-            reduce_name, map_name, part_name, splits, outdir, extension,
-            cookie, host=None):
-        self.slave.check_cookie(cookie)
-        self.slave.update_timestamp()
-        logger.info('Received a ReduceMap assignment from the master.')
-
-        if self.slave.url_converter:
-            convert_url = self.slave.url_converter.global_to_local
-            inputs = [convert_url(url, host) for url in inputs]
-
-        request = worker.WorkerReduceMapRequest(dataset_id, task_index,
-                inputs, reduce_name, map_name, part_name, splits, outdir,
-                extension)
+        request = worker.WorkerTaskRequest(op_args, urls, dataset_id,
+                task_index, splits, storage, ext)
         return self.slave.submit_request(request)
 
     def xmlrpc_remove(self, dataset_id, source, delete, cookie):
