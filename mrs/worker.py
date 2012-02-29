@@ -29,7 +29,6 @@ process is terminated when the main process quits.
 
 import traceback
 
-from . import fileformats
 from . import remote_data
 from . import tasks
 from . import util
@@ -74,15 +73,10 @@ class WorkerMapRequest(object):
     def make_task(self, default_dir):
         input_data = remote_data.FileData(self.inputs, splits=1,
                 first_split=self.task_index)
-        if self.extension:
-            format = fileformats.writerformat(self.extension)
-        else:
-            format = fileformats.default_write_format
-
         op = tasks.MapOperation(map_name=self.map_name,
                 part_name=self.part_name)
         t = tasks.MapTask(op, self.dataset_id, self.task_index, input_data,
-                self.splits, self.storage, format)
+                self.splits, self.storage, self.extension)
         return t
 
 
@@ -105,15 +99,10 @@ class WorkerReduceRequest(object):
         """
         input_data = remote_data.FileData(self.inputs, splits=1,
                 first_split=self.task_index)
-        if self.extension:
-            format = fileformats.writerformat(self.extension)
-        else:
-            format = fileformats.default_write_format
-
         op = tasks.ReduceOperation(reduce_name=self.reduce_name,
                 part_name=self.part_name)
         t = tasks.ReduceTask(op, self.dataset_id, self.task_index,input_data,
-                self.splits, self.storage, format)
+                self.splits, self.storage, self.extension)
         return t
 
 
@@ -136,15 +125,10 @@ class WorkerReduceMapRequest(object):
         """
         input_data = remote_data.FileData(self.inputs, splits=1,
                 first_split=self.task_index)
-        if self.extension:
-            format = fileformats.writerformat(self.extension)
-        else:
-            format = fileformats.default_write_format
-
         op = tasks.ReduceMapOperation(reduce_name=self.reduce_name,
                 map_name=self.map_name, part_name=self.part_name)
         t = tasks.ReduceMapTask(op, self.dataset_id, self.task_index,
-                input_data, self.splits, self.storage, format)
+                input_data, self.splits, self.storage, self.extension)
         return t
 
 

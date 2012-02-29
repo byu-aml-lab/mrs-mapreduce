@@ -38,16 +38,14 @@ class Task(object):
     this Task.
     """
     def __init__(self, op, dataset_id, task_index, input, splits, storage,
-            format):
+            ext):
         self.op = op
         self.dataset_id = dataset_id
         self.task_index = task_index
         self.input = input
         self.splits = splits
         self.storage = storage
-        if format is None:
-            format = fileformats.default_write_format
-        self.format = format
+        self.ext = ext
 
         self.outdir = None
         self.output = None
@@ -87,6 +85,13 @@ class Task(object):
                 self.outdir = util.mktempdir(self.outdir, prefix)
         return permanent
 
+    def format(self):
+        """Return the write format given the Task's file extension."""
+        if self.ext:
+            format = fileformats.writerformat(self.ext)
+        else:
+            format = fileformats.default_write_format
+
 
 class MapTask(Task):
     def run(self, program, default_dir, serial=False):
@@ -106,7 +111,7 @@ class MapTask(Task):
         map_itr = self.op.map(program, all_input)
         self.output = datasets.LocalData(map_itr, self.splits,
                 source=self.task_index, parter=self.op.parter(program),
-                dir=self.outdir, format=self.format, permanent=permanent)
+                dir=self.outdir, format=self.format(), permanent=permanent)
 
 
 class ReduceTask(Task):
@@ -130,7 +135,7 @@ class ReduceTask(Task):
         reduce_itr = self.op.reduce(program, sorted_input)
         self.output = datasets.LocalData(reduce_itr, self.splits,
                 source=self.task_index, parter=self.op.parter(program),
-                dir=self.outdir, format=self.format, permanent=permanent)
+                dir=self.outdir, format=self.format(), permanent=permanent)
 
 
 class ReduceMapTask(Task):
@@ -155,7 +160,7 @@ class ReduceMapTask(Task):
         map_itr = self.op.map(program, reduce_itr)
         self.output = datasets.LocalData(map_itr, self.splits,
                 source=self.task_index, parter=self.op.parter(program),
-                dir=self.outdir, format=self.format, permanent=permanent)
+                dir=self.outdir, format=self.format(), permanent=permanent)
 
 
 class Operation(object):
