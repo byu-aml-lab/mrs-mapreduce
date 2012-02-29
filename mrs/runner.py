@@ -35,10 +35,10 @@ from . import job
 from . import pool
 from . import computed_data
 from . import util
+from . import worker
 
 import logging
 logger = logging.getLogger('mrs')
-
 
 
 class BaseRunner(object):
@@ -71,7 +71,7 @@ class BaseRunner(object):
     """
 
     def __init__(self, program_class, opts, args, job_conn, jobdir,
-            default_dir):
+            default_dir, worker_pipe):
         self.program_class = program_class
         self.opts = opts
         self.args = args
@@ -81,6 +81,10 @@ class BaseRunner(object):
 
         self.event_loop = util.EventLoop()
         self.event_loop.register_fd(self.job_conn.fileno(), self.read_job_conn)
+        if worker_pipe is not None:
+            self.worker_pipe = worker_pipe
+            self.event_loop.register_fd(self.worker_pipe.fileno(),
+                    self.read_worker_pipe)
 
         self.datasets = {}
         self.computing_datasets = set()
@@ -432,101 +436,38 @@ class TaskList(object):
             yield (self.dataset.id, task_index)
 
 
-class MockParallelRunner(TaskRunner):
+class MockParallelRunner(TaskRunner, worker.WorkerManager):
     def __init__(self, *args):
         super(MockParallelRunner, self).__init__(*args)
 
         self.program = None
-        self.worker_conn = None
-        self.worker_busy = False
+        self.current_request_id = None
 
     def run(self):
-        try:
-            self.program = self.program_class(self.opts, self.args)
-        except Exception as e:
-            import traceback
-            logger.critical('Exception while instantiating the program: %s'
-                    % traceback.format_exc())
-            return
-
         self.start_runqueue()
-        self.start_worker()
-
-        self.event_loop.run()
-
-    def start_worker(self):
-        """Starts the worker thread.
-
-        Note that this method should only be called after all forking has
-        completed.  Threads and forking do not play well together.
-        """
-        if self.jobdir:
-            outdir = self.jobdir
-        else:
-            outdir = self.default_dir
-        self.worker_conn, remote_worker_conn = multiprocessing.Pipe()
-        self.event_loop.register_fd(self.worker_conn.fileno(),
-                self.read_worker_conn)
-        worker = MockParallelWorker(self.program, self.datasets,
-                outdir, remote_worker_conn)
-        if self.opts.mrs__profile:
-            target = worker.profiled_run
-        else:
-            target = worker.run
-        worker_thread = threading.Thread(target=target,
-                name='MockParallel Worker')
-        worker_thread.daemon = True
-        worker_thread.start()
-
-    def read_worker_conn(self):
-        """Read a message from the worker.
-
-        Each message is the id of a dataset that has finished being computed.
-        """
-        try:
-            dataset_id, source, urls = self.worker_conn.recv()
-        except EOFError:
-            return
-        self.task_done(dataset_id, source, urls)
-        self.worker_busy = False
+        self.worker_setup(self.opts, self.args, self.default_dir)
         self.schedule()
+        self.event_loop.run()
+        self.submit_request(worker.WorkerQuitRequest())
 
     def schedule(self):
-        if not self.worker_busy:
-            next_task = self.next_task()
-            if next_task is not None:
-                self.worker_conn.send(next_task)
-                self.worker_busy = True
+        assert self.current_request_id is None
+        next_task = self.next_task()
+        if next_task is not None:
+            dataset_id, task_index = next_task
+            ds = self.datasets[dataset_id]
+            task = ds.get_task(task_index, self.datasets, self.jobdir)
+            request = worker.WorkerTaskRequest(*task.to_args())
+            result = self.submit_request(request)
+            assert result
 
+    def worker_success(self, r):
+        """Called when a worker sends a WorkerSuccess."""
+        self.task_done(r.dataset_id, r.task_index, r.outurls)
+        self.schedule()
 
-class MockParallelWorker(object):
-    def __init__(self, program, datasets, jobdir, conn):
-        self.program = program
-        self.datasets = datasets
-        self.jobdir = jobdir
-        self.conn = conn
-
-    def run(self):
-        while self.run_once():
-            pass
-
-    def run_once(self):
-        """Runs one iteration of the event loop.
-
-        Returns True if it should keep running (used by profile_loop).
-        """
-        try:
-            dataset_id, source = self.conn.recv()
-        except EOFError:
-            return
-        ds = self.datasets[dataset_id]
-        t = ds.get_task(source, self.datasets, self.jobdir)
-        t.run(self.program, None)
-
-        self.conn.send((dataset_id, source, t.outurls()))
-        return True
-
-    def profiled_run(self):
-        util.profile_loop(self.run_once, (), {}, 'mrs-mockp-worker.prof')
+    def worker_failure(self, r):
+        """Called when a worker sends a WorkerSuccess."""
+        self.report_ready()
 
 # vim: et sw=4 sts=4

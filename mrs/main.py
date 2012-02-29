@@ -171,6 +171,20 @@ class BaseImplementation(ParamObj):
                     child_job_quit_pipe, self.use_bucket_server))
         return job_proc, job_conn, job_quit_pipe
 
+    def start_worker_process(self, profile):
+        from . import worker
+
+        self.worker_pipe, worker_pipe2 = multiprocessing.Pipe()
+
+        w = worker.Worker(self.program_class, worker_pipe2)
+        if profile:
+            target = w.profiled_run
+        else:
+            target = w.run
+
+        worker_process = multiprocessing.Process(target=target, name='Worker')
+        worker_process.start()
+
 
 class Bypass(BaseImplementation):
     """Runs a program, bypassing the MapReduce functions."""
@@ -218,8 +232,11 @@ class Implementation(BaseImplementation):
             signal.signal(signal.SIGUSR1, self.sigusr1_handler)
             signal.siginterrupt(signal.SIGUSR1, False)
 
+            self.start_worker_process(opts.mrs__profile)
+
             self.runner = self.runner_class(self.program_class, opts, args,
-                    job_conn, jobdir, default_dir)
+                    job_conn, jobdir, default_dir, self.worker_pipe)
+
             if opts.mrs__profile:
                 util.profile_call(self.runner.run, (), {}, 'mrs-runner.prof')
             else:
@@ -251,6 +268,10 @@ class Serial(Implementation):
     runner_class = serial.SerialRunner
     keep_tmp = False
     tmpdir = None
+
+    def start_worker_process(self, profile):
+        """Do-nothing method (no worker needed in the serial impl)."""
+        self.worker_pipe = None
 
 
 class FileParams(ParamObj):
@@ -304,6 +325,10 @@ class Master(Implementation, FileParams, NetworkParams):
     runner_class = master.MasterRunner
     use_bucket_server = True
 
+    def start_worker_process(self, profile):
+        """Do-nothing method (no worker needed in the master)."""
+        self.worker_pipe = None
+
 
 class Slave(BaseImplementation, FileParams, NetworkParams):
     _params = dict(
@@ -317,23 +342,15 @@ class Slave(BaseImplementation, FileParams, NetworkParams):
         will return slave_main's return value.
         """
         from . import slave
-        from . import worker
 
         if not self.master:
             logger.critical('No master URL specified.')
             return 1
+
+        self.start_worker_process(opts.mrs__profile)
+
         s = slave.Slave(self.program_class, self.master, self.tmpdir,
-                self.pingdelay, self.timeout)
-
-        w = worker.Worker(self.program_class, s.request_pipe_worker)
-        if opts.mrs__profile:
-            target = w.profiled_run
-        else:
-            target = w.run
-
-        worker_process = multiprocessing.Process(target=target, name='Worker')
-        worker_process.start()
-
+                self.pingdelay, self.timeout, self.worker_pipe)
         s.run()
 
 # vim: et sw=4 sts=4
