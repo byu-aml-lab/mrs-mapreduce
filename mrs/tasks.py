@@ -37,21 +37,19 @@ class Task(object):
     used by this Task, as well as the source number that will be created by
     this Task.
     """
-    #def __init__(self, op, input, task_index, splits, storage, format,
-    #        permanent):
-    def __init__(self, dataset_id, task_index, op, input, splits, storage,
-            format, permanent):
+    def __init__(self, op, dataset_id, task_index, input, splits, storage,
+            format):
+        self.op = op
         self.dataset_id = dataset_id
         self.task_index = task_index
-        self.op = op
         self.input = input
         self.splits = splits
         self.storage = storage
         if format is None:
             format = fileformats.default_write_format
         self.format = format
-        self.permanent = permanent
 
+        self.outdir = None
         self.output = None
 
     def outurls(self):
@@ -69,9 +67,29 @@ class Task(object):
             raise RuntimeError('Unknown operation type')
         return task_class(op, *args)
 
+    def make_outdir(self, default_dir):
+        """Makes an output directory if necessary.
+
+        Returns a bool indicating whether the files should be preserved (as
+        opposed to automatically deleted).  Sets self.outdir, a path to a
+        directory where output files should be created.
+        """
+        permanent = False
+        if self.storage or default_dir:
+            if self.storage:
+                self.outdir = self.storage
+                permanent = True
+            else:
+                self.outdir = util.mktempdir(default_dir, self.dataset_id + '_')
+
+            if self.splits > 1:
+                prefix = 'source_%s_' % self.task_index
+                self.outdir = util.mktempdir(self.outdir, prefix)
+        return permanent
+
 
 class MapTask(Task):
-    def run(self, program, serial=False):
+    def run(self, program, default_dir, serial=False):
         assert isinstance(self.op, MapOperation)
 
         # SETUP INPUT
@@ -81,52 +99,42 @@ class MapTask(Task):
         else:
             all_input = self.input.splitdata(self.task_index)
 
-        if self.storage and (self.splits > 1):
-            prefix = 'source_%s_' % self.task_index
-            subdir = util.mktempdir(self.storage, prefix)
-        else:
-            subdir = self.storage
+        # SETUP OUTPUT
+        permanent = self.make_outdir(default_dir)
 
         # MAP PHASE
         map_itr = self.op.map(program, all_input)
         self.output = datasets.LocalData(map_itr, self.splits,
                 source=self.task_index, parter=self.op.parter(program),
-                dir=subdir, format=self.format, permanent=self.permanent)
+                dir=self.outdir, format=self.format, permanent=permanent)
 
 
 class ReduceTask(Task):
-    def run(self, program, serial=False):
+    def run(self, program, default_dir, serial=False):
         assert isinstance(self.op, ReduceOperation)
 
-        # SORT PHASE
+        # SETUP INPUT
         self.input.fetchall()
         if serial:
             all_input = self.input.data()
         else:
             all_input = self.input.splitdata(self.task_index)
+
+        # SORT PHASE
         sorted_input = sorted(all_input)
 
-        if self.storage and (self.splits > 1):
-            prefix = 'source_%s_' % self.task_index
-            subdir = util.mktempdir(self.storage, prefix)
-        else:
-            subdir = self.storage
-
-        # Do the following if external sort is necessary (i.e., the input
-        # files are too big to fit in memory):
-        #fd, sorted_name = tempfile.mkstemp(prefix='mrs.sorted_')
-        #os.close(fd)
-        #io.hexfile_sort(interm_names, sorted_name)
+        # SETUP OUTPUT
+        permanent = self.make_outdir(default_dir)
 
         # REDUCE PHASE
         reduce_itr = self.op.reduce(program, sorted_input)
         self.output = datasets.LocalData(reduce_itr, self.splits,
                 source=self.task_index, parter=self.op.parter(program),
-                dir=subdir, format=self.format, permanent=self.permanent)
+                dir=self.outdir, format=self.format, permanent=permanent)
 
 
 class ReduceMapTask(Task):
-    def run(self, program, serial=False):
+    def run(self, program, default_dir, serial=False):
         assert isinstance(self.op, ReduceMapOperation)
 
         # SETUP INPUT
@@ -135,20 +143,19 @@ class ReduceMapTask(Task):
             all_input = self.input.data()
         else:
             all_input = self.input.splitdata(self.task_index)
+
+        # SORT PHASE
         sorted_input = sorted(all_input)
 
-        if self.storage and (self.splits > 1):
-            prefix = 'source_%s_' % self.task_index
-            subdir = util.mktempdir(self.storage, prefix)
-        else:
-            subdir = self.storage
+        # SETUP OUTPUT
+        permanent = self.make_outdir(default_dir)
 
         # REDUCEMAP PHASE
         reduce_itr = self.op.reduce(program, sorted_input)
         map_itr = self.op.map(program, reduce_itr)
         self.output = datasets.LocalData(map_itr, self.splits,
                 source=self.task_index, parter=self.op.parter(program),
-                dir=subdir, format=self.format, permanent=self.permanent)
+                dir=self.outdir, format=self.format, permanent=permanent)
 
 
 class Operation(object):

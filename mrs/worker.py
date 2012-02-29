@@ -64,7 +64,8 @@ class WorkerMapRequest(object):
 
     def __init__(self, *args):
         (self.dataset_id, self.task_index, self.inputs, self.map_name,
-                self.part_name, self.splits, self.outdir, self.extension) = args
+                self.part_name, self.splits, self.storage,
+                self.extension) = args
 
     def id(self):
         return '%s_%s_%s' % (self.__class__.__name__, self.dataset_id,
@@ -78,16 +79,10 @@ class WorkerMapRequest(object):
         else:
             format = fileformats.default_write_format
 
-        if self.outdir:
-            permanent = True
-        else:
-            self.outdir = util.mktempdir(default_dir, self.dataset_id + '_')
-            permanent = False
-
         op = tasks.MapOperation(map_name=self.map_name,
                 part_name=self.part_name)
-        t = tasks.MapTask(self.dataset_id, self.task_index, op, input_data,
-                self.splits, self.outdir, format, permanent)
+        t = tasks.MapTask(op, self.dataset_id, self.task_index, input_data,
+                self.splits, self.storage, format)
         return t
 
 
@@ -96,7 +91,7 @@ class WorkerReduceRequest(object):
 
     def __init__(self, *args):
         (self.dataset_id, self.task_index, self.inputs, self.reduce_name,
-                self.part_name, self.splits, self.outdir,
+                self.part_name, self.splits, self.storage,
                 self.extension) = args
 
     def id(self):
@@ -108,23 +103,17 @@ class WorkerReduceRequest(object):
 
         This will ordinarily be called from some other thread.
         """
-        input_data = datasets.FileData(self.inputs, splits=1,
+        input_data = remote_data.FileData(self.inputs, splits=1,
                 first_split=self.task_index)
         if self.extension:
             format = fileformats.writerformat(self.extension)
         else:
             format = fileformats.default_write_format
 
-        if self.outdir:
-            permanent = True
-        else:
-            self.outdir = util.mktempdir(default_dir, self.dataset_id + '_')
-            permanent = False
-
         op = tasks.ReduceOperation(reduce_name=self.reduce_name,
                 part_name=self.part_name)
-        t = tasks.ReduceTask(self.dataset_id, self.task_index, op, input_data,
-                self.splits, self.outdir, format, permanent)
+        t = tasks.ReduceTask(op, self.dataset_id, self.task_index,input_data,
+                self.splits, self.storage, format)
         return t
 
 
@@ -133,7 +122,7 @@ class WorkerReduceMapRequest(object):
 
     def __init__(self, *args):
         (self.dataset_id, self.task_index, self.inputs, self.reduce_name,
-                self.map_name, self.part_name, self.splits, self.outdir,
+                self.map_name, self.part_name, self.splits, self.storage,
                 self.extension) = args
 
     def id(self):
@@ -145,23 +134,17 @@ class WorkerReduceMapRequest(object):
 
         This will ordinarily be called from some other thread.
         """
-        input_data = datasets.FileData(self.inputs, splits=1,
+        input_data = remote_data.FileData(self.inputs, splits=1,
                 first_split=self.task_index)
         if self.extension:
-            format = io.writerformat(self.extension)
+            format = fileformats.writerformat(self.extension)
         else:
-            format = io.default_write_format
-
-        if self.outdir:
-            permanent = True
-        else:
-            self.outdir = util.mktempdir(default_dir, self.dataset_id + '_')
-            permanent = False
+            format = fileformats.default_write_format
 
         op = tasks.ReduceMapOperation(reduce_name=self.reduce_name,
                 map_name=self.map_name, part_name=self.part_name)
-        t = tasks.ReduceMapTask(self.dataset_id, self.task_index, op,
-                input_data, self.splits, self.outdir, format, permanent)
+        t = tasks.ReduceMapTask(op, self.dataset_id, self.task_index,
+                input_data, self.splits, self.storage, format)
         return t
 
 
@@ -240,9 +223,9 @@ class Worker(object):
                 assert self.program is not None
                 logger.info('Starting to run a new task.')
                 t = request.make_task(self.default_dir)
-                t.run(self.program)
+                t.run(self.program, self.default_dir)
                 response = WorkerSuccess(request.dataset_id,
-                        request.task_index, request.outdir, t.outurls(),
+                        request.task_index, t.outdir, t.outurls(),
                         request.id())
                 logger.debug('Task complete.')
         except KeyboardInterrupt:

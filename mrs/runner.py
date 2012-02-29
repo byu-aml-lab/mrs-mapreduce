@@ -548,7 +548,7 @@ class MockParallelWorker(object):
             return
         ds = self.datasets[dataset_id]
         t = ds.get_task(source, self.datasets, self.jobdir)
-        t.run(self.program)
+        t.run(self.program, None)
 
         self.conn.send((dataset_id, source, t.outurls()))
         return True

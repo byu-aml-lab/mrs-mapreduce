@@ -159,10 +159,10 @@ class ComputedData(RemoteData):
     def run_serial(self, program, datasets):
         input_data = datasets[self.input_id]
         self.splits = 1
-        task = Task.from_op(self.id, 0, self.op, input_data, self.splits,
-                self.dir, self.format, self.permanent)
+        task = Task.from_op(self.op, self.id, 0, input_data, self.splits,
+                self.dir, self.format)
 
-        task.run(program, serial=True)
+        task.run(program, None, serial=True)
         self._use_output(task.output)
         task.output.close()
         self.computation_done()
@@ -178,8 +178,8 @@ class ComputedData(RemoteData):
         if jobdir and not self.dir:
             self.dir = os.path.join(jobdir, self.id)
             os.mkdir(self.dir)
-        return Task.from_op(self.id, self.op, task_index, input_data,
-                self.ntasks, self.dir, self.format, self.permanent)
+        return Task.from_op(self.op, self.id, task_index, input_data,
+                self.ntasks, self.dir, self.format)
 
     def fetchall(self):
         assert not self.computing, (
