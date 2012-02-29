@@ -45,7 +45,6 @@ COOKIE_LEN = 8
 import datetime
 import multiprocessing
 import optparse
-import select
 import socket
 import threading
 import urlparse
@@ -76,10 +75,6 @@ class Slave(object):
         self.pingdelay = pingdelay
         self.timeout = timeout
 
-        self.request_pipe_slave, self.request_pipe_worker = (
-                multiprocessing.Pipe())
-        self.exit_pipe_recv, self.exit_pipe_send = multiprocessing.Pipe(False)
-
         self.id = None
         self.cookie = util.random_string(COOKIE_LEN)
         self.timestamp = None
@@ -93,6 +88,15 @@ class Slave(object):
         self.current_request_id = None
         self._outdirs = {}
         self._outdirs_lock = threading.Lock()
+
+        self.event_loop = util.EventLoop()
+        self.request_pipe_slave, self.request_pipe_worker = (
+                multiprocessing.Pipe())
+        self.exit_pipe_recv, self.exit_pipe_send = multiprocessing.Pipe(False)
+        self.event_loop.register_fd(self.request_pipe_slave.fileno(),
+                self.read_request_pipe)
+        self.event_loop.register_fd(self.exit_pipe_recv.fileno(),
+                self.read_exit_pipe)
 
     def run(self):
         self.start_rpc_server_thread()
@@ -120,7 +124,7 @@ class Slave(object):
 
         self.report_ready()
         try:
-            self.workloop()
+            self.event_loop.run()
         finally:
             util.remove_recursive(default_dir)
 
@@ -212,26 +216,12 @@ class Slave(object):
         else:
             raise RuntimeError('Invalid message type.')
 
-    def workloop(self):
-        """Repeatedly process completed requests.
+    def read_exit_pipe(self):
+        request = worker.WorkerQuitRequest()
+        self.request_pipe_slave.send(request)
+        self.event_loop.running = False
 
-        The RPC thread submits requests to the worker (via submit_request),
-        but this workloop processes their completion.
-        """
-        poll = select.poll()
-        poll.register(self.request_pipe_slave, select.POLLIN)
-        poll.register(self.exit_pipe_recv, select.POLLIN)
-
-        while True:
-            for fd, event in poll.poll():
-                if fd == self.exit_pipe_recv.fileno():
-                    request = worker.WorkerQuitRequest()
-                    self.request_pipe_slave.send(request)
-                    return
-                else:
-                    self.process_one_response()
-
-    def process_one_response(self):
+    def read_request_pipe(self):
         """Reads a single response from the request pipe."""
 
         r = self.request_pipe_slave.recv()
