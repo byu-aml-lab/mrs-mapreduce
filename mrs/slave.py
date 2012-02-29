@@ -35,8 +35,6 @@ That's it.  It just does what the main process tells it to.  The worker
 process is terminated when the main process exits.
 """
 
-from __future__ import with_statement
-
 # Number of ping timeouts before giving up:
 PING_ATTEMPTS = 50
 

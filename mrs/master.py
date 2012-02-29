@@ -27,7 +27,6 @@
 # Note that the actual backlog may be limited by the OS--in Linux see:
 # /proc/sys/net/core/somaxconn (which seems to be 128 by default)
 
-from __future__ import with_statement
 from six import print_
 
 import os
