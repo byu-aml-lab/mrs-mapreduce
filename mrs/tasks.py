@@ -37,18 +37,21 @@ class Task(object):
     used by this Task, as well as the source number that will be created by
     this Task.
     """
-    def __init__(self, op, input, task_index, splits, storage, format,
-            permanent):
+    #def __init__(self, op, input, task_index, splits, storage, format,
+    #        permanent):
+    def __init__(self, dataset_id, task_index, op, input, splits, storage,
+            format, permanent):
+        self.dataset_id = dataset_id
+        self.task_index = task_index
         self.op = op
         self.input = input
         self.splits = splits
-        self.task_index = task_index
         self.storage = storage
-        self.dataset = None
         if format is None:
             format = fileformats.default_write_format
         self.format = format
         self.permanent = permanent
+
         self.output = None
 
     def outurls(self):

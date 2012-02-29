@@ -86,8 +86,8 @@ class WorkerMapRequest(object):
 
         op = tasks.MapOperation(map_name=self.map_name,
                 part_name=self.part_name)
-        t = tasks.MapTask(op, input_data, self.task_index, self.splits,
-                self.outdir, format, permanent)
+        t = tasks.MapTask(self.dataset_id, self.task_index, op, input_data,
+                self.splits, self.outdir, format, permanent)
         return t
 
 
@@ -123,8 +123,8 @@ class WorkerReduceRequest(object):
 
         op = tasks.ReduceOperation(reduce_name=self.reduce_name,
                 part_name=self.part_name)
-        t = tasks.ReduceTask(op, input_data, self.task_index, self.splits,
-                self.outdir, format, permanent)
+        t = tasks.ReduceTask(self.dataset_id, self.task_index, op, input_data,
+                self.splits, self.outdir, format, permanent)
         return t
 
 
@@ -160,8 +160,8 @@ class WorkerReduceMapRequest(object):
 
         op = tasks.ReduceMapOperation(reduce_name=self.reduce_name,
                 map_name=self.map_name, part_name=self.part_name)
-        t = tasks.ReduceMapTask(op, input_data, 0, self.task_index,
-                self.splits, self.outdir, format, permanent)
+        t = tasks.ReduceMapTask(self.dataset_id, self.task_index, op,
+                input_data, self.splits, self.outdir, format, permanent)
         return t
 
 
