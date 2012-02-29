@@ -29,8 +29,8 @@ process is terminated when the main process quits.
 
 import traceback
 
-from . import datasets
 from . import fileformats
+from . import remote_data
 from . import tasks
 from . import util
 
@@ -71,7 +71,7 @@ class WorkerMapRequest(object):
                 self.task_index)
 
     def make_task(self, default_dir):
-        input_data = datasets.FileData(self.inputs, splits=1,
+        input_data = remote_data.FileData(self.inputs, splits=1,
                 first_split=self.task_index)
         if self.extension:
             format = fileformats.writerformat(self.extension)

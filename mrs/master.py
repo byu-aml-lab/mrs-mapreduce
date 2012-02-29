@@ -358,7 +358,14 @@ class RemoteSlave(object):
 
         op = dataset.op
         part_name = op.part_name
-        if isinstance(op, tasks.MapOperation):
+        if isinstance(op, tasks.ReduceMapOperation):
+            reduce_name = op.reduce_name
+            map_name = op.map_name
+            self._rpc_func = self._rpc.start_reducemap
+            self._rpc_args = (dataset_id, task_index, urls, reduce_name,
+                    map_name, part_name, dataset.splits, storage, ext,
+                    self.cookie)
+        elif isinstance(op, tasks.MapOperation):
             map_name = op.map_name
             self._rpc_func = self._rpc.start_map
             self._rpc_args = (dataset_id, task_index, urls, map_name,
@@ -368,13 +375,6 @@ class RemoteSlave(object):
             self._rpc_func = self._rpc.start_reduce
             self._rpc_args = (dataset_id, task_index, urls, reduce_name,
                     part_name, dataset.splits, storage, ext, self.cookie)
-        elif isinstance(op, tasks.ReduceMapOperation):
-            reduce_name = op.reduce_name
-            map_name = op.map_name
-            self._rpc_func = self._rpc.start_reducemap
-            self._rpc_args = (dataset_id, task_index, urls, reduce_name,
-                    map_name, part_name, dataset.splits, storage, ext,
-                    self.cookie)
         else:
             assert False, 'Unknown task class: %s' % repr(dataset.task_class)
 

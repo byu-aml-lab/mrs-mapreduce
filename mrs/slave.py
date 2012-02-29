@@ -266,7 +266,8 @@ class Slave(object):
         Called from the RPC thread.
         """
         if (isinstance(request, worker.WorkerMapRequest) or
-                isinstance(request, worker.WorkerReduceRequest)):
+                isinstance(request, worker.WorkerReduceRequest) or
+                isinstance(request, worker.WorkerReduceMapRequest)):
             if self.current_request_id is not None:
                 return False
             self.current_request_id = request.id()
