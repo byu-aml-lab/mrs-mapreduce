@@ -139,7 +139,8 @@ class MasterRunner(runner.TaskRunner):
                 self.idle_slaves.discard(slave)
                 assignment = slave.pop_assignment()
                 if assignment is not None:
-                    self.ready_tasks.appendleft(assignment)
+                    dataset_id, task_index = assignment
+                    self.task_lost(dataset_id, task_index)
 
         while self.idle_slaves:
             slave = self.idle_slaves.pop()

@@ -343,6 +343,12 @@ class TaskRunner(BaseRunner):
 
         self._wakeup_dependents(dataset_id)
 
+    def task_lost(self, dataset_id, task_index):
+        """Report that a task was lost (e.g., to a dead slave)."""
+        tasklist = self.tasklists.get(dataset_id)
+        if tasklist is not None:
+            tasklist.push(task_index)
+
     def dataset_done(self, dataset):
         del self.tasklists[dataset.id]
         self.runnable_datasets.remove(dataset)
@@ -453,6 +459,13 @@ class TaskList(object):
             return (self.dataset.id, self._ready_tasks.popleft())
         except IndexError:
             return None
+
+    def push(self, task_index):
+        """Push back a task.
+
+        Called if, for example, a Task is aborted.
+        """
+        self._ready_tasks.appendleft(task_index)
 
     def __iter__(self):
         """Iterate over tasks ((dataset_id, task_index) pairs)."""
