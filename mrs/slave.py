@@ -58,15 +58,14 @@ from logging import getLogger
 logger = getLogger('mrs')
 
 
-class Slave(object):
+class Slave(worker.WorkerManager):
     """State of a Mrs slave
 
     Attributes:
         _outdirs: map from a (dataset_id, source) pair to an output directory
     """
-
     def __init__(self, program_class, master_url, tmpdir, pingdelay,
-            timeout):
+            timeout, worker_pipe):
         self.program_class = program_class
         self.master_url = master_url
         self.tmpdir = tmpdir
@@ -88,11 +87,10 @@ class Slave(object):
         self._outdirs_lock = threading.Lock()
 
         self.event_loop = util.EventLoop()
-        self.request_pipe_slave, self.request_pipe_worker = (
-                multiprocessing.Pipe())
+        self.worker_pipe = worker_pipe
         self.exit_pipe_recv, self.exit_pipe_send = multiprocessing.Pipe(False)
-        self.event_loop.register_fd(self.request_pipe_slave.fileno(),
-                self.read_request_pipe)
+        self.event_loop.register_fd(self.worker_pipe.fileno(),
+                self.read_worker_pipe)
         self.event_loop.register_fd(self.exit_pipe_recv.fileno(),
                 self.read_exit_pipe)
 
@@ -199,67 +197,24 @@ class Slave(object):
         logger.info('Reported ready to master.')
         self.update_timestamp()
 
-    def worker_setup(self, opts, args, default_dir):
-        request = worker.WorkerSetupRequest(opts, args, default_dir)
-        self.request_pipe_slave.send(request)
-        response = self.request_pipe_slave.recv()
-        if isinstance(response, worker.WorkerSetupSuccess):
-            return True
-        if isinstance(response, worker.WorkerFailure):
-            msg = 'Exception in Worker Setup: %s' % response.exception
-            logger.critical(msg)
-            msg = 'Traceback: %s' % response.traceback
-            logger.error(msg)
-            return False
-        else:
-            raise RuntimeError('Invalid message type.')
+    def worker_success(self, r):
+        """Called when a worker sends a WorkerSuccess."""
+        self.add_output_dir(r.dataset_id, r.task_index, r.outdir)
+        outurls = r.outurls
+        if self.url_converter:
+            convert_url = self.url_converter.local_to_global
+            outurls = [(s, convert_url(url)) for s, url in outurls]
+        self.master_rpc.done(self.id, r.dataset_id, r.task_index, outurls,
+                self.cookie)
+
+    def worker_failure(self, r):
+        """Called when a worker sends a WorkerSuccess."""
+        self.report_ready()
 
     def read_exit_pipe(self):
         request = worker.WorkerQuitRequest()
-        self.request_pipe_slave.send(request)
+        self.worker_pipe.send(request)
         self.event_loop.running = False
-
-    def read_request_pipe(self):
-        """Reads a single response from the request pipe."""
-
-        r = self.request_pipe_slave.recv()
-        if isinstance(r, worker.WorkerSuccess):
-            assert self.current_request_id == r.request_id
-            self.current_request_id = None
-            self.add_output_dir(r.dataset_id, r.task_index, r.outdir)
-            outurls = r.outurls
-            if self.url_converter:
-                convert_url = self.url_converter.local_to_global
-                outurls = [(s, convert_url(url)) for s, url in outurls]
-            self.master_rpc.done(self.id, r.dataset_id, r.task_index, outurls,
-                    self.cookie)
-        elif isinstance(r, worker.WorkerFailure):
-            if self.current_request_id == r.request_id:
-                self.current_request_id = None
-                self.report_ready()
-            msg = 'Exception in Worker: %s' % r.exception
-            logger.critical(msg)
-            msg = 'Traceback: %s' % r.traceback
-            logger.error(msg)
-        else:
-            assert False
-
-    def submit_request(self, request):
-        """Submit the given request to the worker.
-
-        If one_at_a_time is specified, then no other one_at_time requests can
-        be accepted until the current task finishes.  Returns a boolean
-        indicating whether the request was accepted.
-
-        Called from the RPC thread.
-        """
-        if isinstance(request, worker.WorkerTaskRequest):
-            if self.current_request_id is not None:
-                return False
-            self.current_request_id = request.id()
-
-        self.request_pipe_slave.send(request)
-        return True
 
     def update_timestamp(self):
         """Set the timestamp to the current time."""
@@ -272,10 +227,6 @@ class Slave(object):
     def check_cookie(self, cookie):
         if cookie != self.cookie:
             raise CookieValidationError
-
-    def register_worker(self, worker):
-        """Called by the worker so the Slave can have a reference to it."""
-        self.worker = worker
 
     def add_output_dir(self, dataset_id, source, outdir):
         """Stores the output directory (for subsequent deletion)."""

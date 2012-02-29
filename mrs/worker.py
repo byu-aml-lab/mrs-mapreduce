@@ -166,4 +166,71 @@ class Worker(object):
         util.profile_loop(self.run_once, (), {}, 'mrs-worker.prof')
 
 
+class WorkerManager(object):
+    """Mixin class that provides methods for dealing with Workers.
+
+    Assumes that a worker_pipe attribute is defined and that read_worker_pipe
+    is called when data is available.  Also assumes that a current_request_id
+    attribute is available.
+    """
+    def worker_setup(self, opts, args, default_dir):
+        request = WorkerSetupRequest(opts, args, default_dir)
+        self.worker_pipe.send(request)
+        response = self.worker_pipe.recv()
+        if isinstance(response, WorkerSetupSuccess):
+            return True
+        if isinstance(response, WorkerFailure):
+            msg = 'Exception in Worker Setup: %s' % response.exception
+            logger.critical(msg)
+            msg = 'Traceback: %s' % response.traceback
+            logger.error(msg)
+            return False
+        else:
+            raise RuntimeError('Invalid message type.')
+
+    def read_worker_pipe(self):
+        """Reads a single response from the worker pipe."""
+
+        r = self.worker_pipe.recv()
+        if isinstance(r, WorkerSuccess):
+            assert self.current_request_id == r.request_id
+            self.current_request_id = None
+            self.worker_success(r)
+        elif isinstance(r, WorkerFailure):
+            msg = 'Exception in Worker: %s' % r.exception
+            logger.critical(msg)
+            msg = 'Traceback: %s' % r.traceback
+            logger.error(msg)
+
+            if self.current_request_id == r.request_id:
+                self.current_request_id = None
+                self.worker_failure(r)
+        else:
+            assert False
+
+    def submit_request(self, request):
+        """Submit the given request to the worker.
+
+        If one_at_a_time is specified, then no other one_at_time requests can
+        be accepted until the current task finishes.  Returns a boolean
+        indicating whether the request was accepted.
+
+        Called from the RPC thread.
+        """
+        if isinstance(request, WorkerTaskRequest):
+            if self.current_request_id is not None:
+                return False
+            self.current_request_id = request.id()
+
+        self.worker_pipe.send(request)
+        return True
+
+    def worker_success(self, r):
+        """Called when a worker sends a WorkerSuccess for the current task."""
+        raise NotImplementedError
+
+    def worker_failure(self, r):
+        """Called when a worker sends a WorkerFailure for the current task."""
+        raise NotImplementedError
+
 # vim: et sw=4 sts=4
