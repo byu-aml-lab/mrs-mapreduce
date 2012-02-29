@@ -70,13 +70,13 @@ class MasterRunner(runner.TaskRunner):
         self.start_runqueue()
 
         self.sched_pipe, sched_write_pipe = os.pipe()
-        self.register_fd(self.sched_pipe, self.read_sched_pipe)
+        self.event_loop.register_fd(self.sched_pipe, self.read_sched_pipe)
         self.slaves = Slaves(sched_write_pipe, self.runqueue,
                 self.opts.mrs__timeout, self.opts.mrs__pingdelay)
 
         try:
             self.start_rpc_server()
-            self.eventloop(timeout_function=self.maintain_runqueue)
+            self.event_loop.run(timeout_function=self.maintain_runqueue)
         finally:
             self.slaves.disconnect_all()
 

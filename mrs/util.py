@@ -27,6 +27,7 @@ from __future__ import division
 import math
 import os
 import random
+import select
 from six.moves import xrange as range
 import string
 import subprocess
@@ -41,6 +42,56 @@ ID_CHARACTERS = string.ascii_letters + string.digits
 BITS_IN_DOUBLE = 53
 ID_MAXLEN = int(BITS_IN_DOUBLE * math.log(2) / math.log(len(ID_CHARACTERS)))
 ID_RANGES = [len(ID_CHARACTERS) ** i for i in range(ID_MAXLEN + 1)]
+
+
+class EventLoop(object):
+    """A very simple event loop that wraps select.poll.
+
+    As far as event loops go, this is pretty lame.  Since the multiprocessing
+    module's send/recv methods don't support partial reads, there will still
+    be a significant amount of blocking.  Likewise, this simplistic loop does
+    not support POLLOUT.  If it becomes necessary, it won't be too hard to
+    write a simple replacement for multiprocessing's Pipe that supports
+    partial reading and writing.
+
+    Attributes:
+        handler_map: map from file descriptors to methods for handling reads
+        poll: poll object (from the select module)
+        running: bool indicating whether the event loop should continue
+    """
+    def __init__(self):
+        self.handler_map = {}
+        self.running = True
+        self.poll = select.poll()
+
+    def register_fd(self, fd, handler):
+        """Registers the given file descriptor and handler with poll.
+
+        Assumes that the file descriptors are only used in read mode.
+        """
+        self.handler_map[fd] = handler
+        self.poll.register(fd, select.POLLIN)
+
+    def run(self, timeout_function=None):
+        """Repeatedly calls poll to read from various file descriptors.
+
+        The timeout_function is called each time through the loop, and its
+        value is used as the timeout for poll (None means to wait
+        indefinitely).
+        """
+        while self.running:
+            # Note that poll() is unaffected by siginterrupt/SA_RESTART (man
+            # signal(7) for more detail), so we check explicitly for EINTR.
+            try:
+                if timeout_function:
+                    timeout = timeout_function()
+                else:
+                    timeout = None
+                for fd, event in self.poll.poll(timeout):
+                    self.handler_map[fd]()
+            except select.error as e:
+                if e.args[0] != errno.EINTR:
+                    raise
 
 
 def try_makedirs(path):

@@ -26,7 +26,6 @@ import collections
 import errno
 import multiprocessing
 import os
-import select
 from six.moves import xrange as range
 import sys
 import threading
@@ -39,6 +38,7 @@ from . import util
 
 import logging
 logger = logging.getLogger('mrs')
+
 
 
 class BaseRunner(object):
@@ -68,9 +68,6 @@ class BaseRunner(object):
         data_dependents: maps a dataset id to a deque listing datasets that
             cannot start until it has finished
         datasets: maps a dataset id to the corresponding Dataset object
-        handler_map: map from file descriptors to methods for handling reads
-        poll: poll object (from the select module)
-        running: bool indicating whether the event loop should continue
     """
 
     def __init__(self, program_class, opts, args, job_conn, jobdir,
@@ -82,51 +79,13 @@ class BaseRunner(object):
         self.jobdir = jobdir
         self.default_dir = default_dir
 
-        self.handler_map = {}
-        self.running = True
-        self.poll = select.poll()
-        self.register_fd(self.job_conn.fileno(), self.read_job_conn)
+        self.event_loop = util.EventLoop()
+        self.event_loop.register_fd(self.job_conn.fileno(), self.read_job_conn)
 
         self.datasets = {}
         self.computing_datasets = set()
         self.data_dependents = collections.defaultdict(collections.deque)
         self.close_requests = set()
-
-    def register_fd(self, fd, handler):
-        """Registers the given file descriptor and handler with poll.
-
-        Assumes that the file descriptors are only used in read mode.
-        """
-        self.handler_map[fd] = handler
-        self.poll.register(fd, select.POLLIN)
-
-    def eventloop(self, timeout_function=None):
-        """Repeatedly calls poll to read from various file descriptors.
-
-        The timeout_function is called each time through the loop, and its
-        value is used as the timeout for poll (None means to wait
-        indefinitely).
-
-        As far as event loops go, this is pretty lame.  Since the
-        multiprocessing module's send/recv methods don't support partial
-        reads, there will still be a significant amount of blocking.
-        Likewise, this simplistic loop does not support POLLOUT.  If it
-        becomes necessary, it won't be too hard to write a simple replacement
-        for multiprocessing's Pipe that supports partial reading and writing.
-        """
-        while self.running:
-            # Note that poll() is unaffected by siginterrupt/SA_RESTART (man
-            # signal(7) for more detail), so we check explicitly for EINTR.
-            try:
-                if timeout_function:
-                    timeout = timeout_function()
-                else:
-                    timeout = None
-                for fd, event in self.poll.poll(timeout):
-                    self.handler_map[fd]()
-            except select.error as e:
-                if e.args[0] != errno.EINTR:
-                    raise
 
     def read_job_conn(self):
         try:
@@ -151,7 +110,7 @@ class BaseRunner(object):
             if not message.success:
                 logger.critical('Job execution failed.')
             self.job_conn.send(job.QuitJobProcess())
-            self.running = False
+            self.event_loop.running = False
         else:
             assert False, 'Unknown message type.'
 
@@ -273,7 +232,7 @@ class TaskRunner(BaseRunner):
         completed.  Threads and forking do not play well together.
         """
         self.runqueue_pipe, runqueue_write_pipe = os.pipe()
-        self.register_fd(self.runqueue_pipe, self.read_runqueue_pipe)
+        self.event_loop.register_fd(self.runqueue_pipe, self.read_runqueue_pipe)
         self.runqueue = pool.RunQueue(runqueue_write_pipe)
         threadpool = pool.ThreadPool(self.runqueue)
         threadpool_thread = threading.Thread(target=threadpool.run,
@@ -493,7 +452,7 @@ class MockParallelRunner(TaskRunner):
         self.start_runqueue()
         self.start_worker()
 
-        self.eventloop()
+        self.event_loop.run()
 
     def start_worker(self):
         """Starts the worker thread.
@@ -506,7 +465,8 @@ class MockParallelRunner(TaskRunner):
         else:
             outdir = self.default_dir
         self.worker_conn, remote_worker_conn = multiprocessing.Pipe()
-        self.register_fd(self.worker_conn.fileno(), self.read_worker_conn)
+        self.event_loop.register_fd(self.worker_conn.fileno(),
+                self.read_worker_conn)
         worker = MockParallelWorker(self.program, self.datasets,
                 outdir, remote_worker_conn)
         if self.opts.mrs__profile:

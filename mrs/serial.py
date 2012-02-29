@@ -50,8 +50,9 @@ class SerialRunner(runner.BaseRunner):
 
         self.start_worker()
 
-        self.register_fd(self.worker_conn.fileno(), self.read_worker_conn)
-        self.eventloop()
+        self.event_loop.register_fd(self.worker_conn.fileno(),
+                self.read_worker_conn)
+        self.event_loop.run()
 
     def start_worker(self):
         self.worker_conn, remote_worker_conn = multiprocessing.Pipe()
