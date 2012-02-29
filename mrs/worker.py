@@ -31,7 +31,7 @@ import traceback
 
 from . import datasets
 from . import fileformats
-from . import task
+from . import tasks
 from . import util
 
 from logging import getLogger
@@ -84,9 +84,9 @@ class WorkerMapRequest(object):
             self.outdir = util.mktempdir(default_dir, self.dataset_id + '_')
             permanent = False
 
-        op = task.MapOperation(map_name=self.map_name,
+        op = tasks.MapOperation(map_name=self.map_name,
                 part_name=self.part_name)
-        t = op.make_task(input_data, self.task_index, self.splits,
+        t = tasks.MapTask(op, input_data, self.task_index, self.splits,
                 self.outdir, format, permanent)
         return t
 
@@ -121,9 +121,9 @@ class WorkerReduceRequest(object):
             self.outdir = util.mktempdir(default_dir, self.dataset_id + '_')
             permanent = False
 
-        op = task.ReduceOperation(reduce_name=self.reduce_name,
+        op = tasks.ReduceOperation(reduce_name=self.reduce_name,
                 part_name=self.part_name)
-        t = op.make_task(input_data, self.task_index, self.splits,
+        t = tasks.ReduceTask(op, input_data, self.task_index, self.splits,
                 self.outdir, format, permanent)
         return t
 
@@ -158,10 +158,10 @@ class WorkerReduceMapRequest(object):
             self.outdir = util.mktempdir(default_dir, self.dataset_id + '_')
             permanent = False
 
-        op = task.ReduceMapOperation(reduce_name=self.reduce_name,
+        op = tasks.ReduceMapOperation(reduce_name=self.reduce_name,
                 map_name=self.map_name, part_name=self.part_name)
-        t = op.make_task(input_data, 0, self.task_index, self.splits,
-                self.outdir, format, permanent)
+        t = tasks.ReduceMapTask(op, input_data, 0, self.task_index,
+                self.splits, self.outdir, format, permanent)
         return t
 
 

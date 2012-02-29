@@ -34,7 +34,8 @@ from . import bucket
 from . import datasets
 from . import http
 from . import registry
-from . import task
+from . import remote_data
+from . import tasks
 from . import util
 
 from logging import getLogger
@@ -124,8 +125,8 @@ class Job(object):
         map_name = self._registry[mapper]
         part_name = self._registry[parter]
 
-        op = task.MapOperation(map_name=map_name, part_name=part_name)
-        ds = datasets.ComputedData(op, input, splits=splits, dir=outdir,
+        op = tasks.MapOperation(map_name=map_name, part_name=part_name)
+        ds = remote_data.ComputedData(op, input, splits=splits, dir=outdir,
                 permanent=permanent, **kwds)
         self._manager.submit(ds)
         ds._close_callback = self._manager.close_dataset
@@ -155,9 +156,9 @@ class Job(object):
         reduce_name = self._registry[reducer]
         part_name = self._registry[parter]
 
-        op = task.ReduceOperation(reduce_name=reduce_name,
+        op = tasks.ReduceOperation(reduce_name=reduce_name,
                 part_name=part_name)
-        ds = datasets.ComputedData(op, input, splits=splits, dir=outdir,
+        ds = remote_data.ComputedData(op, input, splits=splits, dir=outdir,
                 permanent=permanent, **kwds)
         self._manager.submit(ds)
         ds._close_callback = self._manager.close_dataset
@@ -185,9 +186,9 @@ class Job(object):
         map_name = self._registry[mapper]
         part_name = self._registry[parter]
 
-        op = task.ReduceMapOperation(reduce_name=reduce_name,
+        op = tasks.ReduceMapOperation(reduce_name=reduce_name,
                 map_name=map_name, part_name=part_name)
-        ds = datasets.ComputedData(op, input, splits=splits, dir=outdir,
+        ds = remote_data.ComputedData(op, input, splits=splits, dir=outdir,
                 permanent=permanent, **kwds)
         self._manager.submit(ds)
         ds._close_callback = self._manager.close_dataset
@@ -331,7 +332,7 @@ class DataManager(object):
     def submit(self, dataset):
         """Sends the given dataset to the implementation."""
         self._datasets[dataset.id] = dataset
-        if isinstance(dataset, datasets.ComputedData):
+        if isinstance(dataset, remote_data.ComputedData):
             self._status_dict[dataset.id] = DatasetStatus(dataset)
         # TODO: if we're running parallel PSO and the dataset is a LocalData,
         # then convert it to FileData to avoid serializing unnecessary data.

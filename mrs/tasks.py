@@ -37,7 +37,9 @@ class Task(object):
     used by this Task, as well as the source number that will be created by
     this Task.
     """
-    def __init__(self, input, task_index, splits, storage, format, permanent):
+    def __init__(self, op, input, task_index, splits, storage, format,
+            permanent):
+        self.op = op
         self.input = input
         self.splits = splits
         self.task_index = task_index
@@ -52,13 +54,23 @@ class Task(object):
     def outurls(self):
         return [(b.split, b.url) for b in self.output[:, :] if len(b)]
 
+    @staticmethod
+    def from_op(op, *args):
+        if isinstance(op, ReduceMapOperation):
+            task_class = ReduceMapTask
+        elif isinstance(op, MapOperation):
+            task_class = MapTask
+        elif isinstance(op, ReduceOperation):
+            task_class = ReduceTask
+        else:
+            raise RuntimeError('Unknown operation type')
+        return task_class(op, *args)
+
 
 class MapTask(Task):
-    def __init__(self, map_op, *args):
-        Task.__init__(self, *args)
-        self.map_op = map_op
-
     def run(self, program, serial=False):
+        assert isinstance(self.op, MapOperation)
+
         # SETUP INPUT
         self.input.fetchall()
         if serial:
@@ -73,18 +85,16 @@ class MapTask(Task):
             subdir = self.storage
 
         # MAP PHASE
-        map_itr = self.map_op.map(program, all_input)
+        map_itr = self.op.map(program, all_input)
         self.output = datasets.LocalData(map_itr, self.splits,
-                source=self.task_index, parter=self.map_op.parter(program),
+                source=self.task_index, parter=self.op.parter(program),
                 dir=subdir, format=self.format, permanent=self.permanent)
 
 
 class ReduceTask(Task):
-    def __init__(self, reduce_op, *args):
-        Task.__init__(self, *args)
-        self.reduce_op = reduce_op
-
     def run(self, program, serial=False):
+        assert isinstance(self.op, ReduceOperation)
+
         # SORT PHASE
         self.input.fetchall()
         if serial:
@@ -106,20 +116,16 @@ class ReduceTask(Task):
         #io.hexfile_sort(interm_names, sorted_name)
 
         # REDUCE PHASE
-        reduce_itr = self.reduce_op.reduce(program, sorted_input)
+        reduce_itr = self.op.reduce(program, sorted_input)
         self.output = datasets.LocalData(reduce_itr, self.splits,
-                source=self.task_index, parter=self.reduce_op.parter(program),
+                source=self.task_index, parter=self.op.parter(program),
                 dir=subdir, format=self.format, permanent=self.permanent)
 
 
-
 class ReduceMapTask(Task):
-    def __init__(self, reduce_op, map_op, *args):
-        Task.__init__(self, *args)
-        self.reduce_op = reduce_op
-        self.map_op = map_op
-
     def run(self, program, serial=False):
+        assert isinstance(self.op, ReduceMapOperation)
+
         # SETUP INPUT
         self.input.fetchall()
         if serial:
@@ -135,16 +141,16 @@ class ReduceMapTask(Task):
             subdir = self.storage
 
         # REDUCEMAP PHASE
-        reduce_itr = self.reduce_op.reduce(program, sorted_input)
-        map_itr = self.map_op.map(program, reduce_itr)
+        reduce_itr = self.op.reduce(program, sorted_input)
+        map_itr = self.op.map(program, reduce_itr)
         self.output = datasets.LocalData(map_itr, self.splits,
-                source=self.task_index, parter=self.reduce_op.parter(program),
+                source=self.task_index, parter=self.op.parter(program),
                 dir=subdir, format=self.format, permanent=self.permanent)
 
 
 class Operation(object):
-    def __init__(self, **kwds):
-        self.part_name = kwds.get('part_name', None)
+    def __init__(self, part_name):
+        self.part_name = part_name
 
     def parter(self, program):
         return getattr(program, self.part_name)
@@ -152,8 +158,10 @@ class Operation(object):
 
 class MapOperation(Operation):
     def __init__(self, **kwds):
+        map_name = kwds['map_name']
+        del kwds['map_name']
         super(MapOperation, self).__init__(**kwds)
-        self.map_name = kwds.get('map_name', None)
+        self.map_name = map_name
         self.id = '%s' % self.map_name
 
     def map(self, program, input):
@@ -167,16 +175,13 @@ class MapOperation(Operation):
             for key, value in mapper(inkey, invalue):
                 yield (key, value)
 
-    def make_task(self, input_data, task_index, splits, out_dir, out_format,
-            permanent):
-        return MapTask(self, input_data, task_index, splits, out_dir,
-                out_format, permanent)
-
 
 class ReduceOperation(Operation):
     def __init__(self, **kwds):
+        reduce_name = kwds['reduce_name']
+        del kwds['reduce_name']
         super(ReduceOperation, self).__init__(**kwds)
-        self.reduce_name = kwds.get('reduce_name', None)
+        self.reduce_name = reduce_name
         self.id = '%s' % self.reduce_name
 
     def reduce(self, program, input):
@@ -194,23 +199,11 @@ class ReduceOperation(Operation):
             for value in reducer(key, iterator):
                 yield (key, value)
 
-    def make_task(self, input_data, task_index, splits, out_dir, out_format,
-            permanent):
-        return ReduceTask(self, input_data, task_index, splits, out_dir,
-                out_format, permanent)
-
 
 class ReduceMapOperation(MapOperation, ReduceOperation):
     def __init__(self, **kwds):
         super(ReduceMapOperation, self).__init__(**kwds)
-        self.reduce_name = kwds.get('reduce_name', None)
-        self.map_name = kwds.get('map_name', None)
         self.id = '%s_%s' % (self.reduce_name, self.map_name)
-
-    def make_task(self, input_data, task_index, splits, out_dir, out_format,
-            permanent):
-        return ReduceMapTask(self, self, input_data, task_index, splits,
-                out_dir, out_format, permanent)
 
 
 def grouped_read(input_file):
