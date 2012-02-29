@@ -29,7 +29,7 @@ process is terminated when the main process quits.
 
 import traceback
 
-from . import remote_data
+from . import datasets
 from . import tasks
 from . import util
 
@@ -71,7 +71,7 @@ class WorkerMapRequest(object):
                 self.task_index)
 
     def make_task(self, default_dir):
-        input_data = remote_data.FileData(self.inputs, splits=1,
+        input_data = datasets.FileData(self.inputs, splits=1,
                 first_split=self.task_index)
         op = tasks.MapOperation(map_name=self.map_name,
                 part_name=self.part_name)
@@ -97,7 +97,7 @@ class WorkerReduceRequest(object):
 
         This will ordinarily be called from some other thread.
         """
-        input_data = remote_data.FileData(self.inputs, splits=1,
+        input_data = datasets.FileData(self.inputs, splits=1,
                 first_split=self.task_index)
         op = tasks.ReduceOperation(reduce_name=self.reduce_name,
                 part_name=self.part_name)
@@ -123,7 +123,7 @@ class WorkerReduceMapRequest(object):
 
         This will ordinarily be called from some other thread.
         """
-        input_data = remote_data.FileData(self.inputs, splits=1,
+        input_data = datasets.FileData(self.inputs, splits=1,
                 first_split=self.task_index)
         op = tasks.ReduceMapOperation(reduce_name=self.reduce_name,
                 map_name=self.map_name, part_name=self.part_name)

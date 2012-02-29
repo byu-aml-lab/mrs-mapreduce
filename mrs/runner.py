@@ -34,7 +34,7 @@ import threading
 from six import print_
 from . import job
 from . import pool
-from . import remote_data
+from . import computed_data
 from . import util
 
 import logging
@@ -140,7 +140,7 @@ class BaseRunner(object):
             input_id = getattr(ds, 'input_id', None)
             if input_id:
                 self.data_dependents[input_id].append(ds.id)
-            if isinstance(ds, remote_data.ComputedData):
+            if isinstance(ds, computed_data.ComputedData):
                 self.computing_datasets.add(ds)
                 self.compute_dataset(ds)
         elif isinstance(message, job.CloseDataset):

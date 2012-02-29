@@ -31,10 +31,10 @@ import traceback
 import weakref
 
 from . import bucket
+from . import computed_data
 from . import datasets
 from . import http
 from . import registry
-from . import remote_data
 from . import tasks
 from . import util
 
@@ -126,7 +126,7 @@ class Job(object):
         part_name = self._registry[parter]
 
         op = tasks.MapOperation(map_name=map_name, part_name=part_name)
-        ds = remote_data.ComputedData(op, input, splits=splits, dir=outdir,
+        ds = computed_data.ComputedData(op, input, splits=splits, dir=outdir,
                 permanent=permanent, **kwds)
         self._manager.submit(ds)
         ds._close_callback = self._manager.close_dataset
@@ -158,7 +158,7 @@ class Job(object):
 
         op = tasks.ReduceOperation(reduce_name=reduce_name,
                 part_name=part_name)
-        ds = remote_data.ComputedData(op, input, splits=splits, dir=outdir,
+        ds = computed_data.ComputedData(op, input, splits=splits, dir=outdir,
                 permanent=permanent, **kwds)
         self._manager.submit(ds)
         ds._close_callback = self._manager.close_dataset
@@ -188,7 +188,7 @@ class Job(object):
 
         op = tasks.ReduceMapOperation(reduce_name=reduce_name,
                 map_name=map_name, part_name=part_name)
-        ds = remote_data.ComputedData(op, input, splits=splits, dir=outdir,
+        ds = computed_data.ComputedData(op, input, splits=splits, dir=outdir,
                 permanent=permanent, **kwds)
         self._manager.submit(ds)
         ds._close_callback = self._manager.close_dataset
@@ -332,7 +332,7 @@ class DataManager(object):
     def submit(self, dataset):
         """Sends the given dataset to the implementation."""
         self._datasets[dataset.id] = dataset
-        if isinstance(dataset, remote_data.ComputedData):
+        if isinstance(dataset, computed_data.ComputedData):
             self._status_dict[dataset.id] = DatasetStatus(dataset)
         # TODO: if we're running parallel PSO and the dataset is a LocalData,
         # then convert it to FileData to avoid serializing unnecessary data.

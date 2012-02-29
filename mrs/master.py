@@ -38,7 +38,7 @@ import time
 
 from . import http
 from . import registry
-from . import remote_data
+from . import computed_data
 from . import runner
 from . import tasks
 
@@ -164,7 +164,7 @@ class MasterRunner(runner.TaskRunner):
             self.current_assignments.add(next)
 
     def remove_dataset(self, ds):
-        if isinstance(ds, remote_data.ComputedData):
+        if isinstance(ds, computed_data.ComputedData):
             delete = not ds.permanent
             for slave, source in self.result_storage[ds.id]:
                 self.runqueue.do(slave.remove, args=(ds.id, source, delete))

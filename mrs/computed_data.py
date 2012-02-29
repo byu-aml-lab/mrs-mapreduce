@@ -26,109 +26,11 @@
 
 import os
 
-from . import bucket
 from . import datasets
-from . import fileformats
 from .tasks import Task
 
 
-class RemoteData(datasets.BaseDataset):
-    """A Dataset whose contents can be downloaded and read.
-
-    Subclasses need to set the url for each bucket.
-    """
-    def __init__(self, **kwds):
-        super(RemoteData, self).__init__(**kwds)
-
-        self._urls_known = False
-        self._fetched = False
-
-    def _make_bucket(self, source, split):
-        return bucket.ReadBucket(source, split)
-
-    def __getstate__(self):
-        """Pickle without getting certain forbidden/unnecessary elements."""
-        state = self.__dict__.copy()
-        del state['_close_callback']
-        del state['_fetched']
-        if self.closed:
-            state['_data'] = None
-        return state
-
-    def __setstate__(self, dict):
-        self.__dict__ = dict
-        self._close_callback = None
-        self._fetched = False
-
-    # TODO: consider parallelizing this to use multiple downloading threads.
-    def fetchall(self):
-        """Download all of the files."""
-        assert not self.closed, (
-                'Invalid fetchall on a closed dataset.')
-
-        # Don't call fetchall twice:
-        if self._fetched:
-            return
-
-        assert self._urls_known, (
-                'Invalid fetchall on a dataset with unknown urls.')
-
-        for bucket in self[:, :]:
-            url = bucket.url
-            if url:
-                reader = fileformats.open_url(url)
-                bucket.collect(reader)
-                reader.finish()
-
-        self._fetched = True
-
-    def notify_urls_known(self):
-        """Signify that all buckets have been assigned urls."""
-        self._urls_known = True
-
-
-class FileData(RemoteData):
-    """A list of static files or urls to be used as input to an operation.
-
-    By default, all of the files come from a single source, with one split for
-    each file.  If a split is given, then the dataset will have enough sources
-    to evenly divide the files.
-
-    >>> urls = ['http://aml.cs.byu.edu/', __file__]
-    >>> data = FileData(urls)
-    >>> len(data)
-    2
-    >>> data.fetchall()
-    >>> data[0, 0][0]
-    (0, '<html>\\n')
-    >>> data[0, 0][1]
-    (1, '<head>\\n')
-    >>> data[0, 1][0]
-    (0, '# Mrs\\n')
-    >>>
-    """
-    def __init__(self, urls, splits=None, first_source=0, first_split=0,
-            **kwds):
-        n = len(urls)
-
-        if splits is None:
-            if sources is None:
-                # Nothing specified, so we assume one split per url
-                splits = n
-            else:
-                splits = first_split + n // sources
-
-        super(FileData, self).__init__(splits=splits, **kwds)
-        for i, url in enumerate(urls):
-            if url:
-                source = first_source + i // splits
-                split = first_split + i % splits
-                bucket = self[source, split]
-                bucket.url = url
-        self._urls_known = True
-
-
-class ComputedData(RemoteData):
+class ComputedData(datasets.RemoteData):
     """Manage input to or output from a map or reduce operation.
 
     The data are evaluated lazily.  A Dataset knows how to generate or
