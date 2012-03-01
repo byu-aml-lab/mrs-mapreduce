@@ -244,7 +244,7 @@ class Implementation(BaseImplementation):
         except KeyboardInterrupt:
             logger.critical('Quitting due to keyboard interrupt.')
         finally:
-            os.write(job_quit_pipe, b('\0'))
+            os.write(job_quit_pipe, b'\0')
 
         # Clean up jobdir
         if not self.keep_tmp:

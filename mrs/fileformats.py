@@ -155,7 +155,7 @@ class BinWriter(TextWriter):
     is useful for StringIO/BytesIO.
     """
     ext = 'mrsb'
-    magic = b('MrsB')
+    magic = b'MrsB'
 
     def __init__(self, fileobj, close=True):
         self.fileobj = fileobj
@@ -182,11 +182,11 @@ class BinReader(Reader):
     TODO: we might as well base64-encode the value, rather than hex-encoding
     it, since it doesn't need to be sortable.
     """
-    magic = b('MrsB')
+    magic = b'MrsB'
 
     def __init__(self, fileobj):
         self.fileobj = fileobj
-        self._buffer = b('')
+        self._buffer = b''
         self._magic_read = False
 
     def __iter__(self):
@@ -241,7 +241,7 @@ class ZipWriter(BinWriter):
     is useful for StringIO/BytesIO.
     """
     ext = 'mrsz'
-    magic = b('MrsZ')
+    magic = b'MrsZ'
 
     def __init__(self, fileobj):
         fileobj = gzip.GzipFile(fileobj=fileobj, mode='wb',
@@ -261,7 +261,7 @@ class ZipReader(BinReader):
     TODO: we might as well base64-encode the value, rather than hex-encoding
     it, since it doesn't need to be sortable.
     """
-    magic = b('MrsZ')
+    magic = b'MrsZ'
 
     def __init__(self, fileobj):
         self.original_file = fileobj

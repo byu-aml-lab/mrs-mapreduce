@@ -91,13 +91,13 @@ def object_hash(obj):
     >>>
     """
     try:
-        code = obj.func_code.co_code
+        code = obj.__code__.co_code
     except AttributeError:
         attrlist = [getattr(obj, name) for name in dir(obj)
                 if not name.startswith('__')]
-        codelist = [attr.func_code.co_code for attr in attrlist
-                if hasattr(attr, 'func_code')]
-        code = ''.join(codelist)
+        codelist = [attr.__code__.co_code for attr in attrlist
+                if hasattr(attr, '__code__')]
+        code = b','.join(codelist)
     return str(hash(code))
 
 

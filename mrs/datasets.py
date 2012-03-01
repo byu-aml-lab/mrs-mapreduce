@@ -319,21 +319,22 @@ class FileData(RemoteData):
     each file.  If a split is given, then the dataset will have enough sources
     to evenly divide the files.
 
-    >>> urls = ['http://aml.cs.byu.edu/', __file__]
+    >>> urls = ['http://aml.cs.byu.edu/', 'LICENSE']
     >>> data = FileData(urls)
-    >>> len(data)
+    >>> len(data[:, :])
     2
     >>> data.fetchall()
     >>> data[0, 0][0]
     (0, '<html>\\n')
     >>> data[0, 0][1]
     (1, '<head>\\n')
-    >>> data[0, 1][0]
-    (0, '# Mrs\\n')
+    >>> key, value = data[0, 1][0]
+    >>> value.strip()
+    'GNU GENERAL PUBLIC LICENSE'
     >>>
     """
-    def __init__(self, urls, splits=None, first_source=0, first_split=0,
-            **kwds):
+    def __init__(self, urls, sources=None, splits=None, first_source=0,
+            first_split=0, **kwds):
         n = len(urls)
 
         if splits is None:

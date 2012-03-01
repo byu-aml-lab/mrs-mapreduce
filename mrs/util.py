@@ -151,7 +151,7 @@ def mktempfile(dir, prefix, suffix):
     """
     path = dir + '/' + prefix + suffix
     try:
-        fd = os.open(path, TEMPFILE_FLAGS, 0600)
+        fd = os.open(path, TEMPFILE_FLAGS, 0o600)
         f = os.fdopen(fd, 'wb')
     except OSError:
         f = tempfile.NamedTemporaryFile(delete=False, dir=dir,
@@ -163,7 +163,7 @@ def mktempdir(dir, prefix):
     for i in range(tempfile.TMP_MAX):
         name = dir + '/' + prefix + random_string(6)
         try:
-            os.mkdir(name, 0700)
+            os.mkdir(name, 0o700)
             return name
         except OSError:
             pass

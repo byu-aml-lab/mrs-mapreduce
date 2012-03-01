@@ -202,7 +202,7 @@ class WriteBucket(ReadBucket):
     def prefix(self):
         """Return the filename for the output split for the given index.
 
-        >>> b = Bucket(2, 4)
+        >>> b = WriteBucket(2, 4)
         >>> b.prefix()
         'source_2_split_4_'
         >>>

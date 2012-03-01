@@ -185,8 +185,10 @@ def rpc_url(urlstring):
 
     >>> rpc_url('http://localhost')
     'http://localhost/RPC2'
+    >>> rpc_url('localhost:8080')
+    'http://localhost:8080/RPC2'
     >>> rpc_url('http://localhost/')
-    'http://localhost/RPC2'
+    'http://localhost/'
     >>> rpc_url('http://localhost/path/to/xmlrpc')
     'http://localhost/path/to/xmlrpc'
     >>> rpc_url('localhost/path/to/xmlrpc')

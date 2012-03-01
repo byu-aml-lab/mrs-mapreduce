@@ -193,17 +193,17 @@ class ParamObj(with_metaclass(_ParamMeta)):
 
     Example:
 
-    >>> m = Rabbit()
+    >>> m = _Rabbit()
     >>> print(m.__doc__)
     A small rodent, very similar to a hare, which feeds on grass and
         burrows in the earth.
     <BLANKLINE>
-    Rabbit Parameters:
+    _Rabbit Parameters:
         a_b_c: A param with underscores (default=hello)
         weight: Body Weight (default=42)
     >>> m.weight
     42
-    >>> m = Rabbit(weight=12)
+    >>> m = _Rabbit(weight=12)
     >>> m.weight
     12
     >>>
@@ -266,13 +266,13 @@ def instantiate(opts, name):
     be set from opts.abc__hello.
 
     >>> opts = optparse.Values()
-    >>> opts.abc = 'param.Rabbit'
+    >>> opts.abc = 'mrs.param._Rabbit'
     >>> opts.abc__weight = 88
     >>> new = instantiate(opts, 'abc')
     >>> new.weight
     88
     >>> new.__class__.__name__
-    'Rabbit'
+    '_Rabbit'
     >>>
     """
     cls = import_object(getattr(opts, name))
@@ -291,43 +291,14 @@ class OptionParser(optparse.OptionParser):
     """Extension of optparse.OptionParser that adds an 'extend' action.
 
     If you choose action='extend', then the value of the command-line option
-    will be imported as a class or module (for example, "mrs.param.Rabbit").
+    will be imported as a class or module (for example, "mrs.param._Rabbit").
     The class's params will be used to extend the parser, and the full name of
     the class will be saved to the dest.  The attribute "search" can be passed
     to add_option, which specifies a list of modules to be searched when
     importing.  After instantiation, a new command-line option will be created
-    for each Param in the class.
-
-    >>> parser = OptionParser()
-    >>> import types
-    >>> parser.error = types.MethodType(test_error, parser)
-    >>> option = parser.add_option('--obj', action='extend', dest='obj')
-    >>>
-
-    >>> opts, args = parser.parse_args(['--obj', 'param.Rabbit',
-    ...         '--obj-weight', '17'])
-    >>> obj = instantiate(opts, 'obj')
-    >>> import param
-    >>> isinstance(obj, param.Rabbit)
-    True
-    >>> obj.weight
-    17
-    >>>
-
-    Note that it automatically converts between hyphens and underscores.
-    >>> opts, args = parser.parse_args(['--obj', 'param.Rabbit',
-    ...         '--obj-a-b-c', 'hi'])
-    >>> obj = instantiate(opts, 'obj')
-    >>> obj.a_b_c
-    'hi'
-    >>>
-
-    Option parsing will fail if an invalid module is specified.
-    >>> opts, args = parser.parse_args(['--obj', 'zzzzz'])
-    Traceback (most recent call last):
-        ...
-    TestFailed: option --obj: Could not find a class called "zzzzz"
-    >>>
+    for each Param in the class.  Note that it automatically converts between
+    hyphens and underscores.  Also, option parsing will fail with a meaningful
+    error if an invalid module is specified.
     """
 
     def __init__(self, **kwds):
@@ -455,6 +426,7 @@ class _Option(optparse.Option):
             try:
                 paramcls = import_object(value)
             except ImportError as e:
+                msg = e.args[0]
                 if (no_attribute_msg is None
                         and msg.startswith('No attribute named ')):
                     no_attribute_msg = msg
@@ -463,7 +435,7 @@ class _Option(optparse.Option):
             if no_attribute_msg:
                 message = no_attribute_msg
             else:
-                message = 'Could not find %s in the search path' % value
+                message = 'Could not find "%s" in the search path' % value
             raise optparse.OptionValueError('option %s: %s'
                     % (opt_str, message))
 
@@ -492,16 +464,8 @@ class _Option(optparse.Option):
 # Testing
 
 
-class TestFailed(Exception):
-    """Exception to be raised by an OptionParser when a doctest fails."""
-
-
-def test_error(self, msg):
-    """Instead of printing to stderr and exiting, just raise TestFailed."""
-    raise TestFailed(msg)
-
 # A sample ParamObj.
-class Rabbit(ParamObj):
+class _Rabbit(ParamObj):
     """A small rodent, very similar to a hare, which feeds on grass and
     burrows in the earth.
     """

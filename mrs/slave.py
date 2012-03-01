@@ -45,13 +45,12 @@ import multiprocessing
 import optparse
 import socket
 import threading
-import urlparse
-import worker
 
 from . import bucket
 from . import http
 from . import registry
 from . import util
+from . import worker
 from .version import __version__
 
 from logging import getLogger
