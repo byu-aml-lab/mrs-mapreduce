@@ -6,7 +6,7 @@ Release Checklist
 
 
 #. Run `python setup.py check`.
-#. Run `python setup.py test`.
+#. Run `py.test`.
 #. Update the version number.
 
   #. Update the Changelog (use `git diff` against the tag for the previous
