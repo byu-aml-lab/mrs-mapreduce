@@ -1,19 +1,13 @@
 import glob
-import mrs
-import os
-import pytest
 
 from wordcount import WordCount
 
 
-def test_serial(tmpdir):
+def test_dickens(impl, tmpdir):
     inputs = glob.glob('tests/data/dickens/*')
-    args = ['-I', 'Serial'] + inputs + [tmpdir.strpath]
+    args = inputs + [tmpdir.strpath]
 
-    with pytest.raises(SystemExit) as excinfo:
-        mrs.main(WordCount, args=args)
-    returncode = excinfo.value.args[0]
-    assert returncode == 0
+    impl(WordCount, args)
 
     files = tmpdir.listdir()
     assert len(files) == 1
