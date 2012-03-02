@@ -324,13 +324,13 @@ class FileData(RemoteData):
     >>> len(data[:, :])
     2
     >>> data.fetchall()
-    >>> data[0, 0][0]
-    (0, '<html>\\n')
-    >>> data[0, 0][1]
-    (1, '<head>\\n')
+    >>> data[0, 0][0] == (0, b'<html>\\n')
+    True
+    >>> data[0, 0][1] == (1, b'<head>\\n')
+    True
     >>> key, value = data[0, 1][0]
-    >>> value.strip()
-    'GNU GENERAL PUBLIC LICENSE'
+    >>> value.strip() == b'GNU GENERAL PUBLIC LICENSE'
+    True
     >>>
     """
     def __init__(self, urls, sources=None, splits=None, first_source=0,
