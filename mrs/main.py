@@ -70,7 +70,7 @@ except NotImplementedError:
 logger = logging.getLogger('mrs')
 
 
-def main(program_class, update_parser=None):
+def main(program_class, update_parser=None, args=None):
     """Run a MapReduce program.
 
     Requires a program class (which inherits from mrs.MapReduce) and an
@@ -78,12 +78,13 @@ def main(program_class, update_parser=None):
 
     If you want to modify the basic Mrs Parser, provide an update_parser
     function that takes a parser and either modifies it or returns a new one.
-    Note that no option should ever have the value None.
+    Note that no option should ever have the value None.  The optional `args`
+    attribute, if specified, is used instead of `sys.argv`.
     """
     parser = option_parser()
     if update_parser:
         parser = update_parser(parser)
-    opts, args = parser.parse_args()
+    opts, args = parser.parse_args(args)
 
     mrs_impl = param.instantiate(opts, 'mrs')
     mrs_impl.program_class = program_class
