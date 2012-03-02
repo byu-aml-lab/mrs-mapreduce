@@ -320,7 +320,10 @@ class TaskRunner(BaseRunner):
     def _wakeup_dependents(self, dataset_id):
         """Move any dependent datasets possible from pending to runnable."""
 
-        ds = self.datasets[dataset_id]
+        try:
+            ds = self.datasets[dataset_id]
+        except KeyError:
+            return
         if ds.computing:
             percent_complete = self.tasklists[dataset_id].percent_complete()
         else:
