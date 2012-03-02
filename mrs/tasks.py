@@ -46,6 +46,7 @@ class Task(object):
         self.splits = splits
         self.storage = storage if (storage is not None) else ''
         self.ext = ext
+        print 'in Task; ext:', ext
 
         self.outdir = None
         self.output = None
@@ -111,6 +112,7 @@ class Task(object):
             format = fileformats.writerformat(self.ext)
         else:
             format = fileformats.default_write_format
+        return format
 
 
 class MapTask(Task):
