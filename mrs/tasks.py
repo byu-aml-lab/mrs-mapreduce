@@ -46,7 +46,6 @@ class Task(object):
         self.splits = splits
         self.storage = storage if (storage is not None) else ''
         self.ext = ext
-        print 'in Task; ext:', ext
 
         self.outdir = None
         self.output = None
