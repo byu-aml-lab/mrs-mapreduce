@@ -51,20 +51,11 @@ class Job(object):
             default_dir=None, url_converter=None):
         self._manager = manager
         self._registry = registry
-        self._default_partition = default_partition
         self._default_dir = default_dir
         self._url_converter = url_converter
-
-        self._default_reduce_parts = 1
-        self._default_reduce_tasks = getattr(opts, 'mrs__reduce_tasks', 1)
         self._keep_jobdir = getattr(opts, 'mrs__keep_jobdir', False)
-        
-    def set_default_splits(self, splits):
-        self._default_reduce_tasks = splits
-        self._default_reduce_parts = splits
-        
-    def set_default_parter(self, parter):
-        self._default_partition = parter
+        self.default_partition = default_partition
+        self.default_reduce_tasks = getattr(opts, 'mrs__reduce_tasks', 1)
 
     def wait(self, *datasets, **kwds):
         """Wait for any of the given Datasets to complete.
@@ -86,7 +77,7 @@ class Job(object):
             format=None):
         """Defines a set of data to be built locally from a given iterator."""
         if splits is None:
-            splits = self._default_reduce_tasks
+            splits = self.default_reduce_tasks
 
         permanent = True
         if not outdir:
@@ -97,7 +88,7 @@ class Job(object):
             util.try_makedirs(outdir)
 
         if not parter:
-            parter = self._default_partition
+            parter = self.default_partition
 
         ds = datasets.LocalData(itr, splits, dir=outdir, parter=parter,
                 format=format, permanent=permanent)
@@ -118,7 +109,7 @@ class Job(object):
         Called from the user-specified run function.
         """
         if splits is None:
-            splits = self._default_reduce_tasks
+            splits = self.default_reduce_tasks
 
         if outdir:
             permanent = True
@@ -127,7 +118,7 @@ class Job(object):
             permanent = False
 
         if not parter:
-            parter = self._default_partition
+            parter = self.default_partition
 
         map_name = self._registry[mapper]
         part_name = self._registry[parter]
@@ -149,7 +140,7 @@ class Job(object):
         Called from the user-specified run function.
         """
         if splits is None:
-            splits = self._default_reduce_parts
+            splits = 1
 
         if outdir:
             permanent = True
@@ -158,7 +149,7 @@ class Job(object):
             permanent = False
 
         if not parter:
-            parter = self._default_partition
+            parter = self.default_partition
 
         reduce_name = self._registry[reducer]
         part_name = self._registry[parter]
@@ -178,7 +169,7 @@ class Job(object):
         Called from the user-specified run function.
         """
         if splits is None:
-            splits = self._default_reduce_tasks
+            splits = self.default_reduce_tasks
 
         if outdir:
             permanent = True
@@ -187,7 +178,7 @@ class Job(object):
             permanent = False
 
         if not parter:
-            parter = self._default_partition
+            parter = self.default_partition
 
         reduce_name = self._registry[reducer]
         map_name = self._registry[mapper]
