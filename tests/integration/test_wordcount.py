@@ -1,7 +1,8 @@
 from collections import defaultdict
 import glob
 
-from wordcount import WordCount
+from .conftest import run_serial, run_mockparallel, run_master_slave
+from .wordcount import WordCount
 
 
 def test_dickens(mrs_impl, mrs_reduce_tasks, tmpdir):
@@ -9,7 +10,17 @@ def test_dickens(mrs_impl, mrs_reduce_tasks, tmpdir):
     outdir = tmpdir.join('out')
     args = inputs + [outdir.strpath]
 
-    mrs_impl(WordCount, args, mrs_reduce_tasks, tmpdir)
+    if mrs_impl == 'serial':
+        assert mrs_reduce_tasks == 1
+        run_serial(WordCount, args, tmpdir)
+    elif mrs_impl == 'mockparallel':
+        args = ['--mrs-reduce-tasks', str(mrs_reduce_tasks)] + args
+        run_mockparallel(WordCount, args, tmpdir)
+    elif mrs_impl == 'master_slave':
+        args = ['--mrs-reduce-tasks', str(mrs_reduce_tasks)] + args
+        run_master_slave(WordCount, args, tmpdir)
+    else:
+        raise RuntimeError('Unknown mrs_impl: %s' % mrs_impl)
 
     files = outdir.listdir()
     assert len(files) == mrs_reduce_tasks

@@ -8,20 +8,19 @@ def pytest_generate_tests(metafunc):
     if 'mrs_impl' in metafunc.funcargnames:
         #metafunc.parametrize('mrs_impl', [run_mrs.serial, run_mrs.mockparallel])
         if 'mrs_reduce_tasks' in metafunc.funcargnames:
-            metafunc.addcall(funcargs={'mrs_impl': run_serial,
+            metafunc.addcall(funcargs={'mrs_impl': 'serial',
                 'mrs_reduce_tasks': 1})
             for i in (1, 3, 5):
-                metafunc.addcall(funcargs={'mrs_impl': run_mockparallel,
+                metafunc.addcall(funcargs={'mrs_impl': 'mockparallel',
                     'mrs_reduce_tasks': i})
-            metafunc.addcall(funcargs={'mrs_impl': run_master_slave,
+            metafunc.addcall(funcargs={'mrs_impl': 'master_slave',
                 'mrs_reduce_tasks': 1})
         else:
-            for mrs_impl in [run_serial, run_mockparallel]:
+            for mrs_impl in ['serial', 'mockparallel', 'master_slave']:
                 metafunc.addcall(funcargs={'mrs_impl': mrs_impl})
 
 
-def run_serial(program, args, mrs_reduce_tasks, tmpdir):
-    assert mrs_reduce_tasks == 1
+def run_serial(program, args, tmpdir):
     args = ['-I', 'Serial'] + args
 
     with pytest.raises(SystemExit) as excinfo:
@@ -30,9 +29,8 @@ def run_serial(program, args, mrs_reduce_tasks, tmpdir):
     assert returncode == 0
 
 
-def run_mockparallel(program, args, mrs_reduce_tasks, tmpdir):
-    args = ['-I', 'MockParallel', '--mrs-reduce-tasks', str(mrs_reduce_tasks),
-            '--mrs-tmpdir', tmpdir.strpath] + args
+def run_mockparallel(program, args, tmpdir):
+    args = ['-I', 'MockParallel', '--mrs-tmpdir', tmpdir.strpath] + args
 
     with pytest.raises(SystemExit) as excinfo:
         mrs.main(program, args=args)
@@ -40,7 +38,7 @@ def run_mockparallel(program, args, mrs_reduce_tasks, tmpdir):
     assert returncode == 0
 
 
-def run_master_slave(program, args, mrs_reduce_tasks, tmpdir):
+def run_master_slave(program, args, tmpdir):
     runfile = tmpdir.join('runfile').strpath
 
     procs = []
@@ -49,8 +47,8 @@ def run_master_slave(program, args, mrs_reduce_tasks, tmpdir):
         p.start()
         procs.append(p)
 
-    args = ['-I', 'Master', '--mrs-reduce-tasks', str(mrs_reduce_tasks),
-            '--mrs-runfile', runfile, '--mrs-tmpdir', tmpdir.strpath] + args
+    args = ['-I', 'Master', '--mrs-runfile', runfile, '--mrs-tmpdir',
+            tmpdir.strpath] + args
 
     with pytest.raises(SystemExit) as excinfo:
         mrs.main(program, args=args)
