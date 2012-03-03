@@ -317,7 +317,7 @@ class RemoteSlave(object):
 
     def idle(self):
         """Indicates whether the slave can take a new assignment."""
-        return (self._assignment == None)
+        return (self._assignment is None)
 
     def pop_assignment(self, assignment=None):
         """Removes and returns the current assignment."""
@@ -341,8 +341,8 @@ class RemoteSlave(object):
 
         Called from the Runner.
         """
-        assert self.set_assignment(None, assignment)
-        assert self._rpc_args is None
+        success = self.set_assignment(None, assignment)
+        assert success
         dataset_id, task_index = assignment
 
         logger.info('Assigning task to slave %s: %s, %s'
@@ -352,8 +352,10 @@ class RemoteSlave(object):
         task = dataset.get_task(task_index, datasets, '')
         task_args = task.to_args()
 
-        self._rpc_func = self._rpc.start_task
-        self._rpc_args = task_args + (self.cookie,)
+        with self._rpc_lock:
+            assert self._rpc_args is None
+            self._rpc_func = self._rpc.start_task
+            self._rpc_args = task_args + (self.cookie,)
         self.runqueue.do(self.send_assignment)
 
     def send_assignment(self):
@@ -384,8 +386,8 @@ class RemoteSlave(object):
             if success:
                 self.update_timestamp()
 
-        self._rpc_func = None
-        self._rpc_args = None
+            self._rpc_func = None
+            self._rpc_args = None
 
         if not success:
             logger.info('Failed to assign a task to slave %s.' % self.id)
