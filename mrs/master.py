@@ -342,6 +342,7 @@ class RemoteSlave(object):
         Called from the Runner.
         """
         assert self.set_assignment(None, assignment)
+        assert self._rpc_args is None
         dataset_id, task_index = assignment
 
         logger.info('Assigning task to slave %s: %s, %s'
