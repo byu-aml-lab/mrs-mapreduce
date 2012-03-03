@@ -96,7 +96,7 @@ class MasterRunner(runner.TaskRunner):
         logger.info('Listening on port %s.' % port)
         if self.opts.mrs__runfile:
             with open(self.opts.mrs__runfile, 'w') as f:
-                print_(port, file=j)
+                print_(port, file=f)
 
     def maintain_runqueue(self):
         """Maintains the runqueue and returns the timeout value for poll."""
