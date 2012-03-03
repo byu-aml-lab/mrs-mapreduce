@@ -31,8 +31,8 @@ def run_serial(program, args, mrs_reduce_tasks, tmpdir):
 
 
 def run_mockparallel(program, args, mrs_reduce_tasks, tmpdir):
-    args = (['-I', 'MockParallel', '--mrs-reduce-tasks', str(mrs_reduce_tasks)]
-            + args)
+    args = ['-I', 'MockParallel', '--mrs-reduce-tasks', str(mrs_reduce_tasks),
+            '--mrs-tmpdir', tmpdir.strpath] + args
 
     with pytest.raises(SystemExit) as excinfo:
         mrs.main(program, args=args)
@@ -45,12 +45,12 @@ def run_master_slave(program, args, mrs_reduce_tasks, tmpdir):
 
     procs = []
     for i in range(2):
-        p = Process(target=slave_process, args=(program, runfile))
+        p = Process(target=slave_process, args=(program, runfile, tmpdir))
         p.start()
         procs.append(p)
 
     args = ['-I', 'Master', '--mrs-reduce-tasks', str(mrs_reduce_tasks),
-            '--mrs-runfile', runfile] + args
+            '--mrs-runfile', runfile, '--mrs-tmpdir', tmpdir.strpath] + args
 
     with pytest.raises(SystemExit) as excinfo:
         mrs.main(program, args=args)
@@ -62,8 +62,9 @@ def run_master_slave(program, args, mrs_reduce_tasks, tmpdir):
         assert p.exitcode == 0
 
 
-def run_slave(program, master):
-    args = ['-I', 'Slave', '--mrs-master', master]
+def run_slave(program, master, tmpdir):
+    args = ['-I', 'Slave', '--mrs-master', master, '--mrs-tmpdir',
+            tmpdir.strpath]
 
     with pytest.raises(SystemExit) as excinfo:
         mrs.main(program, args=args)
@@ -71,7 +72,7 @@ def run_slave(program, master):
     assert returncode == 0
 
 
-def slave_process(program, runfile):
+def slave_process(program, runfile, tmpdir):
     while True:
         try:
             with open(runfile) as f:
@@ -81,6 +82,6 @@ def slave_process(program, runfile):
             time.sleep(1)
 
     master = '127.0.0.1:%s' % port
-    run_slave(program, master)
+    run_slave(program, master, tmpdir)
 
 # vim: et sw=4 sts=4
