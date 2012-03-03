@@ -112,10 +112,10 @@ class MapReduce(object):
         """Default run which creates a map stage and a reduce stage."""
         source = self.input_data(job)
         if source is None:
-            return False
+            return 1
         outdir = self.output_dir()
         if outdir is None:
-            return False
+            return 1
 
         try:
             intermediate = job.map_data(source, self.map)
@@ -135,7 +135,7 @@ class MapReduce(object):
         except KeyboardInterrupt:
             print('Interrupted.')
 
-        return True
+        return 0
 
     def hash_partition(self, x, n):
         """A partition function that partitions by hashing the key.
@@ -193,7 +193,7 @@ class IterativeMR(MapReduce):
                 producer_active = bool(new_datasets)
                 datasets.update(new_datasets)
                 if not datasets:
-                    return True
+                    return 0
 
             ready = job.wait(*datasets)
             for ds in ready:
@@ -201,7 +201,7 @@ class IterativeMR(MapReduce):
                 datasets.remove(ds)
                 if not keep_going:
                     # TODO: job.abort()
-                    return True
+                    return 0
 
     def producer(self, job):
         """Producer function.

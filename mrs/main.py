@@ -90,8 +90,8 @@ def main(program_class, update_parser=None, args=None):
     mrs_impl.program_class = program_class
 
     try:
-        mrs_impl.main(opts, args)
-        sys.exit(0)
+        exitcode = mrs_impl.main(opts, args)
+        sys.exit(exitcode)
     except KeyboardInterrupt:
         logger.critical('Quitting due to keyboard interrupt.')
         sys.exit(1)
@@ -151,7 +151,7 @@ class BaseImplementation(ParamObj):
         elif self.verbose:
             logger.setLevel(logging.INFO)
 
-        self._main(opts, args)
+        return self._main(opts, args)
 
     def _main(self, opts, args):
         """Method to be overridden by subclasses."""
@@ -192,7 +192,7 @@ class Bypass(BaseImplementation):
 
     def _main(self, opts, args):
         program = self.program_class(opts, args)
-        program.bypass()
+        return program.bypass()
 
 
 class Implementation(BaseImplementation):
@@ -241,9 +241,10 @@ class Implementation(BaseImplementation):
             if opts.mrs__profile:
                 util.profile_call(self.runner.run, (), {}, 'mrs-runner.prof')
             else:
-                self.runner.run()
+                exitcode = self.runner.run()
         except KeyboardInterrupt:
             logger.critical('Quitting due to keyboard interrupt.')
+            exitcode = 1
         finally:
             os.write(job_quit_pipe, b'\0')
 
@@ -253,6 +254,7 @@ class Implementation(BaseImplementation):
                 util.remove_recursive(jobdir)
             elif default_dir:
                 util.remove_recursive(default_dir)
+        return exitcode
 
     def sigusr1_handler(self, signum, stack_frame):
         # Apparently the setting siginterrupt can get reset on some platforms.
@@ -352,6 +354,7 @@ class Slave(BaseImplementation, FileParams, NetworkParams):
 
         s = slave.Slave(self.program_class, self.master, self.tmpdir,
                 self.pingdelay, self.timeout, self.worker_pipe)
-        s.run()
+        exitcode = s.run()
+        return exitcode
 
 # vim: et sw=4 sts=4

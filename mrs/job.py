@@ -232,7 +232,7 @@ def run_user_thread(program_class, opts, args, default_dir, manager,
     except Exception as e:
         logger.critical('Exception while instantiating the program: %s'
                 % traceback.format_exc())
-        manager.done(False)
+        manager.done(1)
         return
 
     reg = registry.Registry(program)
@@ -240,16 +240,16 @@ def run_user_thread(program_class, opts, args, default_dir, manager,
 
     try:
         if opts.mrs__profile:
-            success = util.profile_call(program.run, (job,), {},
+            exitcode = util.profile_call(program.run, (job,), {},
                     'mrs-run-user.prof')
         else:
-            success = program.run(job)
+            exitcode = program.run(job)
     except Exception as e:
-        success = False
+        exitcode = 1
         logger.critical('Exception raised in the run function: %s'
                 % traceback.format_exc())
 
-    manager.done(success)
+    manager.done(exitcode)
 
 
 class DataManager(object):
@@ -334,12 +334,12 @@ class DataManager(object):
         message = DatasetSubmission(dataset)
         self._pipe.send(message)
 
-    def done(self, success=True):
+    def done(self, exitcode=True):
         """Signals that the job is done (and the program should quit).
 
         The boolean value indicates whether execution was successful.
         """
-        self._pipe.send(JobDone(success))
+        self._pipe.send(JobDone(exitcode))
 
     def close_dataset(self, dataset):
         """Called when a dataset is closed.  Reports this to the impl."""
@@ -433,8 +433,8 @@ class JobDone(JobToRunner):
 
     The success attribute indicates whether execution succeeded.
     """
-    def __init__(self, success):
-        self.success = success
+    def __init__(self, exitcode):
+        self.exitcode = exitcode
 
 
 class BucketReady(RunnerToJob):

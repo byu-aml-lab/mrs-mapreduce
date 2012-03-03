@@ -111,8 +111,9 @@ class BaseRunner(object):
             self.try_to_close_dataset(message.dataset_id)
             self.try_to_remove_dataset(message.dataset_id)
         elif isinstance(message, job.JobDone):
-            if not message.success:
+            if message.exitcode != 0:
                 logger.critical('Job execution failed.')
+            self.exitcode = message.exitcode
             self.job_conn.send(job.QuitJobProcess())
             self.event_loop.running = False
         else:
@@ -452,6 +453,7 @@ class MockParallelRunner(TaskRunner, worker.WorkerManager):
         self.schedule()
         self.event_loop.run()
         self.submit_request(worker.WorkerQuitRequest())
+        return self.exitcode
 
     def schedule(self):
         assert self.current_request_id is None

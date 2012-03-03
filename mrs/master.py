@@ -78,6 +78,7 @@ class MasterRunner(runner.TaskRunner):
             self.event_loop.run(timeout_function=self.maintain_runqueue)
         finally:
             self.slaves.disconnect_all()
+        return self.exitcode
 
     def start_rpc_server(self):
         program_hash = registry.object_hash(self.program_class)

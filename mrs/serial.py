@@ -46,13 +46,14 @@ class SerialRunner(runner.BaseRunner):
         except Exception as e:
             logger.critical('Exception while instantiating the program: %s'
                     % traceback.format_exc())
-            return
+            return 1
 
         self.start_worker()
-
         self.event_loop.register_fd(self.worker_conn.fileno(),
                 self.read_worker_conn)
+
         self.event_loop.run()
+        return self.exitcode
 
     def start_worker(self):
         self.worker_conn, remote_worker_conn = multiprocessing.Pipe()
