@@ -6,11 +6,12 @@ from wordcount import WordCount
 
 def test_dickens(mrs_impl, mrs_reduce_tasks, tmpdir):
     inputs = glob.glob('tests/data/dickens/*')
-    args = inputs + [tmpdir.strpath]
+    outdir = tmpdir.join('out')
+    args = inputs + [outdir.strpath]
 
     mrs_impl(WordCount, args, mrs_reduce_tasks, tmpdir)
 
-    files = tmpdir.listdir()
+    files = outdir.listdir()
     assert len(files) == mrs_reduce_tasks
 
     counts = defaultdict(int)
