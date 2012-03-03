@@ -1,24 +1,24 @@
+from collections import defaultdict
 import glob
 
 from wordcount import WordCount
 
 
-def test_dickens(impl, tmpdir):
+def test_dickens(mrs_impl, mrs_reduce_tasks, tmpdir):
     inputs = glob.glob('tests/data/dickens/*')
     args = inputs + [tmpdir.strpath]
 
-    impl(WordCount, args)
+    mrs_impl(WordCount, args, mrs_reduce_tasks)
 
     files = tmpdir.listdir()
-    assert len(files) == 1
-    outfile = files[0]
-    text = outfile.readlines()
+    assert len(files) == mrs_reduce_tasks
 
-    assert text[0] == 'a 8\n'
-    counts = {}
-    for line in text:
-        key, value = line.split()
-        counts[key] = int(value)
+    counts = defaultdict(int)
+    for outfile in files:
+        text = outfile.readlines()
+        for line in text:
+            key, value = line.split()
+            counts[key] += int(value)
 
     # Check counts for all of the words in the first two lines.
     assert counts['it'] == 11
