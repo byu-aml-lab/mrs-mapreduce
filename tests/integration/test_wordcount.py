@@ -8,7 +8,7 @@ def test_dickens(mrs_impl, mrs_reduce_tasks, tmpdir):
     inputs = glob.glob('tests/data/dickens/*')
     args = inputs + [tmpdir.strpath]
 
-    mrs_impl(WordCount, args, mrs_reduce_tasks)
+    mrs_impl(WordCount, args, mrs_reduce_tasks, tmpdir)
 
     files = tmpdir.listdir()
     assert len(files) == mrs_reduce_tasks
