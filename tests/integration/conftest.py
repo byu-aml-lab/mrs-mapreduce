@@ -20,25 +20,25 @@ def pytest_generate_tests(metafunc):
                 metafunc.addcall(funcargs={'mrs_impl': mrs_impl})
 
 
-def run_serial(program, args, tmpdir):
+def run_serial(program, args, update_parser=None):
     args = ['-I', 'Serial'] + args
 
     with pytest.raises(SystemExit) as excinfo:
-        mrs.main(program, args=args)
-    returncode = excinfo.value.args[0]
-    assert returncode == 0
+        mrs.main(program, update_parser, args)
+    exitcode = excinfo.value.args[0]
+    assert exitcode == 0
 
 
-def run_mockparallel(program, args, tmpdir):
+def run_mockparallel(program, args, tmpdir, update_parser=None):
     args = ['-I', 'MockParallel', '--mrs-tmpdir', tmpdir.strpath] + args
 
     with pytest.raises(SystemExit) as excinfo:
-        mrs.main(program, args=args)
-    returncode = excinfo.value.args[0]
-    assert returncode == 0
+        mrs.main(program, update_parser, args)
+    exitcode = excinfo.value.args[0]
+    assert exitcode == 0
 
 
-def run_master_slave(program, args, tmpdir):
+def run_master_slave(program, args, tmpdir, update_parser=None):
     runfile = tmpdir.join('runfile').strpath
 
     procs = []
@@ -51,9 +51,9 @@ def run_master_slave(program, args, tmpdir):
             tmpdir.strpath] + args
 
     with pytest.raises(SystemExit) as excinfo:
-        mrs.main(program, args=args)
-    returncode = excinfo.value.args[0]
-    assert returncode == 0
+        mrs.main(program, update_parser, args)
+    exitcode = excinfo.value.args[0]
+    assert exitcode == 0
 
     for p in procs:
         p.join()
@@ -66,8 +66,8 @@ def run_slave(program, master, tmpdir):
 
     with pytest.raises(SystemExit) as excinfo:
         mrs.main(program, args=args)
-    returncode = excinfo.value.args[0]
-    assert returncode == 0
+    exitcode = excinfo.value.args[0]
+    assert exitcode == 0
 
 
 def slave_process(program, runfile, tmpdir):

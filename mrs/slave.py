@@ -122,6 +122,7 @@ class Slave(worker.WorkerManager):
             self.event_loop.run()
         finally:
             util.remove_recursive(default_dir)
+        return 0
 
     def start_rpc_server_thread(self):
         rpc_interface = SlaveInterface(self)

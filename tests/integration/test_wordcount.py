@@ -12,7 +12,7 @@ def test_dickens(mrs_impl, mrs_reduce_tasks, tmpdir):
 
     if mrs_impl == 'serial':
         assert mrs_reduce_tasks == 1
-        run_serial(WordCount, args, tmpdir)
+        run_serial(WordCount, args)
     elif mrs_impl == 'mockparallel':
         args = ['--mrs-reduce-tasks', str(mrs_reduce_tasks)] + args
         run_mockparallel(WordCount, args, tmpdir)
