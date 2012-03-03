@@ -41,12 +41,13 @@ class ComputedData(datasets.RemoteData):
         task_class: the class used to carry out computation
         parter: name of the partition function (see registry for more info)
     """
-    def __init__(self, operation, input, **kwds):
+    def __init__(self, operation, input, splits, **kwds):
         # Create exactly one task for each split in the input.
         self.ntasks = input.splits
         super(ComputedData, self).__init__(**kwds)
 
         self.op = operation
+        self.splits = splits
         self.id = '%s_%s' % (operation.id, self.id)
 
         self._computing = True
@@ -89,7 +90,7 @@ class ComputedData(datasets.RemoteData):
         else:
             ext = ''
         return Task.from_op(self.op, input_data, self.id, task_index,
-                self.ntasks, self.dir, ext)
+                self.splits, self.dir, ext)
 
     def fetchall(self):
         assert not self.computing, (
