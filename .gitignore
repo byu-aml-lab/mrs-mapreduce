@@ -5,3 +5,5 @@ mrs_mapreduce.egg-info/*
 *.pyc
 *.swp
 mrs.job*
+.coverage
+.nfs*
