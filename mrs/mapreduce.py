@@ -32,6 +32,7 @@ from six import print_
 from . import fileformats
 
 ITERATIVE_QMAX = 5
+RAND_OFFSET_SHIFT = 64
 
 
 class MapReduce(object):
@@ -164,15 +165,25 @@ class MapReduce(object):
         """
         raise NotImplementedError
 
-    def random(self, offset):
+    def random(self, *offsets):
         """Creates a Random instance for MapReduce programs to use.
 
-        The offset parameter allows programs to specify separate subsequences.
-        Any two calls with the same offset will return Random instances that
-        generate the same sequence of pseudo-random numbers.
+        The offset parameters allow programs to deterministically retrieve
+        unique random number generators.  Each offset parameter is a number
+        between 0 and 2**RAND_OFFSET_SHIFT (very big).  Every combination of
+        offsets parameterizes a unique random number generator for a given
+        value of --mrs-seed.  Note that a large number of offsets (about 300)
+        can be given, and omitting a particular offset is equivalent to
+        setting it to 0.
         """
         import random
-        seed = int(self.opts.mrs__seed) + sys.maxsize * offset
+
+        shift = 0
+        seed = int(self.opts.mrs__seed)
+        for x in offsets:
+            shift += RAND_OFFSET_SHIFT
+            seed += x << shift
+
         return random.Random(seed)
 
 
