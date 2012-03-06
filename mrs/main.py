@@ -186,6 +186,11 @@ class BaseImplementation(ParamObj):
         worker_process = multiprocessing.Process(target=target, name='Worker')
         worker_process.start()
 
+    def stop_worker_process(self):
+        if self.worker_pipe is not None:
+            from . import worker
+            self.worker_pipe.send(worker.WorkerQuitRequest())
+
 
 class Bypass(BaseImplementation):
     """Runs a program, bypassing the MapReduce functions."""
@@ -247,6 +252,7 @@ class Implementation(BaseImplementation):
             exitcode = 1
         finally:
             os.write(job_quit_pipe, b'\0')
+            self.stop_worker_process()
 
         # Clean up jobdir
         if not self.keep_tmp:
@@ -354,7 +360,10 @@ class Slave(BaseImplementation, FileParams, NetworkParams):
 
         s = slave.Slave(self.program_class, self.master, self.tmpdir,
                 self.pingdelay, self.timeout, self.worker_pipe)
-        exitcode = s.run()
+        try:
+            exitcode = s.run()
+        finally:
+            self.stop_worker_process()
         return exitcode
 
 # vim: et sw=4 sts=4

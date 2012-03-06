@@ -452,7 +452,6 @@ class MockParallelRunner(TaskRunner, worker.WorkerManager):
         self.worker_setup(self.opts, self.args, self.default_dir)
         self.schedule()
         self.event_loop.run()
-        self.submit_request(worker.WorkerQuitRequest())
         return self.exitcode
 
     def schedule(self):

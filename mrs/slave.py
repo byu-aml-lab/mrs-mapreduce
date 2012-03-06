@@ -212,8 +212,6 @@ class Slave(worker.WorkerManager):
         self.report_ready()
 
     def read_exit_pipe(self):
-        request = worker.WorkerQuitRequest()
-        self.worker_pipe.send(request)
         self.event_loop.running = False
 
     def update_timestamp(self):
