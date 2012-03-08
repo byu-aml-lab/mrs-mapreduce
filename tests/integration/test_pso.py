@@ -21,9 +21,8 @@ def test_pso(mrs_impl, tmpdir, capfd):
 
     lines = [line.strip() for line in out.splitlines()
             if line and not line.startswith('#')]
-    assert lines == ['597.491447747', '214.450798159', '30.9880745446',
-            '21.066895404', '17.5725153559', '17.5725153559', '0.562252237496']
-
+    assert lines == ['202.330512851', '202.330512851', '74.0008930067',
+            '32.3155678366', '2.9191713839', '2.9191713839', '2.9191713839']
 
 
 # vim: et sw=4 sts=4
