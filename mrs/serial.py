@@ -79,8 +79,13 @@ class SerialRunner(runner.BaseRunner):
                 dataset_id = response.dataset_id
             else:
                 logger.error(response.traceback)
+                self.exitcode = 1
+                self.event_loop.running = False
                 return
         except EOFError:
+            logger.critical('Got an EOF from the Worker')
+            self.exitcode = 1
+            self.event_loop.running = False
             return
         ds = self.datasets[dataset_id]
         self.dataset_done(ds)
