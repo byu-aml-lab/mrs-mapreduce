@@ -84,6 +84,11 @@ parser.add_option('-o', '--outdir',
         action='store',
         help='Output directory. Default is current working directory',
         default=DEFAULT_OUTPUT_DIR)
+parser.add_option('--interpreter',
+        dest='interpreter',
+        action='store',
+        help='Python interpreter to run',
+        default='python')
 
 opts, args = parser.parse_args()
 
@@ -136,7 +141,8 @@ def run(*args):
 # in the master.out file.
 
 MASTER_COMMAND = ' '.join((
-    'python %s' % mrs_program,
+    opts.interpreter,
+    mrs_program,
     '--mrs=Master',
     '--mrs-verbose',
     '--mrs-runfile %s' % runfilename,
@@ -166,7 +172,8 @@ runfile.close()
 
 SLAVE_COMMAND = ' '.join((
     'cd %s;' % os.getcwd(),
-    'python %s' % mrs_program,
+    opts.interpreter,
+    mrs_program,
     '--mrs=Slave',
     '--mrs-verbose',
     '--mrs-master=%s:%s' % (master_hostname, master_port)))
