@@ -56,6 +56,7 @@ class Job(object):
         self._keep_jobdir = getattr(opts, 'mrs__keep_jobdir', False)
         self.default_partition = default_partition
         self.default_reduce_tasks = getattr(opts, 'mrs__reduce_tasks', 1)
+        self.default_reduce_splits = 1
 
     def wait(self, *datasets, **kwds):
         """Wait for any of the given Datasets to complete.
@@ -139,7 +140,7 @@ class Job(object):
         Called from the user-specified run function.
         """
         if splits is None:
-            splits = 1
+            splits = self.default_reduce_splits
 
         if outdir:
             permanent = True
