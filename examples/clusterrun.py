@@ -29,24 +29,7 @@
 #
 ################################################################################
 
-"""Runs a Mrs program using screen and pssh.
-
-    Example:
-    $ python clusterrun.py --hosts [slaves] [mrs program] [input]
-
-    The 'slaves' file will be passed to the pssh program and should be a text
-    file with the name of a slave machine on each line in the following format:
-
-             [user@][host][:port]
-
-    If the user name is left off, pssh will use the current user name, and
-    for the port number, the ssh default will be used (port 22).
-
-    Note that you will need to set up passphraseless ssh between the master
-    and slave machines before running this script.
-
-    All output is put in a folder named after the jobname. (default: 'newjob')
-"""
+from __future__ import print_function
 
 import getpass
 import optparse
@@ -55,6 +38,22 @@ import socket
 import subprocess
 import sys
 import time
+
+DESCRIPTION = 'Runs a Mrs program using screen and pssh.'
+USAGE = '%prog --hosts [slaves] [mrs_program] [args]'
+EPILOG = """
+The 'slaves' file will be passed to the pssh program and should be a text file
+with the name of a slave machine on each line in the format
+"[user@][host][:port]".
+
+If the user name is left off, pssh will use the current user name, and
+for the port number, the ssh default will be used (port 22).
+
+Note that you will need to set up passphraseless ssh between the master
+and slave machines before running this script.
+
+All output is put in a folder named after the jobname.
+"""
 
 DEFAULT_OUTPUT_DIR = os.getcwd() # set default to current working directory
 DEFAULT_LOCAL_SCRATCH = getpass.getuser()
@@ -66,49 +65,45 @@ DEFAULT_JOBNAME = 'newjob'
 # Here we use python's option parser to setup any run options we may want.
 # They can be printed out with the --help option from the command line:
 # example: $ python clusterrun.py --help
-parser = optparse.OptionParser()
+parser = optparse.OptionParser(conflict_handler='resolve',
+        usage=USAGE, description=DESCRIPTION, epilog=EPILOG)
+parser.disable_interspersed_args()
 
-parser.add_option('--hosts',
+parser.add_option('-h', '--hosts',
         dest='hostfiles',
         action='append',
         help='Hosts file (each line "[user@][hostname][:port]")',
         default=[])
-parser.add_option('--jobname',
+parser.add_option('-n', '--jobname',
         dest='jobname',
         action='store',
         help='Job name. Default is \'newjob\'',
         default=DEFAULT_JOBNAME)
-parser.add_option('--outdir',
+parser.add_option('-o', '--outdir',
         dest='out_dir',
         action='store',
         help='Output directory. Default is current working directory',
         default=DEFAULT_OUTPUT_DIR)
-parser.add_option('--local-scratch',
-        dest='local_scratch',
-        action='store',
-        help='Local scratch (subdir of /net/$hostname, empty string to skip)',
-        default=DEFAULT_LOCAL_SCRATCH)
 
 opts, args = parser.parse_args()
 
 # Make sure slave machines are specified.
 if not opts.hostfiles:
-    print >>sys.stderr,'No hosts file specified!'
+    print('No hosts file specified!', file=sys.stderr)
     sys.exit(1)
 
 # Make sure that pssh and screen are installed
 if subprocess.call(('which', 'pssh'), stdout=open('/dev/null', 'w')):
-    print >>sys.stderr,'Error: Pssh not installed!'
+    print('Error: Pssh not installed!', file=sys.stderr)
     sys.exit(1)
 if subprocess.call(('which', 'screen'), stdout=open('/dev/null', 'w')):
-    print >>sys.stderr,'Error: Screen not installed!'
+    print('Error: Screen not installed!', file=sys.stderr)
     sys.exit(1)
 
 # Initalize any needed variables.
 mrs_program = args[0] # get name of Mrs program
 mrs_argv = args[1:] # get input file
 job_dir = os.path.join(opts.out_dir, opts.jobname)
-local_shared = os.path.join(opts.local_scratch, opts.jobname)
 runfilename = os.path.join(job_dir, 'master.run') # this will have the port num
 host_options = ' '.join('--hosts %s' % hostfile for hostfile in opts.hostfiles)
 master_hostname = socket.gethostname()
@@ -116,15 +111,17 @@ master_hostname = socket.gethostname()
 # Make the job directory (note that this will fail if it already exists).
 try:
     os.makedirs(job_dir)
-except:
-    print >>sys.stderr,'Error, job directory \"%s\" may already exist!' % job_dir
+except OSError as e:
+    errno, message = e.args
+    print('Error making "%s":' % job_dir, message,
+            file=sys.stderr)
     sys.exit(1)
 
 # This method will be called to run commands on the command line.
 def run(*args):
     returncode = subprocess.call(args)
     if returncode != 0:
-        print >>sys.stderr, 'Command failed with error code', returncode
+        print('Command failed with error code', returncode, file=sys.stderr)
         sys.exit(1)
 
 ##############################################################################
@@ -143,11 +140,10 @@ MASTER_COMMAND = ' '.join((
     '--mrs=Master',
     '--mrs-verbose',
     '--mrs-runfile %s' % runfilename,
-    '--mrs-shared %s' % job_dir,
     '2>%s/master.err' % job_dir,
     '|tee %s/master.out' % job_dir))
 
-print 'Starting the master.'
+print('Starting the master.')
 
 # Create a screen session named after the job name, and then start master.
 run('screen', '-dmS', opts.jobname)
@@ -172,26 +168,22 @@ SLAVE_COMMAND = ' '.join((
     'python %s' % mrs_program,
     '--mrs=Slave',
     '--mrs-verbose',
-    '--mrs-local-shared', ('/net/\\`hostname -s\\`/' + local_shared),
     '--mrs-master=%s:%s' % (master_hostname, master_port)))
 
+# Note that we pass ssh the -tt option to ensure that remote commands quit.
 PSSH_COMMAND = ' '.join((
     'pssh', host_options,
     '-o', '%s/slaves.out' % job_dir,
     '-e', '%s/slaves.err' % job_dir,
-    '-t -1 -p 1000',
+    '-t 0 -x -tt -p 1000',
     '"%s"' % SLAVE_COMMAND))
 
-print 'Starting the slaves.'
+print('Starting the slaves.')
 
 # add a second window to the screen session and run pssh command.
 run('screen', '-S', opts.jobname, '-X', 'screen')
 run('screen', '-S', opts.jobname, '-p1', '-X', 'stuff', PSSH_COMMAND + '\n')
 
 # Load the screen session.
-print 'Loading screen session'
+print('Loading screen session')
 run('screen', '-r', opts.jobname, '-p0')
-
-
-
-

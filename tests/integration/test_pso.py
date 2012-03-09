@@ -18,6 +18,7 @@ def test_pso(mrs_impl, tmpdir, capfd):
         raise RuntimeError('Unknown mrs_impl: %s' % mrs_impl)
 
     out, err = capfd.readouterr()
+    assert err == ''
 
     lines = [line.strip() for line in out.splitlines()
             if line and not line.startswith('#')]
