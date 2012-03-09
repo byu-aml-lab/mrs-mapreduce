@@ -136,10 +136,11 @@ def run(*args):
 # in the master.out file.
 
 MASTER_COMMAND = ' '.join((
-    'python %s' % mrs_program, ' '.join(mrs_argv), '%s/results' % job_dir,
+    'python %s' % mrs_program,
     '--mrs=Master',
     '--mrs-verbose',
     '--mrs-runfile %s' % runfilename,
+    ' '.join(mrs_argv),
     '2>%s/master.err' % job_dir,
     '|tee %s/master.out' % job_dir))
 
