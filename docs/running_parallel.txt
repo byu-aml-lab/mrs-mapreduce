@@ -55,7 +55,8 @@ Using a run-script
 ==================
 
 Now that you have run Mrs manually and are familiar with the Mrs interface you
-are ready to start with the run-script. A run-script allows you to easily start
+are ready to start with the clusterrun.py run-script.  A run-script allows you
+to easily start
 the master and hundreds of slave machines all at once. We have included an
 example script in the MRS_HOME/examples directory. It is written in Python and
 uses the screen and pssh utilities. If you are not familiar with screen or pssh
@@ -65,10 +66,10 @@ could be very helpful to know the basic commands for manipulating  a screen
 session such as creating, attaching/disattaching a screen session, and changing
 windows from within a session.
 
-The example run-script is pretty well documented and of course you can print
-out the run options with the *help* command. ::
+The example run-script (clusterrun.py) is pretty well documented and of course
+you can print out the run options with the *help* command. ::
 
-    > python runscript.py --help
+    > python clusterrun.py --help
 
 To run the script you will need to modify the MRS_HOME/examples/slaves file.
 When the program is run the slaves file will be passed to the pssh program and
@@ -88,7 +89,7 @@ Finally once you have modified the slaves file and set up passphraseless ssh,
 you should be able to run it by passing it a host file, a mrs program and some
 input. ::
 
-    > python runscript.py --hosts slaves wordcount.py mytxt.txt
+    > python clusterrun.py --hosts slaves wordcount.py mytxt.txt
 
 You do not need to specify an output folder as you did when running manually as
 all output is put in a folder named after the jobname. You can specify the job

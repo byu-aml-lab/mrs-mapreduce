@@ -24,15 +24,15 @@
 
 ################################################################################
 #
-# This is the run-script referenced in the Mrs documentation. It should work as
-# is, but of course is meant to be adapted as needed.
+# This is the clusterrun.py run-script referenced in the Mrs documentation. It
+# should work as is, but of course is meant to be adapted as needed.
 #
 ################################################################################
 
 """Runs a Mrs program using screen and pssh.
 
     Example:
-    $ python runscript.py --hosts [slaves] [mrs program] [input]
+    $ python clusterrun.py --hosts [slaves] [mrs program] [input]
 
     The 'slaves' file will be passed to the pssh program and should be a text
     file with the name of a slave machine on each line in the following format:
@@ -65,7 +65,7 @@ DEFAULT_JOBNAME = 'newjob'
 
 # Here we use python's option parser to setup any run options we may want.
 # They can be printed out with the --help option from the command line:
-# example: $ python runscript.py --help
+# example: $ python clusterrun.py --help
 parser = optparse.OptionParser()
 
 parser.add_option('--hosts',
