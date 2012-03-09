@@ -96,7 +96,6 @@ all output is put in a folder named after the jobname. You can specify the job
 name with the - -jobname option, or if you don't specify, Mrs will default to
 'newjob.'
 
-
-
-
-
+The examples directory also includes a run-script called fulton.py that
+submits a job to a PBS scheduler.  If you use a supercomputer with a batch
+scheduler, this example script should be a good starting point.
