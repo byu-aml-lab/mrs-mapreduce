@@ -132,7 +132,7 @@ class MasterRunner(runner.TaskRunner):
         for slave in self.slaves.get_changed_slaves():
             if slave.alive():
                 self.dead_slaves.discard(slave)
-                if slave.idle():
+                if not slave.busy():
                     self.idle_slaves.add(slave)
             else:
                 self.dead_slaves.add(slave)
@@ -153,7 +153,7 @@ class MasterRunner(runner.TaskRunner):
                 self.idle_slaves.add(slave)
                 break
 
-            if not slave.idle():
+            if slave.busy():
                 logger.error('Slave %s mistakenly in idle_slaves.' % slave.id)
                 continue
 
@@ -316,9 +316,9 @@ class RemoteSlave(object):
     def check_cookie(self, cookie):
         return (cookie == self.cookie)
 
-    def idle(self):
-        """Indicates whether the slave can take a new assignment."""
-        return (self._assignment is None)
+    def busy(self):
+        """Indicates whether the slave has a current assignment."""
+        return (self._assignment is not None)
 
     def pop_assignment(self, assignment=None):
         """Removes and returns the current assignment."""
@@ -603,18 +603,19 @@ class Slaves(object):
                 return
 
         with self._lock:
-            if not slave.idle():
-                logger.error('Slave %s reported ready but is not idle; '
+            if slave.busy():
+                logger.error('Slave %s reported ready but has an assignment; '
                         'check the slave logs for errors.' % slave.id)
             self._changed_slaves.add(slave)
 
         self.trigger_sched()
 
     def slave_result(self, slave, dataset_id, source, urls):
+        success = slave.set_assignment((dataset_id, source), None)
+        assert success
         with self._lock:
             self._results.append((slave, dataset_id, source, urls))
             self._changed_slaves.add(slave)
-        assert slave.set_assignment((dataset_id, source), None)
         self.trigger_sched()
 
     def slave_dead(self, slave):

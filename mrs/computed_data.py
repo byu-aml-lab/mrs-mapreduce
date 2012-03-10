@@ -52,7 +52,7 @@ class ComputedData(datasets.RemoteData):
 
         self._computing = True
 
-        assert(not input.closed)
+        assert not input.closed
         self.input_id = input.id
 
     def computation_done(self):
