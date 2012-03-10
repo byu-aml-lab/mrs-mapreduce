@@ -137,7 +137,7 @@ class MasterRunner(runner.TaskRunner):
             else:
                 self.dead_slaves.add(slave)
                 self.idle_slaves.discard(slave)
-                assignment = slave.pop_assignment()
+                assignment = slave.current_assignment()
                 if assignment is not None:
                     dataset_id, task_index = assignment
                     self.task_lost(dataset_id, task_index)
@@ -320,12 +320,20 @@ class RemoteSlave(object):
         """Indicates whether the slave has a current assignment."""
         return (self._assignment is not None)
 
-    def pop_assignment(self, assignment=None):
+    def pop_assignment(self):
         """Removes and returns the current assignment."""
         with self._assignment_lock:
             assignment = self._assignment
             self._assignment = None
             return assignment
+
+    def current_assignment(self):
+        """Returns the current assignment.
+
+        Note that this could change in another thread (so be careful).
+        You usually want pop_assignment instead.
+        """
+        return self._assignment
 
     def set_assignment(self, old_assignment, new_assignment):
         """Sets the assignment to new_assignment if the old_assignment matches.
