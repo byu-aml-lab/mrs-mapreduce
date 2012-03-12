@@ -89,6 +89,11 @@ parser.add_option('--interpreter',
         action='store',
         help='Python interpreter to run',
         default='python')
+parser.add_option('--mrs-tmpdir',
+        dest='mrs_tmpdir',
+        action='store',
+        help='local temporary directory',
+        default='/tmp')
 
 opts, args = parser.parse_args()
 
@@ -146,6 +151,7 @@ MASTER_COMMAND = ' '.join((
     '--mrs=Master',
     '--mrs-verbose',
     '--mrs-runfile %s' % runfilename,
+    '--mrs-tmpdir=%s' % opts.mrs_tmpdir,
     ' '.join(mrs_argv),
     '2>%s/master.err' % job_dir,
     '|tee %s/master.out' % job_dir))
@@ -176,7 +182,8 @@ SLAVE_COMMAND = ' '.join((
     mrs_program,
     '--mrs=Slave',
     '--mrs-verbose',
-    '--mrs-master=%s:%s' % (master_hostname, master_port)))
+    '--mrs-master=%s:%s' % (master_hostname, master_port),
+    '--mrs-tmpdir=%s' % opts.mrs_tmpdir))
 
 # Note that we pass ssh the -tt option to ensure that remote commands quit.
 PSSH_COMMAND = ' '.join((
