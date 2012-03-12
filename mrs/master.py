@@ -29,6 +29,7 @@
 
 from six import print_
 
+import collections
 import os
 import socket
 import sys
@@ -54,6 +55,13 @@ del logging
 
 
 class MasterRunner(runner.TaskRunner):
+    """A TaskRunner that assigns tasks to remote slaves.
+
+    Attributes:
+        idle_slaves: a set of slaves that are ready to be assigned
+        result_maps: a dict mapping a dataset id to the corresponding result
+            map, which keeps track of which slaves produced which data
+    """
     def __init__(self, *args):
         super(MasterRunner, self).__init__(*args)
 
@@ -61,7 +69,7 @@ class MasterRunner(runner.TaskRunner):
         self.idle_slaves = set()
         self.dead_slaves = set()
         self.current_assignments = set()
-        self.result_storage = {}
+        self.result_maps = {}
 
         self.rpc_interface = None
         self.rpc_thread = None
@@ -121,8 +129,11 @@ class MasterRunner(runner.TaskRunner):
     def schedule(self):
         """Check for any changed slaves and make task assignments."""
         for slave, dataset_id, source, urls in self.slaves.get_results():
-            if dataset_id in self.result_storage:
-                self.result_storage[dataset_id].append((slave, source))
+            try:
+                self.result_maps[dataset_id].add(slave, source)
+            except KeyError:
+                # Dataset already deleted, so this source should be removed.
+                self.remove_source(slave, dataset_id, source, delete=True)
 
             if (dataset_id, source) in self.current_assignments:
                 self.task_done(dataset_id, source, urls)
@@ -135,6 +146,7 @@ class MasterRunner(runner.TaskRunner):
             if slave.alive():
                 self.dead_slaves.discard(slave)
                 if not slave.busy():
+                    logger.info('Adding slave %s to idle_slaves.' % slave.id)
                     self.idle_slaves.add(slave)
             else:
                 self.dead_slaves.add(slave)
@@ -145,33 +157,62 @@ class MasterRunner(runner.TaskRunner):
                     self.task_lost(dataset_id, task_index)
 
         while self.idle_slaves:
-            slave = self.idle_slaves.pop()
             # find the next job to run
             next = self.next_task()
             if next is None:
                 # TODO: duplicate currently assigned tasks here (while adding
                 # a mechanism for unassigning duplicate tasks once the result
                 # comes back).
-                self.idle_slaves.add(slave)
                 break
+            dataset_id, source = next
+
+            # Slave-task affinity: when possible, assign to the slave that
+            # computed the task with the same source id in the input dataset.
+            input_id = self.datasets[dataset_id].input_id
+            try:
+                input_results = self.result_maps[input_id]
+            except KeyError:
+                input_results = None
+
+            slave = None
+            if input_results is not None:
+                for s in input_results.get(source):
+                    if s in self.idle_slaves:
+                        self.idle_slaves.remove(s)
+                        slave = s
+                        break
+            if slave is None:
+                slave = self.idle_slaves.pop()
 
             if slave.busy():
                 logger.error('Slave %s mistakenly in idle_slaves.' % slave.id)
+                self.task_lost(*next)
                 continue
 
-            dataset_id, source = next
-            if dataset_id not in self.result_storage:
-                self.result_storage[dataset_id] = []
             slave.assign(next, self.datasets)
             self.current_assignments.add(next)
+
+    def make_tasklist(self, dataset):
+        tasklist = super(MasterRunner, self).make_tasklist(dataset)
+        self.result_maps[dataset.id] = ResultMap()
+        return tasklist
 
     def remove_dataset(self, ds):
         if isinstance(ds, computed_data.ComputedData):
             delete = not ds.permanent
-            for slave, source in self.result_storage[ds.id]:
-                self.runqueue.do(slave.remove, args=(ds.id, source, delete))
-            del self.result_storage[ds.id]
+            for slave, source in self.result_maps[ds.id].all():
+                self.remove_source(slave, ds.id, source, delete)
+            del self.result_maps[ds.id]
         super(MasterRunner, self).remove_dataset(ds)
+
+    # TODO: send a list of sources instead of a single source.
+    def remove_source(self, slave, dataset_id, source, delete):
+        """Remove a single source from a slave.
+
+        The delete parameter specifies whether the file should actually be
+        removed from disk.
+        """
+        self.runqueue.do(slave.remove, args=(dataset_id, source, delete))
 
     def debug_status(self):
         super(MasterRunner, self).debug_status()
@@ -181,6 +222,26 @@ class MasterRunner(runner.TaskRunner):
                 for slave in self.idle_slaves)), file=sys.stderr)
         print_('Dead slaves:', (', '.join(str(slave.id)
                 for slave in self.dead_slaves)), file=sys.stderr)
+
+
+class ResultMap(object):
+    """Track which slaves produced which sources in a single dataset."""
+    def __init__(self):
+        self._dict = collections.defaultdict(list)
+
+    def add(self, slave, source):
+        """Records that the given slave computed the given source."""
+        self._dict[source].append(slave)
+
+    def get(self, source):
+        """Returns the list of slaves that computed the given source."""
+        return self._dict[source]
+
+    def all(self):
+        """Iterate over slave, source pairs."""
+        for source, slave_list in self._dict.items():
+            for slave in slave_list:
+                yield slave, source
 
 
 class MasterInterface(object):
@@ -561,6 +622,10 @@ class RemoteSlave(object):
 
         if write_pipe is not None:
             os.write(write_pipe, '\0')
+
+    def __repr__(self):
+        return ('RemoteSlave(%s, %s, %s, %s, %s)' % (self.id, self.host,
+            self.port, self.cookie, repr(self.slaves)))
 
 
 class Slaves(object):

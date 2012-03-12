@@ -263,21 +263,21 @@ class TaskRunner(BaseRunner):
         Tasks are returned as (dataset, source) pairs.
         """
         for ds in self.runnable_datasets:
-            tasklist = self._get_or_make_tasklist(ds)
+            try:
+                tasklist = self.tasklists[ds.id]
+            except KeyError:
+                tasklist = self.make_tasklist(ds)
             t = tasklist.pop()
             if t is not None:
                 return t
         return None
 
-    def _get_or_make_tasklist(self, ds):
-        """Gets a tasklist for the given dataset."""
+    def make_tasklist(self, ds):
+        """Makes a tasklist for the given dataset."""
         assert ds.computing, "can't make tasks for a completed dataset"
-        try:
-            tasklist = self.tasklists[ds.id]
-        except KeyError:
-            tasklist = TaskList(ds, self.datasets[ds.input_id])
-            self.tasklists[ds.id] = tasklist
-            tasklist.make_tasks()
+        tasklist = TaskList(ds, self.datasets[ds.input_id])
+        self.tasklists[ds.id] = tasklist
+        tasklist.make_tasks()
         return tasklist
 
     def task_done(self, dataset_id, task_index, urls):
