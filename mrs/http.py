@@ -43,7 +43,8 @@ try:
 except ImportError:
     from httplib import HTTPConnection
     from SimpleHTTPServer import SimpleHTTPRequestHandler
-    from SimpleXMLRPCServer import SimpleXMLRPCRequestHandler, SimpleXMLRPCServer
+    from SimpleXMLRPCServer import (SimpleXMLRPCRequestHandler,
+            SimpleXMLRPCServer)
     import SocketServer as socketserver
     from urllib import unquote
     from urlparse import urlsplit, urlunsplit
