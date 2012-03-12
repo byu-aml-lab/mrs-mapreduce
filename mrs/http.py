@@ -54,6 +54,9 @@ import logging
 logger = logging.getLogger('mrs')
 del logging
 
+# Work around pypy issue 1087
+import codecs
+codecs.lookup('ascii')
 
 # TODO: switch parent class to xmlrpclib.SafeTransport
 # TODO: consider using the Transport's enable_threshold setting for gzip

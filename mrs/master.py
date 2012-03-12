@@ -40,6 +40,8 @@ from . import registry
 from . import computed_data
 from . import runner
 from . import tasks
+from .version import __version__
+
 
 try:
     from xmlrpc.client import Fault, ProtocolError
@@ -218,8 +220,6 @@ class MasterInterface(object):
         It returns the slave_id and option dictionary.  Returns (-1, {}, [])
         if the signin is rejected.
         """
-        from version import __version__
-
         if version != __version__:
             logger.warning('Client tried to sign in with mismatched version.')
             return -1, '', '', {}, []
