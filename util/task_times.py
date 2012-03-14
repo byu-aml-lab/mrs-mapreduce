@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+from __future__ import division
+
+from collections import defaultdict
 import datetime
 import re
 import sys
@@ -9,7 +12,8 @@ timestamp_pattern = r'(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3})'
 message_pattern = r'(?P<message>.*)'
 log_re = re.compile(r'^%s: \w+: %s\s*$' % (timestamp_pattern, message_pattern))
 task_pattern = r'(?P<dataset>\w+), (?P<task>\d+)'
-task_re = re.compile(r'^(Assigning|Slave \d+ report).*: %s\s*$' % task_pattern)
+start_re = re.compile(r'^Assigning.*: %s\s*$' % task_pattern)
+stop_re = re.compile(r'^Slave \d+ report.*: %s\s*$' % task_pattern)
 
 
 class Interval(object):
@@ -31,37 +35,54 @@ def parse_timestamp(timestamp):
     fields = time.strptime(sec, '%Y-%m-%d %H:%M:%S')[0:6] + (microseconds,)
     return datetime.datetime(*fields)
 
-def parse_dataset(string):
-    mo = task_re.search(string)
+def parse_start(string):
+    mo = start_re.search(string)
     if mo:
-        return mo.group('dataset')
+        return mo.group('dataset'), mo.group('task')
+    else:
+        return None, None
+
+def parse_stop(string):
+    mo = stop_re.search(string)
+    if mo:
+        return mo.group('dataset'), mo.group('task')
+    else:
+        return None, None
 
 def load():
-    intervals = []
-    dataset_map = {}
+    datasets = []
+    task_map = defaultdict(dict)
 
     for line in sys.stdin:
         mo = log_re.search(line)
         if mo:
             timestamp = mo.group('timestamp')
             message = mo.group('message')
-            dataset = parse_dataset(message)
+            dataset, task = parse_start(message)
             if dataset:
-                try:
-                    dataset_map[dataset].update(timestamp)
-                except KeyError:
-                    interval = Interval(timestamp)
-                    dataset_map[dataset] = interval
-                    intervals.append((dataset, interval))
+                interval = Interval(timestamp)
+                task_map[dataset][task] = interval
+                if dataset not in datasets:
+                    datasets.append(dataset)
+            else:
+                dataset, task = parse_stop(message)
+                if dataset:
+                    task_map[dataset][task].update(timestamp)
         else:
             print('Malformed input:')
             print('"%s"' % line)
 
-    return intervals
+    averages = []
+    for dataset in datasets:
+        intervals = task_map[dataset].values()
+        average = sum(x.seconds() for x in intervals) / len(intervals)
+        averages.append((dataset, average))
+
+    return averages
 
 def timing():
-    for dataset, interval in load():
-        print(dataset, '  ', interval.seconds())
+    for dataset, average in load():
+        print(dataset, '  ', average)
 
 if __name__ == '__main__':
     timing()
