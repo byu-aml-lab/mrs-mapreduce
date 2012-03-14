@@ -29,9 +29,10 @@
 #
 ################################################################################
 
-from __future__ import print_function
+from __future__ import division, print_function
 
 import getpass
+import math
 import optparse
 import os
 import socket
@@ -58,6 +59,9 @@ All output is put in a folder named after the jobname.
 DEFAULT_OUTPUT_DIR = os.getcwd() # set default to current working directory
 DEFAULT_LOCAL_SCRATCH = getpass.getuser()
 DEFAULT_JOBNAME = 'newjob'
+
+# Note that screen only seems to be able to paste 492 bytes at a time. Why??
+SCREEN_STUFF_MAX = 200
 
 ##############################################################################
 # Setup
@@ -94,6 +98,11 @@ parser.add_option('--mrs-tmpdir',
         action='store',
         help='local temporary directory',
         default='/tmp')
+parser.add_option('--mrs-profile',
+        dest='mrs_profile',
+        action='store_true',
+        help='run mrs under a profiler',
+        default=False)
 
 opts, args = parser.parse_args()
 
@@ -134,6 +143,18 @@ def run(*args):
         print('Command failed with error code', returncode, file=sys.stderr)
         sys.exit(1)
 
+def stuff_to_screen(screen_name, window, string):
+    """Send a string to an open screen session.
+
+    Screen ignores strings longer than a certain length, so we split the
+    input into smaller pieces.
+    """
+    chunks = int(math.ceil(len(string) / SCREEN_STUFF_MAX))
+    for i in range(chunks):
+        chunk_string = string[i * SCREEN_STUFF_MAX: (i + 1) * SCREEN_STUFF_MAX]
+        run('screen', '-S', screen_name, '-p%s' % window, '-X', 'stuff',
+                chunk_string)
+
 ##############################################################################
 # Start Master
 
@@ -145,22 +166,28 @@ def run(*args):
 # the output so that it writes to both the stdout (the terminal) and be saved
 # in the master.out file.
 
-MASTER_COMMAND = ' '.join((
+master_args = [
     opts.interpreter,
     mrs_program,
     '--mrs=Master',
     '--mrs-verbose',
     '--mrs-runfile %s' % runfilename,
     '--mrs-tmpdir=%s' % opts.mrs_tmpdir,
+    ]
+if opts.mrs_profile:
+    master_args.append('--mrs-profile')
+master_args += [
     ' '.join(mrs_argv),
     '2>%s/master.err' % job_dir,
-    '|tee %s/master.out' % job_dir))
+    '|tee %s/master.out' % job_dir,
+    ]
+master_command = ' '.join(master_args)
 
 print('Starting the master.')
 
 # Create a screen session named after the job name, and then start master.
 run('screen', '-dmS', opts.jobname)
-run('screen', '-S', opts.jobname, '-p0', '-X', 'stuff', MASTER_COMMAND + '\n')
+stuff_to_screen(opts.jobname, 0, master_command + '\n')
 
 # Wait for the master to start and get the port number.
 while True:
@@ -176,28 +203,31 @@ runfile.close()
 ##############################################################################
 # Start Slaves
 
-SLAVE_COMMAND = ' '.join((
+slave_args = [
     'cd %s;' % os.getcwd(),
     opts.interpreter,
     mrs_program,
     '--mrs=Slave',
     '--mrs-verbose',
     '--mrs-master=%s:%s' % (master_hostname, master_port),
-    '--mrs-tmpdir=%s' % opts.mrs_tmpdir))
+    '--mrs-tmpdir=%s' % opts.mrs_tmpdir,
+    ]
+if opts.mrs_profile:
+    slave_args.append('--mrs-profile')
 
 # Note that we pass ssh the -tt option to ensure that remote commands quit.
-PSSH_COMMAND = ' '.join((
+pssh_command = ' '.join((
     'pssh', host_options,
     '-o', '%s/slaves.out' % job_dir,
     '-e', '%s/slaves.err' % job_dir,
     '-t 0 -x -tt -p 1000',
-    '"%s"' % SLAVE_COMMAND))
+    '"%s"' % ' '.join(slave_args)))
 
 print('Starting the slaves.')
 
 # add a second window to the screen session and run pssh command.
 run('screen', '-S', opts.jobname, '-X', 'screen')
-run('screen', '-S', opts.jobname, '-p1', '-X', 'stuff', PSSH_COMMAND + '\n')
+stuff_to_screen(opts.jobname, 1, pssh_command + '\n')
 
 # Load the screen session.
 print('Loading screen session')
