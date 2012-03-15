@@ -244,7 +244,8 @@ class Implementation(BaseImplementation):
                     job_conn, jobdir, default_dir, self.worker_pipe)
 
             if opts.mrs__profile:
-                util.profile_call(self.runner.run, (), {}, 'mrs-runner.prof')
+                exitcode = util.profile_call(self.runner.run, (), {},
+                        'mrs-runner.prof')
             else:
                 exitcode = self.runner.run()
         except KeyboardInterrupt:
