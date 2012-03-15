@@ -221,7 +221,7 @@ pssh_command = ' '.join((
     '-o', '%s/slaves.out' % job_dir,
     '-e', '%s/slaves.err' % job_dir,
     '-t 0 -x -tt -p 1000',
-    '"%s"' % ' '.join(slave_args)))
+    "'%s'" % ' '.join(slave_args)))
 
 print('Starting the slaves.')
 
