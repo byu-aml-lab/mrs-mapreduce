@@ -258,7 +258,8 @@ class SlaveInterface(object):
         self.slave.check_cookie(cookie)
         self.slave.update_timestamp()
         op_name = op_args[0]
-        logger.info('Received a %s assignment from the master.' % op_name)
+        logger.info('Received %s assignment: %s, %s' %
+                (op_name, dataset_id, task_index))
 
         if self.slave.url_converter:
             convert_url = self.slave.url_converter.global_to_local
@@ -271,8 +272,7 @@ class SlaveInterface(object):
     def xmlrpc_remove(self, dataset_id, source, delete, cookie):
         self.slave.check_cookie(cookie)
         self.slave.update_timestamp()
-        logger.info('Received remove request from master: %s, %s'
-                % (dataset_id, source))
+        logger.info('Received remove request: %s, %s' % (dataset_id, source))
         if delete:
             outdir = self.slave.pop_output_dir(dataset_id, source)
             request = worker.WorkerRemoveRequest(outdir)
@@ -285,7 +285,7 @@ class SlaveInterface(object):
     def xmlrpc_exit(self, cookie):
         self.slave.check_cookie(cookie)
         self.slave.update_timestamp()
-        logger.info('Received a request to exit from the master.')
+        logger.info('Received exit request.')
         # We delay before actually stopping because we need to make sure that
         # the response gets sent back.
         self.slave.exit()

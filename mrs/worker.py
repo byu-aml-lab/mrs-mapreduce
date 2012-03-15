@@ -144,16 +144,20 @@ class Worker(object):
 
             else:
                 assert self.program is not None
-                logger.info('Starting to run a new task.')
+                logger.info('Running task: %s, %s' %
+                        (request.dataset_id, request.task_index))
                 t = tasks.Task.from_args(*request.args)
                 t.run(self.program, self.default_dir)
                 response = WorkerSuccess(request.dataset_id,
                         request.task_index, t.outdir, t.outurls(),
                         request.id())
-                logger.debug('Task complete.')
+                logger.info('Completed task: %s, %s' %
+                        (request.dataset_id, request.task_index))
         except KeyboardInterrupt:
             return
         except Exception as e:
+            logger.info('Failed task: %s, %s' %
+                    (request.dataset_id, request.task_index))
             request_id = request.id() if request else None
             tb = traceback.format_exc()
             response = WorkerFailure(e, tb, request_id)
