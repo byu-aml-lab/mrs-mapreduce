@@ -27,6 +27,7 @@ That's it.  It just does what the main slave process tells it to.  The worker
 process is terminated when the main process quits.
 """
 
+import os
 import traceback
 
 from . import datasets
@@ -163,7 +164,13 @@ class Worker(object):
         return True
 
     def profiled_run(self):
-        util.profile_loop(self.run_once, (), {}, 'mrs-worker.prof')
+        #TODO: detect the node number for other systems (e.g., pbs)
+        nodenum = os.getenv('PSSH_NODENUM')
+        if nodenum:
+            filename = 'mrs-worker-%s.prof' % nodenum
+        else:
+            filename = 'mrs-worker.prof'
+        util.profile_loop(self.run_once, (), {}, filename)
 
 
 class WorkerManager(object):
