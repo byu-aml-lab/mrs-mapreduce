@@ -37,6 +37,7 @@ import time
 from logging import getLogger
 logger = getLogger('mrs')
 
+PROFILE_DIR = './mrsprof'
 TEMPFILE_FLAGS = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
 ID_CHARACTERS = string.ascii_letters + string.digits
 BITS_IN_DOUBLE = 53
@@ -189,10 +190,13 @@ def profile_loop(function, args, kwds, filename, min_delay=5):
     """
     import cProfile
     prof = cProfile.Profile()
-    tmp_filename = '.' + filename
+
+    try_makedirs(PROFILE_DIR)
+    tmp_path = '%s/.%s' % (PROFILE_DIR, filename)
+    path = '%s/%s' % (PROFILE_DIR, filename)
 
     try:
-        os.remove(filename)
+        os.remove(path)
     except OSError:
         pass
 
@@ -205,8 +209,8 @@ def profile_loop(function, args, kwds, filename, min_delay=5):
             now = time.time()
             if (now - last_time > min_delay) or not keep_going:
                 last_time = now
-                prof.dump_stats(tmp_filename)
-                os.rename(tmp_filename, filename)
+                prof.dump_stats(tmp_path)
+                os.rename(tmp_path, path)
 
 def profile_call(function, args, kwds, filename):
     """Profiles a function with args, outputing stats to a file.
@@ -215,17 +219,20 @@ def profile_call(function, args, kwds, filename):
     """
     import cProfile
     prof = cProfile.Profile()
-    tmp_filename = '.' + filename
+
+    try_makedirs(PROFILE_DIR)
+    tmp_path = '%s/.%s' % (PROFILE_DIR, filename)
+    path = '%s/%s' % (PROFILE_DIR, filename)
 
     try:
-        os.remove(filename)
+        os.remove(path)
     except OSError:
         pass
 
     try:
         return _call_under_profiler(function, args, kwds, prof)
     finally:
-        prof.dump_stats(tmp_filename)
-        os.rename(tmp_filename, filename)
+        prof.dump_stats(tmp_path)
+        os.rename(tmp_path, path)
 
 # vim: et sw=4 sts=4
