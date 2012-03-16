@@ -454,6 +454,8 @@ class RemoteSlave(object):
                         ' longer alive.' % self.id)
                 return
 
+            logger.info('Sending assignment to slave %s: %s, %s'
+                    % (self.id, self._rpc_args[2], self._rpc_args[3]))
             try:
                 success = self._rpc_func(*self._rpc_args)
             except Fault as f:
