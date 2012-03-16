@@ -128,6 +128,9 @@ class MasterRunner(runner.TaskRunner):
 
     def schedule(self):
         """Check for any changed slaves and make task assignments."""
+        for dataset_id, task_index in self.slaves.get_failed_tasks():
+            self.task_lost(dataset_id, task_index)
+
         for slave, dataset_id, source, urls in self.slaves.get_results():
             try:
                 self.result_maps[dataset_id].add(slave, source)
@@ -333,7 +336,7 @@ class MasterInterface(object):
         """Slave failed to complete the task it was working on."""
         slave = self.slaves.get_slave(slave_id, cookie)
         if slave is not None:
-            logger.info('Slave %s reported failure of task: %s, %s'
+            logger.error('Slave %s reported failure of task: %s, %s'
                     % (slave_id, dataset_id, source))
             slave.update_timestamp()
             self.slaves.slave_failed(slave, dataset_id, source)
@@ -657,7 +660,8 @@ class Slaves(object):
         self._slaves = {}
 
         self._changed_slaves = set()
-        self._results = list()
+        self._failed_tasks = set()
+        self._results = []
 
     def trigger_sched(self):
         """Wakes up the runner for scheduling by sending it a byte."""
@@ -711,6 +715,7 @@ class Slaves(object):
         success = slave.set_assignment((dataset_id, task_index), None)
         assert success
         with self._lock:
+            self._failed_tasks.add((dataset_id, task_index))
             self._changed_slaves.add(slave)
         self.trigger_sched()
 
@@ -731,6 +736,13 @@ class Slaves(object):
         with self._lock:
             changed = self._changed_slaves
             self._changed_slaves = set()
+        return changed
+
+    def get_failed_tasks(self):
+        """Return and reset the list of changed slaves."""
+        with self._lock:
+            changed = self._failed_tasks
+            self._failed_tasks = set()
         return changed
 
     def disconnect_all(self):
