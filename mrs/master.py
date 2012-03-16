@@ -53,6 +53,9 @@ import logging
 logger = logging.getLogger('mrs')
 del logging
 
+INITIAL_PEON_THREADS = 4
+MAX_PEON_THREADS = 500
+
 
 class MasterRunner(runner.TaskRunner):
     """A TaskRunner that assigns tasks to remote slaves.
@@ -76,16 +79,17 @@ class MasterRunner(runner.TaskRunner):
         self.sched_pipe = None
 
     def run(self):
-        self.start_runqueue()
+        for i in xrange(INITIAL_PEON_THREADS):
+            self.start_peon_thread()
 
         self.sched_pipe, sched_write_pipe = os.pipe()
         self.event_loop.register_fd(self.sched_pipe, self.read_sched_pipe)
-        self.slaves = Slaves(sched_write_pipe, self.runqueue,
+        self.slaves = Slaves(sched_write_pipe, self.chore_queue,
                 self.opts.mrs__timeout, self.opts.mrs__pingdelay)
 
         try:
             self.start_rpc_server()
-            self.event_loop.run(timeout_function=self.maintain_runqueue)
+            self.event_loop.run(timeout_function=self.maintain_chore_queue)
         finally:
             self.slaves.disconnect_all()
         return self.exitcode
@@ -109,12 +113,12 @@ class MasterRunner(runner.TaskRunner):
             with open(self.opts.mrs__runfile, 'w') as f:
                 print_(port, file=f)
 
-    def maintain_runqueue(self):
-        """Maintains the runqueue and returns the timeout value for poll."""
-        timeleft = self.runqueue.time_to_reschedule()
+    def maintain_chore_queue(self):
+        """Maintains the chore_queue and returns the timeout value for poll."""
+        timeleft = self.chore_queue.time_to_reschedule()
         if (timeleft is not None) and (timeleft <= 0):
-            self.runqueue.reschedule()
-            timeleft = self.runqueue.time_to_reschedule()
+            self.chore_queue.reschedule()
+            timeleft = self.chore_queue.time_to_reschedule()
         return timeleft
 
     def read_sched_pipe(self):
@@ -158,6 +162,13 @@ class MasterRunner(runner.TaskRunner):
                 if assignment is not None:
                     dataset_id, task_index = assignment
                     self.task_lost(dataset_id, task_index)
+
+        # Add one peon thread for each new active slave (minus dead slaves).
+        if self.peon_thread_count < MAX_PEON_THREADS:
+            slave_count = len(self.slaves) - len(self.dead_slaves)
+            new_peon_thread_count = slave_count + INITIAL_PEON_THREADS
+            for i in xrange(new_peon_thread_count - self.peon_thread_count):
+                self.start_peon_thread()
 
         while self.idle_slaves:
             # find the next job to run
@@ -215,7 +226,7 @@ class MasterRunner(runner.TaskRunner):
         The delete parameter specifies whether the file should actually be
         removed from disk.
         """
-        self.runqueue.do(slave.remove, args=(dataset_id, source, delete))
+        self.chore_queue.do(slave.remove, args=(dataset_id, source, delete))
 
     def debug_status(self):
         super(MasterRunner, self).debug_status()
@@ -371,7 +382,7 @@ class RemoteSlave(object):
         self.port = port
         self.cookie = cookie
         self.slaves = slaves
-        self.runqueue = slaves.runqueue
+        self.chore_queue = slaves.chore_queue
         self.pingdelay = slaves.pingdelay
 
         uri = "http://%s:%s" % (host, port)
@@ -445,7 +456,7 @@ class RemoteSlave(object):
             assert self._rpc_args is None
             self._rpc_func = self._rpc.start_task
             self._rpc_args = task_args + (self.cookie,)
-        self.runqueue.do(self.send_assignment)
+        self.chore_queue.do(self.send_assignment)
 
     def send_assignment(self):
         with self._rpc_lock:
@@ -572,7 +583,7 @@ class RemoteSlave(object):
 
         if not self._rpc_lock.acquire(False):
             # RPC socket busy; try again soon.
-            self.runqueue.do(self.ping)
+            self.chore_queue.do(self.ping)
             self._schedule_ping(from_ping_method=True)
             return
         try:
@@ -615,13 +626,13 @@ class RemoteSlave(object):
                 return
             else:
                 self._ping_repeating = True
-        self.runqueue.do(self.ping, delay=delay)
+        self.chore_queue.do(self.ping, delay=delay)
 
     def disconnect(self, write_pipe=None):
         """Disconnect the slave by sending a quit request."""
         if self._state not in ('exiting', 'exited'):
             self._state = 'exiting'
-            self.runqueue.do(self.send_exit, (write_pipe,))
+            self.chore_queue.do(self.send_exit, (write_pipe,))
 
     def send_exit(self, write_pipe=None):
         with self._rpc_lock:
@@ -652,9 +663,9 @@ class RemoteSlave(object):
 
 class Slaves(object):
     """List of remote slaves."""
-    def __init__(self, sched_pipe, runqueue, rpc_timeout, pingdelay):
+    def __init__(self, sched_pipe, chore_queue, rpc_timeout, pingdelay):
         self._sched_pipe = sched_pipe
-        self.runqueue = runqueue
+        self.chore_queue = chore_queue
         self.rpc_timeout = rpc_timeout
         self.pingdelay = pingdelay
 
@@ -770,6 +781,10 @@ class Slaves(object):
                 if not slave.exited():
                     keep_going = True
                     break
+
+    def __len__(self):
+        """Returns the total number of slaves (including dead slaves)."""
+        return len(self._slaves)
 
 
 # vim: et sw=4 sts=4

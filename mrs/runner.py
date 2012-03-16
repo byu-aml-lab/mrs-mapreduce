@@ -32,13 +32,16 @@ import threading
 
 from six import print_
 from . import job
-from . import pool
+from . import peons
 from . import computed_data
 from . import util
 from . import worker
 
 import logging
 logger = logging.getLogger('mrs')
+del logging
+
+INITIAL_PEON_THREADS = 4
 
 
 class BaseRunner(object):
@@ -229,31 +232,28 @@ class TaskRunner(BaseRunner):
         self.tasklists = {}
         self.forward_links = collections.defaultdict(set)
 
-        self.runqueue = None
-        self.runqueue_pipe = None
+        self.chore_queue_pipe, chore_queue_write_pipe = os.pipe()
+        self.event_loop.register_fd(self.chore_queue_pipe,
+                self.read_chore_queue_pipe)
+        self.chore_queue = peons.ChoreQueue(chore_queue_write_pipe)
+        self.peon_thread_count = 0
 
-    def start_runqueue(self):
-        """Starts the RunQueue thread for asynchronous I/O-bound tasks.
+    def start_peon_thread(self):
+        """Starts a PeonThreads.
 
         Note that this method should only be called after all forking has
         completed.  Threads and forking do not play well together.
         """
-        self.runqueue_pipe, runqueue_write_pipe = os.pipe()
-        self.event_loop.register_fd(self.runqueue_pipe, self.read_runqueue_pipe)
-        self.runqueue = pool.RunQueue(runqueue_write_pipe)
-        threadpool = pool.ThreadPool(self.runqueue)
-        threadpool_thread = threading.Thread(target=threadpool.run,
-                name='Thread Pool')
-        threadpool_thread.daemon = True
-        threadpool_thread.start()
+        peons.start_peon_thread(self.chore_queue)
+        self.peon_thread_count += 1
 
-    def read_runqueue_pipe(self):
-        """Reads currently available data from runqueue_pipe.
+    def read_chore_queue_pipe(self):
+        """Reads currently available data from chore_queue_pipe.
 
         The actual data is ignored--the pipe is just a mechanism for
         interrupting the select loop if it's blocking.
         """
-        os.read(self.runqueue_pipe, 4096)
+        os.read(self.chore_queue_pipe, 4096)
 
     def compute_dataset(self, dataset):
         if self._runnable_or_pending(dataset):
@@ -367,7 +367,7 @@ class TaskRunner(BaseRunner):
         if dataset.permanent:
             dataset.clear()
         else:
-            self.runqueue.do(dataset.delete)
+            self.chore_queue.do(dataset.delete)
 
     def debug_status(self):
         super(TaskRunner, self).debug_status()
@@ -451,7 +451,8 @@ class MockParallelRunner(TaskRunner, worker.WorkerManager):
         self.current_task = None
 
     def run(self):
-        self.start_runqueue()
+        for i in xrange(INITIAL_PEON_THREADS):
+            self.start_peon_thread()
         self.worker_setup(self.opts, self.args, self.default_dir)
         self.schedule()
         self.event_loop.run()
