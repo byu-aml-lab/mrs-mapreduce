@@ -81,7 +81,7 @@ class Slave(worker.WorkerManager):
         self.url_converter = None
 
         self.setup_complete = False
-        self.current_request_id = None
+        self.current_task = None
         self._outdirs = {}
         self._outdirs_lock = threading.Lock()
 
@@ -185,7 +185,7 @@ class Slave(worker.WorkerManager):
 
         This is the callback after user_setup is called.
         """
-        assert self.current_request_id is None
+        assert self.current_task is None
 
         # TODO: make this try a few times if there's a timeout
         try:
@@ -208,8 +208,17 @@ class Slave(worker.WorkerManager):
                 self.cookie)
 
     def worker_failure(self, r):
-        """Called when a worker sends a WorkerSuccess."""
-        self.report_ready()
+        """Called when a worker sends a WorkerFailure."""
+        # TODO: make this try a few times if there's a timeout
+        try:
+            self.master_rpc.failed(self.id, r.dataset_id, r.task_index,
+                    self.cookie)
+        except socket.error as e:
+            msg = e.args[0]
+            logger.critical('Failed to report due to network error: %s' % msg)
+
+        logger.info('Reported failed to master.')
+        self.update_timestamp()
 
     def read_exit_pipe(self):
         self.event_loop.running = False

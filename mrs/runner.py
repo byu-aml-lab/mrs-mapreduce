@@ -446,7 +446,7 @@ class MockParallelRunner(TaskRunner, worker.WorkerManager):
         super(MockParallelRunner, self).__init__(*args)
 
         self.program = None
-        self.current_request_id = None
+        self.current_task = None
 
     def run(self):
         self.start_runqueue()
@@ -456,7 +456,7 @@ class MockParallelRunner(TaskRunner, worker.WorkerManager):
         return self.exitcode
 
     def schedule(self):
-        assert self.current_request_id is None
+        assert self.current_task is None
         next_task = self.next_task()
         if next_task is not None:
             dataset_id, task_index = next_task
@@ -473,6 +473,6 @@ class MockParallelRunner(TaskRunner, worker.WorkerManager):
 
     def worker_failure(self, r):
         """Called when a worker sends a WorkerSuccess."""
-        self.report_ready()
+        raise RuntimeError('Task failed')
 
 # vim: et sw=4 sts=4

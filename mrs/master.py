@@ -311,7 +311,7 @@ class MasterInterface(object):
     @http.uses_host
     def xmlrpc_done(self, slave_id, dataset_id, source, urls, cookie,
             host=None):
-        """Slave is done with whatever it was working on.
+        """Slave is done with the task it was working on.
 
         The output is available in the list of urls.
         """
@@ -324,6 +324,22 @@ class MasterInterface(object):
             return True
         else:
             logger.error('Invalid slave reported done (host %s, id %s).'
+                    % (host, slave_id))
+            return False
+
+    @http.uses_host
+    def xmlrpc_failed(self, slave_id, dataset_id, task_index, cookie,
+            host=None):
+        """Slave failed to complete the task it was working on."""
+        slave = self.slaves.get_slave(slave_id, cookie)
+        if slave is not None:
+            logger.info('Slave %s reported failure of task: %s, %s'
+                    % (slave_id, dataset_id, source))
+            slave.update_timestamp()
+            self.slaves.slave_failed(slave, dataset_id, source)
+            return True
+        else:
+            logger.error('Invalid slave reported failed (host %s, id %s).'
                     % (host, slave_id))
             return False
 
@@ -688,6 +704,13 @@ class Slaves(object):
         assert success
         with self._lock:
             self._results.append((slave, dataset_id, source, urls))
+            self._changed_slaves.add(slave)
+        self.trigger_sched()
+
+    def slave_failed(self, slave, dataset_id, task_index):
+        success = slave.set_assignment((dataset_id, task_index), None)
+        assert success
+        with self._lock:
             self._changed_slaves.add(slave)
         self.trigger_sched()
 

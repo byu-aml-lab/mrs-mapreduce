@@ -77,7 +77,10 @@ class WorkerQuitRequest(object):
 
 class WorkerFailure(object):
     """Failure response from worker."""
-    def __init__(self, exception, traceback, request_id):
+    def __init__(self, dataset_id, task_index, exception, traceback,
+            request_id):
+        self.dataset_id = dataset_id
+        self.task_index = task_index
         self.exception = exception
         self.traceback = traceback
         self.request_id = request_id
@@ -160,7 +163,8 @@ class Worker(object):
                     (request.dataset_id, request.task_index))
             request_id = request.id() if request else None
             tb = traceback.format_exc()
-            response = WorkerFailure(e, tb, request_id)
+            response = WorkerFailure(request.dataset_id, request.task_index,
+                    e, tb, request_id)
 
         if response:
             self.request_pipe.send(response)
@@ -181,7 +185,7 @@ class WorkerManager(object):
     """Mixin class that provides methods for dealing with Workers.
 
     Assumes that a worker_pipe attribute is defined and that read_worker_pipe
-    is called when data is available.  Also assumes that a current_request_id
+    is called when data is available.  Also assumes that a current_task
     attribute is available.
     """
     def worker_setup(self, opts, args, default_dir):
@@ -203,9 +207,13 @@ class WorkerManager(object):
         """Reads a single response from the worker pipe."""
 
         r = self.worker_pipe.recv()
+        if not (isinstance(r, WorkerSuccess) or isinstance(r, WorkerFailure)):
+            assert False, 'Unexpected response type'
+
+        assert self.current_task == (r.dataset_id, r.task_index)
+        self.current_task = None
+
         if isinstance(r, WorkerSuccess):
-            assert self.current_request_id == r.request_id
-            self.current_request_id = None
             self.worker_success(r)
         elif isinstance(r, WorkerFailure):
             msg = 'Exception in Worker: %s' % r.exception
@@ -213,11 +221,7 @@ class WorkerManager(object):
             msg = 'Traceback: %s' % r.traceback
             logger.error(msg)
 
-            if self.current_request_id == r.request_id:
-                self.current_request_id = None
-                self.worker_failure(r)
-        else:
-            assert False
+            self.worker_failure(r)
 
     def submit_request(self, request):
         """Submit the given request to the worker.
@@ -229,19 +233,19 @@ class WorkerManager(object):
         Called from the RPC thread.
         """
         if isinstance(request, WorkerTaskRequest):
-            if self.current_request_id is not None:
+            if self.current_task is not None:
                 return False
-            self.current_request_id = request.id()
+            self.current_task = (request.dataset_id, request.task_index)
 
         self.worker_pipe.send(request)
         return True
 
-    def worker_success(self, r):
-        """Called when a worker sends a WorkerSuccess for the current task."""
+    def worker_success(self, response):
+        """Called when a worker sends a WorkerSuccess for the given task."""
         raise NotImplementedError
 
-    def worker_failure(self, r):
-        """Called when a worker sends a WorkerFailure for the current task."""
+    def worker_failure(self, response):
+        """Called when a worker sends a WorkerFailure for the given task."""
         raise NotImplementedError
 
 # vim: et sw=4 sts=4
