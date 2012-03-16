@@ -301,9 +301,8 @@ class RemoteData(BaseDataset):
         for bucket in self[:, :]:
             url = bucket.url
             if url:
-                reader = fileformats.open_url(url)
-                bucket.collect(reader)
-                reader.finish()
+                with fileformats.open_url(url) as reader:
+                    bucket.collect(reader)
 
         self._fetched = True
 

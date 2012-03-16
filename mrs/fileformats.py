@@ -72,7 +72,8 @@ class Writer(object):
 class Reader(object):
     """A reader takes a file-like object and iterates over key-value pairs.
 
-    Readers do not close the file object.
+    A Reader closes the file object if the close method is called or if it
+    is used as a context manager (with the "with" statement).
 
     This class is abstract.
     """
@@ -82,8 +83,14 @@ class Reader(object):
     def __iter__(self, kvpair):
         raise NotImplementedError
 
-    def finish(self):
-        pass
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.close()
+
+    def close(self):
+        self.fileobj.close()
 
 
 class LineReader(Reader):
@@ -195,7 +202,7 @@ class BinReader(Reader):
         if not self._magic_read:
             buf = self.fileobj.read(len(self.magic))
             if buf != self.magic:
-                raise RuntimeError('Invalid file header: %s'
+                raise RuntimeError('Invalid file header: "%s"'
                     % buf.encode('hex_codec'))
             self._magic_read = True
 
@@ -268,10 +275,9 @@ class ZipReader(BinReader):
         fileobj = gzip.GzipFile(fileobj=fileobj, mode='rb')
         super(ZipReader, self).__init__(fileobj)
 
-    def finish(self):
+    def close(self):
         # Close the gzip file (which does not close the underlying file).
         self.fileobj.close()
-
         self.original_file.close()
 
 

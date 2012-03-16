@@ -214,7 +214,7 @@ class WriteBucket(ReadBucket):
         super(WriteBucket, self).clean()
         self._data = None
         if self.url:
-            os.remove(parsed_url.path)
+            os.remove(self.url)
 
 
 class URLConverter(object):
