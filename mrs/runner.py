@@ -168,6 +168,7 @@ class BaseRunner(object):
             if getattr(dependent_ds, 'computing', False):
                 return
 
+        logger.debug('Closing dataset: %s' % dataset_id)
         ds.close()
         self.close_requests.remove(dataset_id)
 
@@ -190,6 +191,7 @@ class BaseRunner(object):
 
         deplist = self.data_dependents[dataset_id]
         if not deplist:
+            logger.debug('Removing dataset: %s' % dataset_id)
             self.remove_dataset(ds)
             del self.datasets[dataset_id]
             del self.data_dependents[dataset_id]

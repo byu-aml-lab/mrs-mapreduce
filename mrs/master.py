@@ -454,7 +454,7 @@ class RemoteSlave(object):
                         ' longer alive.' % self.id)
                 return
 
-            logger.info('Sending assignment to slave %s: %s, %s'
+            logger.debug('Sending assignment to slave %s: %s, %s'
                     % (self.id, self._rpc_args[2], self._rpc_args[3]))
             try:
                 success = self._rpc_func(*self._rpc_args)
@@ -575,8 +575,8 @@ class RemoteSlave(object):
             self.runqueue.do(self.ping)
             self._schedule_ping(from_ping_method=True)
             return
-
         try:
+            logger.debug('Sending ping to slave %s.' % self.id)
             self._rpc.ping(self.cookie)
             success = True
         except Fault as f:
@@ -609,6 +609,7 @@ class RemoteSlave(object):
         Ensures that the ping keeps repeating, i.e., when a ping finishes,
         a new ping is immediately scheduled.
         """
+        logger.debug('Scheduling a ping to slave %s.' % self.id)
         if not from_ping_method:
             if self._ping_repeating:
                 return
