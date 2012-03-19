@@ -397,9 +397,9 @@ class RemoteSlave(object):
         # The `_state` is either 'alive', 'failed', 'exiting', or 'exited'
         self._state = 'alive'
 
-        # The ping_repeating variable assures that only one ping "task" is
+        # The pinging_active variable assures that only one ping "task" is
         # active at a time.
-        self._ping_repeating = False
+        self._pinging_active = False
         self._pinglock = threading.Lock()
         self._schedule_ping(self.pingdelay)
         self.update_timestamp()
@@ -561,9 +561,14 @@ class RemoteSlave(object):
 
     def resurrect(self):
         if self._state == 'failed':
-            logger.warning('Slave %s (%s): resurrected' % (self.id, self.host))
+            logger.warning('Resurrected slave %s (%s)' %
+                    (self.id, self.host))
             with self._pinglock:
                 self._state = 'alive'
+                restart_pinging = not self._pinging_active
+                if restart_pinging:
+                    self._pinging_active = True
+            if restart_pinging:
                 self._schedule_ping(self.pingdelay)
             return True
         else:
@@ -571,21 +576,25 @@ class RemoteSlave(object):
 
     def ping(self):
         """Ping the slave and schedule a follow-up ping."""
-        with self._pinglock:
-            if not self.alive():
-                self._ping_repeating = False
-                return
+        # The only place where we can change from not alive to alive is in
+        # resurrect, which holds the pinglock to ensure that we don't
+        # accidentally stop pinging during a resurrect.
+        if not self.alive():
+            with self._pinglock:
+                if not self.alive():
+                    self._pinging_active = False
+                    return
 
         delta = time.time() - self.timestamp
         if delta < self.pingdelay:
-            self._schedule_ping(self.pingdelay - delta, from_ping_method=True)
+            self._schedule_ping(self.pingdelay - delta)
             return
 
         if not self._rpc_lock.acquire(False):
-            # RPC socket busy; try again soon.
-            self.chore_queue.do(self.ping)
-            self._schedule_ping(from_ping_method=True)
+            # RPC socket busy; try again later.
+            self._schedule_ping(self.pingdelay)
             return
+
         try:
             logger.debug('Sending ping to slave %s.' % self.id)
             self._rpc.ping(self.cookie)
@@ -610,22 +619,20 @@ class RemoteSlave(object):
 
         if success:
             self.update_timestamp()
-            self._schedule_ping(self.pingdelay, from_ping_method=True)
+            self._schedule_ping(self.pingdelay)
         else:
+            # Mark pinging as inactive _before_ setting slave as failed.
+            self._pinging_active = False
             self.critical_failure()
 
-    def _schedule_ping(self, delay=None, from_ping_method=False):
+    def _schedule_ping(self, delay=None):
         """Schedules a ping to occur after the given delay.
 
         Ensures that the ping keeps repeating, i.e., when a ping finishes,
         a new ping is immediately scheduled.
         """
         logger.debug('Scheduling a ping to slave %s.' % self.id)
-        if not from_ping_method:
-            if self._ping_repeating:
-                return
-            else:
-                self._ping_repeating = True
+        self._pinging_active = True
         self.chore_queue.do(self.ping, delay=delay)
 
     def disconnect(self, write_pipe=None):
