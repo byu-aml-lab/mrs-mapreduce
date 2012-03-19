@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # Mrs Fulton -- run Mrs programs on Marylou4 (BYU's supercomputer)
-# Copyright 2008-2011 Brigham Young University
+# Copyright 2008-2012 Brigham Young University
 #
 # This file is part of Mrs.
 #
@@ -34,13 +34,12 @@
 
 from __future__ import division
 
-PYTHON="/fslapps/Python-2.6.2/bin/python2.6"
-#PYTHON = "python2.6"
+PYTHON="/usr/bin/python2.6"
 INTERFACES = "ib0 eth1 eth0"
 RUN_DIRECTORY = "$HOME/compute/run"
 
 QSUB_NAME_DEFAULT = "mrs_fulton"
-QSUB_NAME_LEN = 15
+QSUB_NAME_MAXLEN = 15
 QSUB_NAME_MASTER = "_M"
 QSUB_NAME_SLAVE = "_S"
 
@@ -51,8 +50,8 @@ def main():
     parser = create_parser()
     options, args = parser.parse_args()
 
-    max_len = QSUB_NAME_LEN - max(len(QSUB_NAME_MASTER), len(QSUB_NAME_SLAVE))
-    if len(options.name) <= max_len:
+    suffix_len = max(len(QSUB_NAME_MASTER), len(QSUB_NAME_SLAVE))
+    if len(options.name) + suffix_len <= QSUB_NAME_MAXLEN:
         name = options.name
     else:
         parser.error('NAME is too long.')
@@ -93,8 +92,7 @@ def main():
     arg_array = "(%s)" % " ".join(quoted_args)
     script_vars = dict(python=PYTHON, program=mrs_program,
             arg_array=arg_array, interfaces=INTERFACES, jobdir=jobdir,
-            current_dir=current_dir, output=options.output,
-            timeout=options.timeout)
+            current_dir=current_dir, output=options.output)
 
     print "Submitting master job...",
     jobid = submit_master(name, script_vars, cmdline, jobdir)
@@ -126,7 +124,6 @@ def submit_master(name, script_vars, cmdline, jobdir):
         ARGS=%(arg_array)s
         INTERFACES="%(interfaces)s"
         OUTPUT="%(output)s"
-        TIMEOUT="%(timeout)s"
 
         HOST_FILE="$JOBDIR/host.$PBS_JOBID"
         PORT_FILE="$JOBDIR/port.$PBS_JOBID"
@@ -148,9 +145,8 @@ def submit_master(name, script_vars, cmdline, jobdir):
         fi
 
         # Master
-        $PYTHON $MRS_PROGRAM --mrs=Master --mrs-shared="$JOBDIR" \
-                --mrs-runfile="$PORT_FILE" --mrs-timeout="$TIMEOUT" \
-                --mrs-pingdelay="$TIMEOUT" ${ARGS[@]} >$OUTPUT
+        $PYTHON $MRS_PROGRAM --mrs=Master --mrs-runfile="$PORT_FILE" \
+                ${ARGS[@]} >$OUTPUT
         ''' % script_vars
 
     cmdline = list(cmdline)
@@ -182,7 +178,6 @@ def submit_slave(name, script_vars, cmdline, jobdir, master_jobid):
         PYTHON="%(python)s"
         MRS_PROGRAM="%(program)s"
         MASTER_JOBID="%(master_jobid)s"
-        TIMEOUT="%(timeout)s"
 
         HOST_FILE="$JOBDIR/host.$MASTER_JOBID"
         PORT_FILE="$JOBDIR/port.$MASTER_JOBID"
@@ -191,8 +186,7 @@ def submit_slave(name, script_vars, cmdline, jobdir, master_jobid):
         while [[ ! -e $PORT_FILE ]]; do sleep 1; done
         PORT=$(cat $PORT_FILE)
         HOST=$(cat $HOST_FILE)
-        $PYTHON $MRS_PROGRAM --mrs=Slave --mrs-master="$HOST:$PORT" \
-                --mrs-timeout="$TIMEOUT" --mrs-pingdelay="$TIMEOUT"
+        $PYTHON $MRS_PROGRAM --mrs=Slave --mrs-master="$HOST:$PORT"
         ''' % script_vars
 
     # Don't print jobid to stdout
@@ -244,8 +238,6 @@ def create_parser():
     parser.add_option('-n', dest='n', help='Number of slaves', type='int')
     parser.add_option('-N', '--name', dest='name', help='Name of job')
     parser.add_option('-o', '--output', dest='output', help='Output directory')
-    parser.add_option('--timeout', dest='timeout',
-            help='Timeout for RPC calls and pings')
     parser.add_option('-t', '--time', dest='time', type='float',
             help='Wallclock time (in hours)')
 
