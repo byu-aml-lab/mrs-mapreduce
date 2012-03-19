@@ -62,6 +62,9 @@ def main():
     if options.time is None:
         parser.error('TIME must be specified')
 
+    if options.memory is None:
+        parser.error('MEMORY must be specified')
+
     # Extract Mrs program and its command-line arguments/options
     if len(args) >= 1:
         mrs_program = args[0]
@@ -84,7 +87,8 @@ def main():
 
     # Common command line arguments to qsub:
     time = walltime(options.time)
-    cmdline = ['qsub', '-l', 'nodes=1:ppn=1,walltime=%s' % time]
+    cmdline = ['qsub', '-l', 'nodes=1:ppn=1,walltime=%s,pmem=%sgb' %
+            (time, options.memory)]
 
     # Variables for the job script:
     current_dir = os.getcwd()
@@ -240,6 +244,8 @@ def create_parser():
     parser.add_option('-o', '--output', dest='output', help='Output directory')
     parser.add_option('-t', '--time', dest='time', type='float',
             help='Wallclock time (in hours)')
+    parser.add_option('-m', '--memory', dest='memory', type='int',
+            help='Amount of memory per node (in GB)')
 
     parser.set_defaults(n=1, name=QSUB_NAME_DEFAULT)
     return parser
