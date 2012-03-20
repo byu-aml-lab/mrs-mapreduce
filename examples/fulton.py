@@ -34,7 +34,7 @@
 
 from __future__ import division
 
-PYTHON="/usr/bin/python2.6"
+DEFAULT_INTERPRETER = "/usr/bin/python"
 INTERFACES = "ib0 eth1 eth0"
 RUN_DIRECTORY = "$HOME/compute/run"
 
@@ -94,7 +94,7 @@ def main():
     current_dir = os.getcwd()
     quoted_args = ['"%s"' % arg.replace('"', r'\"') for arg in mrs_args]
     arg_array = "(%s)" % " ".join(quoted_args)
-    script_vars = dict(python=PYTHON, program=mrs_program,
+    script_vars = dict(python=options.interpreter, program=mrs_program,
             arg_array=arg_array, interfaces=INTERFACES, jobdir=jobdir,
             current_dir=current_dir, output=options.output)
 
@@ -247,6 +247,8 @@ def create_parser():
             help='Wallclock time (in hours)')
     parser.add_option('-m', '--memory', dest='memory', type='int',
             help='Amount of memory per node (in GB)')
+    parser.add_option('--interpreter', dest='interpreter', action='store',
+            help='Python interpreter to run', default=DEFAULT_INTERPRETER)
 
     parser.set_defaults(n=1, name=QSUB_NAME_DEFAULT)
     return parser
