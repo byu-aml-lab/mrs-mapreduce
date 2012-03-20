@@ -149,6 +149,7 @@ def submit_master(name, script_vars, cmdline, jobdir):
         fi
 
         # Master
+        mkdir -p $(dirname "$OUTPUT")
         $PYTHON $MRS_PROGRAM --mrs=Master --mrs-runfile="$PORT_FILE" \
                 ${ARGS[@]} >$OUTPUT
         ''' % script_vars
