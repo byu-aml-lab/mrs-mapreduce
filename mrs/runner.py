@@ -23,7 +23,6 @@
 """Mrs Runner"""
 
 import collections
-import errno
 import multiprocessing
 import os
 from six.moves import xrange as range

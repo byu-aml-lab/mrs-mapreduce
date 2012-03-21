@@ -24,6 +24,7 @@
 
 from __future__ import division
 
+import errno
 import math
 import os
 import random
