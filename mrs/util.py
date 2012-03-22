@@ -101,7 +101,6 @@ def try_makedirs(path):
     try:
         os.makedirs(path)
     except OSError as e:
-        import errno
         if e.errno != errno.EEXIST:
             raise
 
