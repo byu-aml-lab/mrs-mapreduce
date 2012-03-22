@@ -22,14 +22,12 @@
 # Licensing Office, Brigham Young University, 3760 HBLL, Provo, UT 84602,
 # (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
 
+"""Script for submitting jobs to a PBS scheduler.
 
-################################################################################
-#
-# This file is not meant to be a completely working example; We've used it to
-# submit MapReduce jobs to Brigham Young University's Fulton Supercomputing Lab.
-# It is included just as a helpful example.
-#
-################################################################################
+This file is not meant to be a completely working example; We've used it to
+submit MapReduce jobs to Brigham Young University's Fulton Supercomputing Lab.
+It is included just as a helpful example.
+"""
 
 
 from __future__ import division
@@ -87,8 +85,14 @@ def main():
 
     # Common command line arguments to qsub:
     time = walltime(options.time)
-    cmdline = ['qsub', '-l', 'nodes=1:ppn=1,walltime=%s,pmem=%sgb' %
+    singleproc_cmdline = ['qsub', '-l', 'nodes=1:ppn=1,walltime=%s,pmem=%sgb' %
             (time, options.memory)]
+    # TODO: set 'synccount' on the master and set some slaves to 'syncwith'
+    # the master.
+    # TODO: when each slave is able to use multiple processors (with multiple
+    # worker subprocesses), change `ppn` accordingly.
+    multiproc_cmdline = ['qsub', '-l', 'nodes=%s:ppn=1,walltime=%s,pmem=%sgb' %
+            (options.slaves_per_job, time, options.memory)]
 
     # Variables for the job script:
     current_dir = os.getcwd()
@@ -99,14 +103,17 @@ def main():
             current_dir=current_dir, output=options.output)
 
     print "Submitting master job...",
-    jobid = submit_master(name, script_vars, cmdline, jobdir)
+    jobid = submit_master(name, script_vars, singleproc_cmdline, jobdir)
     print " done."
     print "Master jobid:", jobid
 
     script_vars['master_jobid'] = jobid
 
-    for i in xrange(options.n):
-        submit_slave(name, script_vars, cmdline, jobdir, jobid)
+    print "Submitting slave jobs...",
+    for i in xrange(options.nslaves // options.slaves_per_job):
+        submit_slavejob(name, script_vars, multiproc_cmdline, jobdir, jobid)
+    for i in xrange(options.nslaves % options.slaves_per_job):
+        submit_slavejob(name, script_vars, singleproc_cmdline, jobdir, jobid)
 
 
 def submit_master(name, script_vars, cmdline, jobdir):
@@ -171,8 +178,8 @@ def submit_master(name, script_vars, cmdline, jobdir):
     return jobid
 
 
-def submit_slave(name, script_vars, cmdline, jobdir, master_jobid):
-    """Submit a single slave to PBS using qsub."""
+def submit_slavejob(name, script_vars, cmdline, jobdir, master_jobid):
+    """Submit a single slave job to PBS using qsub."""
 
     script = r'''#!/bin/bash
         . $HOME/.bashrc
@@ -226,8 +233,7 @@ def walltime(time):
     return ":".join(map(str, (hours, minutes, seconds)))
 
 
-USAGE = (""
-"""%prog [OPTIONS] -- MRS_PROGRAM [PROGRAM_OPTIONS]
+USAGE = ("""%prog [OPTIONS] -- MRS_PROGRAM [PROGRAM_OPTIONS]
 
 Mrs Fulton uses qsub to submit a Mrs program to the supercomputer.  The given
 MRS_PROGRAM runs with the given PROGRAM_OPTIONS.  These options should not
@@ -240,13 +246,16 @@ def create_parser():
     # We don't want options intended for the Mrs Program to go to Mrs Fulton.
     parser.disable_interspersed_args()
 
-    parser.add_option('-n', dest='n', help='Number of slaves', type='int')
+    parser.add_option('-n', dest='nslaves', type='int',
+            help='Number of slaves')
     parser.add_option('-N', '--name', dest='name', help='Name of job')
     parser.add_option('-o', '--output', dest='output', help='Output directory')
     parser.add_option('-t', '--time', dest='time', type='float',
             help='Wallclock time (in hours)')
     parser.add_option('-m', '--memory', dest='memory', type='int',
             help='Amount of memory per node (in GB)')
+    parser.add_option('-s', dest='slaves_per_job', type='int',
+            help='Number of slaves in each PBS job', default=10)
     parser.add_option('--interpreter', dest='interpreter', action='store',
             help='Python interpreter to run', default=DEFAULT_INTERPRETER)
 
