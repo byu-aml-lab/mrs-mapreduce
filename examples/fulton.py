@@ -111,9 +111,9 @@ def main():
 
     print "Submitting slave jobs...",
     for i in xrange(options.nslaves // options.slaves_per_job):
-        submit_slavejob(name, script_vars, multiproc_cmdline, jobdir, jobid)
+        submit_slavejob(i, name, script_vars, multiproc_cmdline, jobdir, jobid)
     for i in xrange(options.nslaves % options.slaves_per_job):
-        submit_slavejob(name, script_vars, singleproc_cmdline, jobdir, jobid)
+        submit_slavejob(i, name, script_vars, singleproc_cmdline, jobdir, jobid)
 
 
 def submit_master(name, script_vars, cmdline, jobdir):
@@ -138,6 +138,7 @@ def submit_master(name, script_vars, cmdline, jobdir):
 
         HOST_FILE="$JOBDIR/host.$PBS_JOBID"
         PORT_FILE="$JOBDIR/port.$PBS_JOBID"
+        STDERR_FILE="$JOBDIR/master-stderr.$PBS_JOBID"
 
         # Run /sbin/ip and extract everything between "inet " and "/" (i.e.
         # the IP address but not the netmask).  Note that we use a semi-colon
@@ -158,13 +159,13 @@ def submit_master(name, script_vars, cmdline, jobdir):
         # Master
         mkdir -p $(dirname "$OUTPUT")
         $PYTHON $MRS_PROGRAM --mrs=Master --mrs-runfile="$PORT_FILE" \
-                ${ARGS[@]} >$OUTPUT
+                ${ARGS[@]} >$OUTPUT 2>$STDERR_FILE
         ''' % script_vars
 
     cmdline = list(cmdline)
     cmdline += ['-N', name + QSUB_NAME_MASTER]
-    outfile = os.path.join(jobdir, 'master_stdout')
-    errfile = os.path.join(jobdir, 'master_stderr')
+    outfile = os.path.join(jobdir, 'pbs_master_stdout')
+    errfile = os.path.join(jobdir, 'pbs_master_stderr')
     cmdline += ['-o', outfile, '-e', errfile]
 
     # Submit
@@ -178,7 +179,7 @@ def submit_master(name, script_vars, cmdline, jobdir):
     return jobid
 
 
-def submit_slavejob(name, script_vars, cmdline, jobdir, master_jobid):
+def submit_slavejob(i, name, script_vars, cmdline, jobdir, master_jobid):
     """Submit a single slave job to PBS using qsub."""
 
     script = r'''#!/bin/bash
@@ -210,8 +211,8 @@ def submit_slavejob(name, script_vars, cmdline, jobdir, master_jobid):
     #dependency = 'after:%s' % master_jobid
     #cmdline += ['-W', 'depend=%s' % dependency]
     # Set stdout and stderr:
-    outfile = os.path.join(jobdir, 'slave_stdout')
-    errfile = os.path.join(jobdir, 'slave_stderr')
+    outfile = os.path.join(jobdir, 'slave-job-%s.out' % i)
+    errfile = os.path.join(jobdir, 'slave-job-%s.err' % i)
     cmdline += ['-o', outfile, '-e', errfile]
 
     # Submit
