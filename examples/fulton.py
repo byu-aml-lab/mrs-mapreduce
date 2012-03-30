@@ -70,7 +70,7 @@ def main():
     else:
         parser.error('MRS_PROGRAM not specified.')
 
-    if os.path.exists(options.output):
+    if not options.force and os.path.exists(options.output):
         print >>sys.stderr, "Output file already exists:", options.output
         sys.exit(-1)
 
@@ -258,6 +258,8 @@ def create_parser():
             help='Number of slaves in each PBS job', default=10)
     parser.add_option('--interpreter', dest='interpreter', action='store',
             help='Python interpreter to run', default=DEFAULT_INTERPRETER)
+    parser.add_option('-f', dest='force', action='store_true',
+            help='Force output, even if the output file already exists')
 
     parser.set_defaults(n=1, name=QSUB_NAME_DEFAULT)
     return parser
