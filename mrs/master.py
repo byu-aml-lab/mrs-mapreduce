@@ -153,7 +153,7 @@ class MasterRunner(runner.TaskRunner):
             if slave.alive():
                 self.dead_slaves.discard(slave)
                 if not slave.busy():
-                    logger.info('Adding slave %s to idle_slaves.' % slave.id)
+                    logger.debug('Adding slave %s to idle_slaves.' % slave.id)
                     self.idle_slaves.add(slave)
             else:
                 self.dead_slaves.add(slave)
@@ -313,7 +313,7 @@ class MasterInterface(object):
         """Slave is ready for work."""
         slave = self.slaves.get_slave(slave_id, cookie)
         if slave is not None:
-            logger.info('Slave %s ready.' % slave_id)
+            logger.debug('Slave %s ready.' % slave_id)
             slave.update_timestamp()
             self.slaves.slave_ready(slave)
             return True
@@ -331,7 +331,7 @@ class MasterInterface(object):
         """
         slave = self.slaves.get_slave(slave_id, cookie)
         if slave is not None:
-            logger.info('Slave %s reported completion of task: %s, %s'
+            logger.debug('Slave %s reported completion of task: %s, %s'
                     % (slave_id, dataset_id, source))
             slave.update_timestamp()
             self.slaves.slave_result(slave, dataset_id, source, urls)
@@ -445,7 +445,7 @@ class RemoteSlave(object):
         assert success
         dataset_id, task_index = assignment
 
-        logger.info('Assigning task to slave %s: %s, %s'
+        logger.debug('Assigning task to slave %s: %s, %s'
                 % (self.id, dataset_id, task_index))
 
         dataset = datasets[dataset_id]
@@ -502,7 +502,7 @@ class RemoteSlave(object):
                 # requests are still pending--this isn't really a bad thing.
                 return
 
-            logger.info('Sending remove request to slave %s: %s, %s'
+            logger.debug('Sending remove request to slave %s: %s, %s'
                     % (self.id, dataset_id, source))
             try:
                 self._rpc.remove(dataset_id, source, delete, self.cookie)
@@ -644,7 +644,7 @@ class RemoteSlave(object):
     def send_exit(self, write_pipe=None):
         with self._rpc_lock:
             try:
-                logger.info('Sending a exit request to slave %s' % self.id)
+                logger.debug('Sending a exit request to slave %s' % self.id)
                 self._rpc.exit(self.cookie)
             except Fault as f:
                 logger.error('Fault in exit to slave %s: %s'

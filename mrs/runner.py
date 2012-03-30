@@ -275,7 +275,7 @@ class TaskRunner(BaseRunner):
 
     def make_tasklist(self, ds):
         """Makes a tasklist for the given dataset."""
-        logger.info('Making tasks for dataset: %s' % ds.id)
+        logger.info('Starting work on dataset: %s' % ds.id)
         assert ds.computing, "can't make tasks for a completed dataset"
         tasklist = TaskList(ds, self.datasets[ds.input_id])
         self.tasklists[ds.id] = tasklist
