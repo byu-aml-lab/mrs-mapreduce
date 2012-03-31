@@ -86,22 +86,22 @@ def main():
     # Common command line arguments to qsub:
     time = walltime(options.time)
     nodespec = 'nodes=1:ppn=1'
-    if opts.nodespec:
-        nodespec = '%s:%s' % opts.nodespec
+    if options.nodespec:
+        nodespec = '%s:%s' % options.nodespec
     resources = '%s,walltime=%s,pmem=%sgb' % (nodespec, time, options.memory)
-    if opts.resources:
-        resources = '%s,%s' % (resources, opts.resources)
+    if options.resources:
+        resources = '%s,%s' % (resources, options.resources)
     singleproc_cmdline = ['qsub', '-l', resources]
     # TODO: set 'synccount' on the master and set some slaves to 'syncwith'
     # the master.
     # TODO: when each slave is able to use multiple processors (with multiple
     # worker subprocesses), change `ppn` accordingly.
     nodespec = 'nodes=%s:ppn=1' % options.slaves_per_job
-    if opts.nodespec:
-        nodespec = '%s:%s' % opts.nodespec
+    if options.nodespec:
+        nodespec = '%s:%s' % options.nodespec
     resources = '%s,walltime=%s,pmem=%sgb' % (nodespec, time, options.memory)
-    if opts.resources:
-        resources = '%s,%s' % (resources, opts.resources)
+    if options.resources:
+        resources = '%s,%s' % (resources, options.resources)
     multiproc_cmdline = ['qsub', '-l', resources]
 
     # Variables for the job script:
