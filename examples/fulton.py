@@ -199,7 +199,10 @@ def submit_slavejob(i, name, script_vars, cmdline, jobdir, master_jobid):
         while [[ ! -e $PORT_FILE ]]; do sleep 1; done
         PORT=$(cat $PORT_FILE)
         HOST=$(cat $HOST_FILE)
-        $PYTHON $MRS_PROGRAM --mrs=Slave --mrs-master="$HOST:$PORT"
+
+        echo "Connecting to master on '$HOST:$PORT'"
+
+        pbsdsh $PYTHON $MRS_PROGRAM --mrs=Slave --mrs-master="$HOST:$PORT"
         ''' % script_vars
 
     # Don't print jobid to stdout
