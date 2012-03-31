@@ -85,14 +85,24 @@ def main():
 
     # Common command line arguments to qsub:
     time = walltime(options.time)
-    singleproc_cmdline = ['qsub', '-l', 'nodes=1:ppn=1,walltime=%s,pmem=%sgb' %
-            (time, options.memory)]
+    nodespec = 'nodes=1:ppn=1'
+    if opts.nodespec:
+        nodespec = '%s:%s' % opts.nodespec
+    resources = '%s,walltime=%s,pmem=%sgb' % (nodespec, time, options.memory)
+    if opts.resources:
+        resources = '%s,%s' % (resources, opts.resources)
+    singleproc_cmdline = ['qsub', '-l', resources]
     # TODO: set 'synccount' on the master and set some slaves to 'syncwith'
     # the master.
     # TODO: when each slave is able to use multiple processors (with multiple
     # worker subprocesses), change `ppn` accordingly.
-    multiproc_cmdline = ['qsub', '-l', 'nodes=%s:ppn=1,walltime=%s,pmem=%sgb' %
-            (options.slaves_per_job, time, options.memory)]
+    nodespec = 'nodes=%s:ppn=1' % options.slaves_per_job
+    if opts.nodespec:
+        nodespec = '%s:%s' % opts.nodespec
+    resources = '%s,walltime=%s,pmem=%sgb' % (nodespec, time, options.memory)
+    if opts.resources:
+        resources = '%s,%s' % (resources, opts.resources)
+    multiproc_cmdline = ['qsub', '-l', resources]
 
     # Variables for the job script:
     current_dir = os.getcwd()
@@ -265,6 +275,10 @@ def create_parser():
             help='Python interpreter to run', default=DEFAULT_INTERPRETER)
     parser.add_option('-f', dest='force', action='store_true',
             help='Force output, even if the output file already exists')
+    parser.add_option('--nodespec', dest='nodespec',
+            help='Extra node spec options (colon-separated PBS syntax)')
+    parser.add_option('-l', '--resource-list', dest='resource_list',
+            help='Extra resource requests (comma-separated PBS syntax)')
 
     parser.set_defaults(n=1, name=QSUB_NAME_DEFAULT)
     return parser
