@@ -156,7 +156,7 @@ class Slave(worker.WorkerManager):
             slave_id, addr, jobdir, optdict, args = self.master_rpc.signin(
                     __version__, cookie, self.rpc_port, program_hash)
         except socket.error as e:
-            msg = e.args[1]
+            msg = str(e)
             logger.critical('Unable to contact master: %s' % msg)
             return None
 
