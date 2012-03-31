@@ -202,7 +202,8 @@ def submit_slavejob(i, name, script_vars, cmdline, jobdir, master_jobid):
 
         echo "Connecting to master on '$HOST:$PORT'"
 
-        pbsdsh $PYTHON $MRS_PROGRAM --mrs=Slave --mrs-master="$HOST:$PORT"
+        pbsdsh bash -i \
+            -c "$PYTHON $MRS_PROGRAM --mrs=Slave --mrs-master='$HOST:$PORT'"
         ''' % script_vars
 
     # Don't print jobid to stdout
