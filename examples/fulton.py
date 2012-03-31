@@ -89,8 +89,8 @@ def main():
     if options.nodespec:
         nodespec = '%s:%s' % (nodespec, options.nodespec)
     resources = '%s,walltime=%s,pmem=%sgb' % (nodespec, time, options.memory)
-    if options.resources:
-        resources = '%s,%s' % (resources, options.resources)
+    if options.resource_list:
+        resources = '%s,%s' % (resources, options.resource_list)
     singleproc_cmdline = ['qsub', '-l', resources]
     # TODO: set 'synccount' on the master and set some slaves to 'syncwith'
     # the master.
@@ -100,8 +100,8 @@ def main():
     if options.nodespec:
         nodespec = '%s:%s' % (nodespec, options.nodespec)
     resources = '%s,walltime=%s,pmem=%sgb' % (nodespec, time, options.memory)
-    if options.resources:
-        resources = '%s,%s' % (resources, options.resources)
+    if options.resource_list:
+        resources = '%s,%s' % (resources, options.resource_list)
     multiproc_cmdline = ['qsub', '-l', resources]
 
     # Variables for the job script:
