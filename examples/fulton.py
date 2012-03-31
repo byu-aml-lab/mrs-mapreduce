@@ -87,7 +87,7 @@ def main():
     time = walltime(options.time)
     nodespec = 'nodes=1:ppn=1'
     if options.nodespec:
-        nodespec = '%s:%s' % options.nodespec
+        nodespec = '%s:%s' % (nodespec, options.nodespec)
     resources = '%s,walltime=%s,pmem=%sgb' % (nodespec, time, options.memory)
     if options.resources:
         resources = '%s,%s' % (resources, options.resources)
@@ -98,7 +98,7 @@ def main():
     # worker subprocesses), change `ppn` accordingly.
     nodespec = 'nodes=%s:ppn=1' % options.slaves_per_job
     if options.nodespec:
-        nodespec = '%s:%s' % options.nodespec
+        nodespec = '%s:%s' % (nodespec, options.nodespec)
     resources = '%s,walltime=%s,pmem=%sgb' % (nodespec, time, options.memory)
     if options.resources:
         resources = '%s,%s' % (resources, options.resources)
