@@ -286,7 +286,7 @@ class Serial(Implementation):
 
 class FileParams(ParamObj):
     _params = dict(
-        tmpdir=Param(default='/tmp', doc='Local temporary storage'),
+        tmpdir=Param(default='/var/tmp', doc='Local temporary storage'),
         keep_tmp=Param(type='bool',
             doc="Do not delete temporary files at completion"),
         )
