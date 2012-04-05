@@ -696,7 +696,9 @@ class Slaves(object):
 
         self._changed_slaves = set()
         self._failed_tasks = set()
+
         self._results = []
+        self._results_lock = threading.Lock()
 
     def trigger_sched(self):
         """Wakes up the runner for scheduling by sending it a byte."""
@@ -741,8 +743,9 @@ class Slaves(object):
     def slave_result(self, slave, dataset_id, source, urls):
         success = slave.set_assignment((dataset_id, source), None)
         assert success
-        with self._lock:
+        with self._results_lock:
             self._results.append((slave, dataset_id, source, urls))
+        with self._lock:
             self._changed_slaves.add(slave)
         self.trigger_sched()
 
@@ -761,7 +764,7 @@ class Slaves(object):
 
     def get_results(self):
         """Return and reset the list of results: (taskid, urls) pairs."""
-        with self._lock:
+        with self._results_lock:
             results = self._results
             self._results = []
         return results
