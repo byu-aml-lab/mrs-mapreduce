@@ -308,13 +308,13 @@ class TaskRunner(BaseRunner):
         """
         if not super(TaskRunner, self).can_remove_dataset(dataset_id):
             return False
-        if 'dataset_id' not in self.forward_links:
-            return False
+        if dataset_id not in self.forward_links:
+            return True
 
-        if self.forward_links['dataset_id']:
+        if self.forward_links[dataset_id]:
             return False
         else:
-            del self.forward_links['dataset_id']
+            del self.forward_links[dataset_id]
             return True
 
     def next_task(self):
@@ -490,7 +490,10 @@ class TaskRunner(BaseRunner):
 
     def remove_dataset(self, dataset):
         logger.info('Removing dataset: %s' % dataset.id)
-        del self.tasklists[dataset.id]
+        try:
+            del self.tasklists[dataset.id]
+        except KeyError:
+            pass
         del self.datasets[dataset.id]
         del self.data_dependents[dataset.id]
         if dataset.permanent:
