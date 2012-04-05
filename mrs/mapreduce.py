@@ -31,7 +31,7 @@ import sys
 from six import print_
 from . import fileformats
 
-ITERATIVE_QMAX = 5
+ITERATIVE_QMAX = 10
 RAND_OFFSET_SHIFT = 64
 
 
@@ -194,12 +194,14 @@ class IterativeMR(MapReduce):
         producer: submits datasets
         consumer: processes completed datasets
     """
+    iterative_qmax = ITERATIVE_QMAX
+
     def run(self, job):
         """Default run which repeatedly calls producer and consumer."""
         datasets = set()
         while True:
             producer_active = True
-            while producer_active and len(datasets) < ITERATIVE_QMAX:
+            while producer_active and len(datasets) < self.iterative_qmax:
                 new_datasets = self.producer(job)
                 producer_active = bool(new_datasets)
                 datasets.update(new_datasets)

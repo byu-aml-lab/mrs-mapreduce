@@ -414,7 +414,7 @@ class TaskRunner(BaseRunner):
         if not backlinked:
             forward_link_ids = self.forward_links.get(dataset_id)
             if forward_link_ids:
-                for forward_ds_id in forward_link_ids:
+                for forward_ds_id in forward_link_ids.copy():
                     # Skip datasets that haven't started running yet.
                     if forward_ds_id not in self.tasklists:
                         continue
