@@ -696,12 +696,8 @@ class Slaves(object):
 
         # Note that collections.deque is documented to be thread-safe.
         self._changed_slaves = collections.deque()
-
-        self._failed_tasks = set()
-        self._failed_tasks_lock = threading.Lock()
-
-        self._results = []
-        self._results_lock = threading.Lock()
+        self._results = collections.deque()
+        self._failed_tasks = collections.deque()
 
     def trigger_sched(self):
         """Wakes up the runner for scheduling by sending it a byte."""
@@ -746,16 +742,14 @@ class Slaves(object):
     def slave_result(self, slave, dataset_id, source, urls):
         success = slave.set_assignment((dataset_id, source), None)
         assert success
-        with self._results_lock:
-            self._results.append((slave, dataset_id, source, urls))
+        self._results.append((slave, dataset_id, source, urls))
         self._changed_slaves.append(slave)
         self.trigger_sched()
 
     def slave_failed(self, slave, dataset_id, task_index):
         success = slave.set_assignment((dataset_id, task_index), None)
         assert success
-        with self._failed_tasks_lock:
-            self._failed_tasks.add((dataset_id, task_index))
+        self._failed_tasks.append((dataset_id, task_index))
         self._changed_slaves.append(slave)
         self.trigger_sched()
 
@@ -765,10 +759,12 @@ class Slaves(object):
 
     def get_results(self):
         """Return and reset the list of results: (taskid, urls) pairs."""
-        with self._results_lock:
-            results = self._results
-            self._results = []
-        return results
+        results = []
+        while True:
+            try:
+                results.append(self._results.popleft())
+            except IndexError:
+                return results
 
     def get_changed_slaves(self):
         """Return and reset the list of changed slaves."""
@@ -781,10 +777,12 @@ class Slaves(object):
 
     def get_failed_tasks(self):
         """Return and reset the list of changed slaves."""
-        with self._failed_tasks_lock:
-            failed_tasks = self._failed_tasks
-            self._failed_tasks = set()
-        return failed_tasks
+        failed_tasks = []
+        while True:
+            try:
+                failed_tasks.append(self._failed_tasks.popleft())
+            except IndexError:
+                return failed_tasks
 
     def disconnect_all(self):
         """Sends an exit request to the slaves and waits for completion."""
