@@ -54,7 +54,7 @@ logger = logging.getLogger('mrs')
 del logging
 
 INITIAL_PEON_THREADS = 4
-MAX_PEON_THREADS = 500
+MAX_PEON_THREADS = 20
 
 
 class MasterRunner(runner.TaskRunner):
