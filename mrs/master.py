@@ -694,7 +694,8 @@ class Slaves(object):
         self._next_slave_id = 0
         self._slaves = {}
 
-        self._changed_slaves = set()
+        # Note that collections.deque is documented to be thread-safe.
+        self._changed_slaves = collections.deque()
 
         self._failed_tasks = set()
         self._failed_tasks_lock = threading.Lock()
@@ -734,11 +735,11 @@ class Slaves(object):
             if not slave.resurrect():
                 return
 
-        with self._lock:
-            if slave.busy():
-                logger.error('Slave %s reported ready but has an assignment; '
-                        'check the slave logs for errors.' % slave.id)
-            self._changed_slaves.add(slave)
+        if slave.busy():
+            logger.error('Slave %s reported ready but has an assignment; '
+                    'check the slave logs for errors.' % slave.id)
+
+        self._changed_slaves.append(slave)
 
         self.trigger_sched()
 
@@ -747,8 +748,7 @@ class Slaves(object):
         assert success
         with self._results_lock:
             self._results.append((slave, dataset_id, source, urls))
-        with self._lock:
-            self._changed_slaves.add(slave)
+        self._changed_slaves.append(slave)
         self.trigger_sched()
 
     def slave_failed(self, slave, dataset_id, task_index):
@@ -756,13 +756,11 @@ class Slaves(object):
         assert success
         with self._failed_tasks_lock:
             self._failed_tasks.add((dataset_id, task_index))
-        with self._lock:
-            self._changed_slaves.add(slave)
+        self._changed_slaves.append(slave)
         self.trigger_sched()
 
     def slave_dead(self, slave):
-        with self._lock:
-            self._changed_slaves.add(slave)
+        self._changed_slaves.append(slave)
         self.trigger_sched()
 
     def get_results(self):
@@ -774,10 +772,12 @@ class Slaves(object):
 
     def get_changed_slaves(self):
         """Return and reset the list of changed slaves."""
-        with self._lock:
-            changed = self._changed_slaves
-            self._changed_slaves = set()
-        return changed
+        changed = set()
+        while True:
+            try:
+                changed.add(self._changed_slaves.pop())
+            except IndexError:
+                return changed
 
     def get_failed_tasks(self):
         """Return and reset the list of changed slaves."""
