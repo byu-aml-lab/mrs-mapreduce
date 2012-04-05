@@ -489,7 +489,10 @@ class TaskRunner(BaseRunner):
         raise NotImplementedError
 
     def remove_dataset(self, dataset):
+        logger.info('Removing dataset: %s' % dataset.id)
         del self.tasklists[dataset.id]
+        del self.datasets[dataset.id]
+        del self.data_dependents[dataset.id]
         if dataset.permanent:
             dataset.clear()
         else:
