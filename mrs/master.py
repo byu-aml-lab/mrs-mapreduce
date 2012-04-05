@@ -695,7 +695,9 @@ class Slaves(object):
         self._slaves = {}
 
         self._changed_slaves = set()
+
         self._failed_tasks = set()
+        self._failed_tasks_lock = threading.Lock()
 
         self._results = []
         self._results_lock = threading.Lock()
@@ -752,8 +754,9 @@ class Slaves(object):
     def slave_failed(self, slave, dataset_id, task_index):
         success = slave.set_assignment((dataset_id, task_index), None)
         assert success
-        with self._lock:
+        with self._failed_tasks_lock:
             self._failed_tasks.add((dataset_id, task_index))
+        with self._lock:
             self._changed_slaves.add(slave)
         self.trigger_sched()
 
@@ -778,10 +781,10 @@ class Slaves(object):
 
     def get_failed_tasks(self):
         """Return and reset the list of changed slaves."""
-        with self._lock:
-            changed = self._failed_tasks
+        with self._failed_tasks_lock:
+            failed_tasks = self._failed_tasks
             self._failed_tasks = set()
-        return changed
+        return failed_tasks
 
     def disconnect_all(self):
         """Sends an exit request to the slaves and waits for completion."""
