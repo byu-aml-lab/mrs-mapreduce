@@ -154,7 +154,7 @@ class MasterRunner(runner.TaskRunner):
                 self.result_maps[dataset_id].add(slave, source)
             except KeyError:
                 # Dataset already deleted, so this source should be removed.
-                self.remove_source(slave, dataset_id, source, delete=True)
+                self.remove_source(dataset_id, (slave, source), delete=True)
 
             if (dataset_id, source) in self.current_assignments:
                 # Not: if this is the last task in the dataset, this will wake
@@ -173,6 +173,7 @@ class MasterRunner(runner.TaskRunner):
             for i in xrange(new_peon_thread_count - self.peon_thread_count):
                 self.start_peon_thread()
 
+        chore_list = []
         while self.idle_slaves:
             # find the next job to run
             next = self.next_task()
@@ -206,8 +207,11 @@ class MasterRunner(runner.TaskRunner):
                 self.task_lost(*next)
                 continue
 
-            slave.assign(next, self.datasets)
+            slave.prepare_assignment(next, self.datasets)
+            chore_item = slave.send_assignment, ()
+            chore_list.append(chore_item)
             self.current_assignments.add(next)
+        self.chore_queue.do_many(chore_list)
 
     def available_workers(self):
         """Returns the total number of idle workers."""
@@ -221,19 +225,21 @@ class MasterRunner(runner.TaskRunner):
     def remove_dataset(self, ds):
         if isinstance(ds, computed_data.ComputedData):
             delete = not ds.permanent
-            for slave, source in self.result_maps[ds.id].all():
-                self.remove_source(slave, ds.id, source, delete)
+            slave_source_list = self.result_maps[ds.id].all()
+            self.remove_sources(ds.id, slave_source_list, delete)
             del self.result_maps[ds.id]
         super(MasterRunner, self).remove_dataset(ds)
 
-    # TODO: send a list of sources instead of a single source.
-    def remove_source(self, slave, dataset_id, source, delete):
+    def remove_sources(self, dataset_id, slave_source_list, delete):
         """Remove a single source from a slave.
 
-        The delete parameter specifies whether the file should actually be
+        The `slave_source_list` parameter is a list of slave-source pairs.
+        The `delete` parameter specifies whether the file should actually be
         removed from disk.
         """
-        self.chore_queue.do(slave.remove, args=(dataset_id, source, delete))
+        items = [(slave.remove, (dataset_id, source, delete))
+                for slave, source in slave_source_list]
+        self.chore_queue.do_many(items)
 
     def debug_status(self):
         super(MasterRunner, self).debug_status()
@@ -443,10 +449,12 @@ class RemoteSlave(object):
             else:
                 return False
 
-    def assign(self, assignment, datasets):
-        """Schedules an RPC request to make the slave work on the assignment.
+    def prepare_assignment(self, assignment, datasets):
+        """Sets up an RPC request to make the slave work on the assignment.
 
-        Called from the Runner.
+        Called from the Runner.  Note that the assignment will _not_ actually
+        happen until `send_assignment` is subsequently called.  This is the
+        responsibility of the caller.
         """
         success = self.set_assignment(None, assignment)
         assert success
@@ -463,7 +471,6 @@ class RemoteSlave(object):
             assert self._rpc_args is None
             self._rpc_func = self._rpc.start_task
             self._rpc_args = task_args + (self.cookie,)
-        self.chore_queue.do(self.send_assignment)
 
     def send_assignment(self):
         with self._rpc_lock:
