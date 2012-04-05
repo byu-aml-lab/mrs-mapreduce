@@ -318,7 +318,7 @@ class NetworkParams(ParamObj):
             doc='RPC Port for incoming requests'),
         timeout=Param(default=20, type='float',
             doc='Timeout for RPC calls (incl. pings)'),
-        pingdelay=Param(default=5, type='float',
+        pingdelay=Param(default=30, type='float',
             doc='Interval between pings'),
         )
 
