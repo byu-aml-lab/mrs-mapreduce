@@ -154,7 +154,7 @@ class MasterRunner(runner.TaskRunner):
                 self.result_maps[dataset_id].add(slave, source)
             except KeyError:
                 # Dataset already deleted, so this source should be removed.
-                self.remove_source(dataset_id, (slave, source), delete=True)
+                self.remove_sources(dataset_id, (slave, source), delete=True)
 
             if (dataset_id, source) in self.current_assignments:
                 # Not: if this is the last task in the dataset, this will wake
