@@ -54,7 +54,7 @@ logger = logging.getLogger('mrs')
 del logging
 
 INITIAL_PEON_THREADS = 4
-MAX_PEON_THREADS = 500
+MAX_PEON_THREADS = 20
 
 
 class MasterRunner(runner.TaskRunner):
@@ -135,20 +135,6 @@ class MasterRunner(runner.TaskRunner):
         for dataset_id, task_index in self.slaves.get_failed_tasks():
             self.task_lost(dataset_id, task_index)
 
-        for slave, dataset_id, source, urls in self.slaves.get_results():
-            try:
-                self.result_maps[dataset_id].add(slave, source)
-            except KeyError:
-                # Dataset already deleted, so this source should be removed.
-                self.remove_source(slave, dataset_id, source, delete=True)
-
-            if (dataset_id, source) in self.current_assignments:
-                self.task_done(dataset_id, source, urls)
-                self.current_assignments.remove((dataset_id, source))
-            else:
-                logger.info('Ignoring a redundant result (%s, %s).' %
-                        (dataset_id, source))
-
         for slave in self.slaves.get_changed_slaves():
             if slave.alive():
                 self.dead_slaves.discard(slave)
@@ -163,6 +149,23 @@ class MasterRunner(runner.TaskRunner):
                     dataset_id, task_index = assignment
                     self.task_lost(dataset_id, task_index)
 
+        for slave, dataset_id, source, urls in self.slaves.get_results():
+            try:
+                self.result_maps[dataset_id].add(slave, source)
+            except KeyError:
+                # Dataset already deleted, so this source should be removed.
+                self.remove_sources(dataset_id, (slave, source), delete=True)
+
+            if (dataset_id, source) in self.current_assignments:
+                # Not: if this is the last task in the dataset, this will wake
+                # up datasets.  Thus this happens _after_ slaves are added to
+                # the idle_slaves set.
+                self.task_done(dataset_id, source, urls)
+                self.current_assignments.remove((dataset_id, source))
+            else:
+                logger.info('Ignoring a redundant result (%s, %s).' %
+                        (dataset_id, source))
+
         # Add one peon thread for each new active slave (minus dead slaves).
         if self.peon_thread_count < MAX_PEON_THREADS:
             slave_count = len(self.slaves) - len(self.dead_slaves)
@@ -170,6 +173,7 @@ class MasterRunner(runner.TaskRunner):
             for i in xrange(new_peon_thread_count - self.peon_thread_count):
                 self.start_peon_thread()
 
+        chore_list = []
         while self.idle_slaves:
             # find the next job to run
             next = self.next_task()
@@ -203,8 +207,15 @@ class MasterRunner(runner.TaskRunner):
                 self.task_lost(*next)
                 continue
 
-            slave.assign(next, self.datasets)
+            slave.prepare_assignment(next, self.datasets)
+            chore_item = slave.send_assignment, ()
+            chore_list.append(chore_item)
             self.current_assignments.add(next)
+        self.chore_queue.do_many(chore_list)
+
+    def available_workers(self):
+        """Returns the total number of idle workers."""
+        return len(self.idle_slaves)
 
     def make_tasklist(self, dataset):
         tasklist = super(MasterRunner, self).make_tasklist(dataset)
@@ -214,19 +225,21 @@ class MasterRunner(runner.TaskRunner):
     def remove_dataset(self, ds):
         if isinstance(ds, computed_data.ComputedData):
             delete = not ds.permanent
-            for slave, source in self.result_maps[ds.id].all():
-                self.remove_source(slave, ds.id, source, delete)
+            slave_source_list = self.result_maps[ds.id].all()
+            self.remove_sources(ds.id, slave_source_list, delete)
             del self.result_maps[ds.id]
         super(MasterRunner, self).remove_dataset(ds)
 
-    # TODO: send a list of sources instead of a single source.
-    def remove_source(self, slave, dataset_id, source, delete):
+    def remove_sources(self, dataset_id, slave_source_list, delete):
         """Remove a single source from a slave.
 
-        The delete parameter specifies whether the file should actually be
+        The `slave_source_list` parameter is a list of slave-source pairs.
+        The `delete` parameter specifies whether the file should actually be
         removed from disk.
         """
-        self.chore_queue.do(slave.remove, args=(dataset_id, source, delete))
+        items = [(slave.remove, (dataset_id, source, delete))
+                for slave, source in slave_source_list]
+        self.chore_queue.do_many(items)
 
     def debug_status(self):
         super(MasterRunner, self).debug_status()
@@ -348,9 +361,9 @@ class MasterInterface(object):
         slave = self.slaves.get_slave(slave_id, cookie)
         if slave is not None:
             logger.error('Slave %s reported failure of task: %s, %s'
-                    % (slave_id, dataset_id, source))
+                    % (slave_id, dataset_id, task_index))
             slave.update_timestamp()
-            self.slaves.slave_failed(slave, dataset_id, source)
+            self.slaves.slave_failed(slave, dataset_id, task_index)
             return True
         else:
             logger.error('Invalid slave reported failed (host %s, id %s).'
@@ -436,10 +449,12 @@ class RemoteSlave(object):
             else:
                 return False
 
-    def assign(self, assignment, datasets):
-        """Schedules an RPC request to make the slave work on the assignment.
+    def prepare_assignment(self, assignment, datasets):
+        """Sets up an RPC request to make the slave work on the assignment.
 
-        Called from the Runner.
+        Called from the Runner.  Note that the assignment will _not_ actually
+        happen until `send_assignment` is subsequently called.  This is the
+        responsibility of the caller.
         """
         success = self.set_assignment(None, assignment)
         assert success
@@ -456,7 +471,6 @@ class RemoteSlave(object):
             assert self._rpc_args is None
             self._rpc_func = self._rpc.start_task
             self._rpc_args = task_args + (self.cookie,)
-        self.chore_queue.do(self.send_assignment)
 
     def send_assignment(self):
         with self._rpc_lock:
@@ -680,9 +694,10 @@ class Slaves(object):
         self._next_slave_id = 0
         self._slaves = {}
 
-        self._changed_slaves = set()
-        self._failed_tasks = set()
-        self._results = []
+        # Note that collections.deque is documented to be thread-safe.
+        self._changed_slaves = collections.deque()
+        self._results = collections.deque()
+        self._failed_tasks = collections.deque()
 
     def trigger_sched(self):
         """Wakes up the runner for scheduling by sending it a byte."""
@@ -716,55 +731,58 @@ class Slaves(object):
             if not slave.resurrect():
                 return
 
-        with self._lock:
-            if slave.busy():
-                logger.error('Slave %s reported ready but has an assignment; '
-                        'check the slave logs for errors.' % slave.id)
-            self._changed_slaves.add(slave)
+        if slave.busy():
+            logger.error('Slave %s reported ready but has an assignment; '
+                    'check the slave logs for errors.' % slave.id)
+
+        self._changed_slaves.append(slave)
 
         self.trigger_sched()
 
     def slave_result(self, slave, dataset_id, source, urls):
         success = slave.set_assignment((dataset_id, source), None)
         assert success
-        with self._lock:
-            self._results.append((slave, dataset_id, source, urls))
-            self._changed_slaves.add(slave)
+        self._results.append((slave, dataset_id, source, urls))
+        self._changed_slaves.append(slave)
         self.trigger_sched()
 
     def slave_failed(self, slave, dataset_id, task_index):
         success = slave.set_assignment((dataset_id, task_index), None)
         assert success
-        with self._lock:
-            self._failed_tasks.add((dataset_id, task_index))
-            self._changed_slaves.add(slave)
+        self._failed_tasks.append((dataset_id, task_index))
+        self._changed_slaves.append(slave)
         self.trigger_sched()
 
     def slave_dead(self, slave):
-        with self._lock:
-            self._changed_slaves.add(slave)
+        self._changed_slaves.append(slave)
         self.trigger_sched()
 
     def get_results(self):
         """Return and reset the list of results: (taskid, urls) pairs."""
-        with self._lock:
-            results = self._results
-            self._results = []
-        return results
+        results = []
+        while True:
+            try:
+                results.append(self._results.popleft())
+            except IndexError:
+                return results
 
     def get_changed_slaves(self):
         """Return and reset the list of changed slaves."""
-        with self._lock:
-            changed = self._changed_slaves
-            self._changed_slaves = set()
-        return changed
+        changed = set()
+        while True:
+            try:
+                changed.add(self._changed_slaves.pop())
+            except IndexError:
+                return changed
 
     def get_failed_tasks(self):
         """Return and reset the list of changed slaves."""
-        with self._lock:
-            changed = self._failed_tasks
-            self._failed_tasks = set()
-        return changed
+        failed_tasks = []
+        while True:
+            try:
+                failed_tasks.append(self._failed_tasks.popleft())
+            except IndexError:
+                return failed_tasks
 
     def disconnect_all(self):
         """Sends an exit request to the slaves and waits for completion."""

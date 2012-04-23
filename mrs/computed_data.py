@@ -37,11 +37,21 @@ class ComputedData(datasets.RemoteData):
     regenerate its contents.  It can also decide whether to save the data to
     permanent storage or to leave them in memory on the slaves.
 
+    Arguments:
+        async_start: whether to allow the dataset to start asynchronously
+            (while some tasks in the parent are still running)
+        blocking_percent: dependent datasets may start being computed when
+            the given percent of tasks are completed
+        backlink: any uncompleted tasks from the given dataset will be
+            "pulled forward" into place in the current dataset
+
     Attributes:
         task_class: the class used to carry out computation
         parter: name of the partition function (see registry for more info)
+        backlink_id: string id of the dataset backlinked to
     """
-    def __init__(self, operation, input, splits, **kwds):
+    def __init__(self, operation, input, splits, blocking_percent=1,
+            backlink=None, async_start=False, **kwds):
         # Create exactly one task for each split in the input.
         self.ntasks = input.splits
         super(ComputedData, self).__init__(**kwds)
@@ -54,6 +64,17 @@ class ComputedData(datasets.RemoteData):
 
         assert not input.closed
         self.input_id = input.id
+        self.blocking_percent = blocking_percent
+        self.async_start = async_start
+
+        if backlink is None:
+            self.backlink_id = None
+        elif not isinstance(backlink, ComputedData):
+            raise RuntimeError('Only ComputedDatas can be backlinked to')
+        elif backlink.closed:
+            raise RuntimeError('A closed dataset cannot be backlinked to')
+        else:
+            self.backlink_id = backlink.id
 
     def computation_done(self):
         """Signify that computation of the dataset is done."""

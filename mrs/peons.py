@@ -22,6 +22,9 @@
 
 """Mrs. Chore Queue and Peon Thread"""
 
+from __future__ import division
+
+import collections
 import heapq
 import os
 import random
@@ -30,10 +33,6 @@ import threading
 import time
 import traceback
 
-try:
-    import queue
-except ImportError:
-    import Queue as queue
 
 import logging
 logger = logging.getLogger('mrs')
@@ -80,9 +79,11 @@ class ChoreQueue(object):
     is written to whenever this time is reduced.
     """
     def __init__(self, new_earliest_fd):
-        self._q = queue.Queue()
+        # Python's collections.deque is officially thread-safe.
+        self._q = collections.deque()
+        self._q_not_empty = threading.Condition(threading.Lock())
         self._heap = []
-        self._lock = threading.Lock()
+        self._heaplock = threading.Lock()
 
         self._new_earliest_fd = new_earliest_fd
         self._earliest = None
@@ -96,7 +97,7 @@ class ChoreQueue(object):
         item = f, args
         if delay:
             when = time.time() + delay
-            with self._lock:
+            with self._heaplock:
                 heapq.heappush(self._heap, (when, item))
 
                 if (self._earliest is None) or (when < self._earliest):
@@ -105,12 +106,27 @@ class ChoreQueue(object):
         else:
             self._put(item)
 
+    def do_many(self, items):
+        """Run the given items, each of which is an (f, args) pair."""
+        self._put_many(items)
+
     def get(self, *args, **kwds):
         """Retrieve the next (f, args) pair from the queue.
 
         The options are the same as those provided by queue.Queue.get.
         """
-        return self._q.get(*args, **kwds)
+        # Avoid acquiring the lock if possible (to reduce contention).
+        while True:
+            try:
+                return self._q.popleft()
+            except IndexError:
+                pass
+
+            with self._q_not_empty:
+                try:
+                    return self._q.popleft()
+                except IndexError:
+                    self._q_not_empty.wait()
 
     def time_to_reschedule(self):
         """Returns the number of seconds until reschedule should be called."""
@@ -122,7 +138,9 @@ class ChoreQueue(object):
 
     def reschedule(self):
         """Moves any pending items to the queue."""
-        with self._lock:
+        items = []
+
+        with self._heaplock:
             now = time.time()
             while True:
                 if self._heap:
@@ -132,7 +150,7 @@ class ChoreQueue(object):
 
                 if (when is not None) and (when <= now):
                     heapq.heappop(self._heap)
-                    self._put(item)
+                    items.append(item)
                 else:
                     break
 
@@ -141,18 +159,20 @@ class ChoreQueue(object):
             else:
                 self._earliest = None
 
-    def _put(self, item):
-        """Put the given item on self._q.
+        self._put_many(items)
 
-        Unlike a simple self._q.put(item), this does not block
-        KeyboardInterrupt.
-        """
-        while True:
-            try:
-                self._q.put(item, timeout=1)
-                break
-            except queue.Full:
-                pass
+    def _put(self, item):
+        """Put the given item on self._q."""
+        self._q.append(item)
+        with self._q_not_empty:
+            self._q_not_empty.notify()
+
+    def _put_many(self, items):
+        """Put the given items on self._q."""
+        count = len(items)
+        self._q.extend(items)
+        with self._q_not_empty:
+            self._q_not_empty.notify(count)
 
 
 # vim: et sw=4 sts=4
