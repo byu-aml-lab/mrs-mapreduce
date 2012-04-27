@@ -397,7 +397,8 @@ class TaskRunner(BaseRunner):
             outurls: list of (number, string) pairs representing the split and
                 url of the outputs.
         """
-        self.task_counter += 1
+        if not backlinked:
+            self.task_counter += 1
         tasklist = self.tasklists[dataset_id]
         tasklist.task_done(task_index)
 
