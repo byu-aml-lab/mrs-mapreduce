@@ -103,6 +103,16 @@ parser.add_option('--mrs-profile',
         action='store_true',
         help='run mrs under a profiler',
         default=False)
+parser.add_option('--mrs-verbose',
+        dest='mrs_verbose',
+        action='store_true',
+        help='run mrs in verbose mode',
+        default=False)
+parser.add_option('--mrs-debug',
+        dest='mrs_debug',
+        action='store_true',
+        help='run mrs in debug mode',
+        default=False)
 
 opts, args = parser.parse_args()
 
@@ -166,12 +176,15 @@ master_args = [
     opts.interpreter,
     mrs_program,
     '--mrs=Master',
-    '--mrs-verbose',
     '--mrs-runfile %s' % runfilename,
     '--mrs-tmpdir=%s' % opts.mrs_tmpdir,
     ]
 if opts.mrs_profile:
     master_args.append('--mrs-profile')
+if opts.mrs_verbose:
+    master_args.append('--mrs-verbose')
+if opts.mrs_debug:
+    master_args.append('--mrs-debug')
 master_args += [
     ' '.join(mrs_argv),
     '2>%s/master.err' % job_dir,
@@ -217,12 +230,15 @@ slave_args = [
     opts.interpreter,
     mrs_program,
     '--mrs=Slave',
-    '--mrs-verbose',
     '--mrs-master=%s:%s' % (master_hostname, master_port),
     '--mrs-tmpdir=%s' % opts.mrs_tmpdir,
     ]
 if opts.mrs_profile:
     slave_args.append('--mrs-profile')
+if opts.mrs_verbose:
+    slave_args.append('--mrs-verbose')
+if opts.mrs_debug:
+    slave_args.append('--mrs-debug')
 
 # Note that we pass ssh the -tt option to ensure that remote commands quit.
 pssh_command = ' '.join((

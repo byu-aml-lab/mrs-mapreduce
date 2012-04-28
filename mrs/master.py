@@ -91,6 +91,11 @@ class MasterRunner(runner.TaskRunner):
             self.start_rpc_server()
             self.event_loop.run(timeout_function=self.maintain_chore_queue)
         finally:
+            if self.opts.mrs__runfile:
+                # Rewrite the runfile with an empty line to signify that
+                # execution is complete.
+                with open(self.opts.mrs__runfile, 'w') as f:
+                    print_(file=f)
             self.slaves.disconnect_all()
         return self.exitcode
 
@@ -135,7 +140,10 @@ class MasterRunner(runner.TaskRunner):
         for dataset_id, task_index in self.slaves.get_failed_tasks():
             self.task_lost(dataset_id, task_index)
 
-        for slave in self.slaves.get_changed_slaves():
+        changed_slaves = self.slaves.get_changed_slaves()
+        results = self.slaves.get_results()
+
+        for slave in changed_slaves:
             if slave.alive():
                 self.dead_slaves.discard(slave)
                 if not slave.busy():
@@ -149,7 +157,7 @@ class MasterRunner(runner.TaskRunner):
                     dataset_id, task_index = assignment
                     self.task_lost(dataset_id, task_index)
 
-        for slave, dataset_id, source, urls in self.slaves.get_results():
+        for slave, dataset_id, source, urls in results:
             try:
                 self.result_maps[dataset_id].add(slave, source)
             except KeyError:
@@ -157,7 +165,7 @@ class MasterRunner(runner.TaskRunner):
                 self.remove_sources(dataset_id, (slave, source), delete=True)
 
             if (dataset_id, source) in self.current_assignments:
-                # Not: if this is the last task in the dataset, this will wake
+                # Note: if this is the last task in the dataset, this will wake
                 # up datasets.  Thus this happens _after_ slaves are added to
                 # the idle_slaves set.
                 self.task_done(dataset_id, source, urls)

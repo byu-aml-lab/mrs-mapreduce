@@ -30,6 +30,7 @@ import os
 from six.moves import xrange as range
 import sys
 import threading
+import time
 
 from six import print_
 from . import job
@@ -251,6 +252,8 @@ class TaskRunner(BaseRunner):
         self.tasklists = {}
         self.forward_links = collections.defaultdict(set)
         self.transitive_backlinks = collections.defaultdict(set)
+        self.task_counter = 0
+        self.last_status_time = time.time()
 
         self.chore_queue_pipe, chore_queue_write_pipe = os.pipe()
         self.event_loop.register_fd(self.chore_queue_pipe,
@@ -394,6 +397,8 @@ class TaskRunner(BaseRunner):
             outurls: list of (number, string) pairs representing the split and
                 url of the outputs.
         """
+        if not backlinked:
+            self.task_counter += 1
         tasklist = self.tasklists[dataset_id]
         tasklist.task_done(task_index)
 
@@ -503,11 +508,21 @@ class TaskRunner(BaseRunner):
 
     def debug_status(self):
         super(TaskRunner, self).debug_status()
+
+        num_tasks = self.task_counter
+        self.task_counter = 0
+        now = time.time()
+        elapsed_time = now - self.last_status_time
+        self.last_status_time = now
+        print_('Completed tasks (since last):',
+                num_tasks, file=sys.stderr)
+        print_('Elapsed time (since last):', elapsed_time, file=sys.stderr)
+
         print_('Runnable datasets:', (', '.join(ds.id
                 for ds in self.runnable_datasets)), file=sys.stderr)
         print_('Pending datasets:', (', '.join(ds.id
                 for ds in self.pending_datasets)), file=sys.stderr)
-        print_('Ready tasks:')
+        print_('Ready tasks:', file=sys.stderr)
         for ds in self.runnable_datasets:
             if ds in self.tasklists:
                 sources = (str(t[1]) for t in self.tasklists[ds])
