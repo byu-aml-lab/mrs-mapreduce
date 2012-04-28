@@ -332,6 +332,8 @@ class Master(Implementation, FileParams, NetworkParams):
             doc='Default number of reduce tasks'),
         runfile=Param(default='',
             doc="Server's RPC port will be written here"),
+        timing_interval=Param(default=0, type='float',
+            doc="Interval (seconds) between outputting timing statistics"),
         )
 
     runner_class = master.MasterRunner
