@@ -150,6 +150,8 @@ class BaseImplementation(ParamObj):
             logger.setLevel(logging.DEBUG)
         elif self.verbose:
             logger.setLevel(logging.INFO)
+        else:
+            logger.setLevel(logging.WARNING)
 
         return self._main(opts, args)
 
