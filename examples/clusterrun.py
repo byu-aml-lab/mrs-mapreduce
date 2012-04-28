@@ -113,6 +113,11 @@ parser.add_option('--mrs-debug',
         action='store_true',
         help='run mrs in debug mode',
         default=False)
+parser.add_option('--background',
+                  dest='background',
+                  action='store_true',
+                  help='run mrs in the background',
+                  default=False)
 
 opts, args = parser.parse_args()
 
@@ -161,6 +166,9 @@ def stuff_to_screen(screen_name, window, string):
         run('screen', '-S', screen_name, '-p%s' % window, '-X', 'stuff',
                 chunk_string)
 
+def quit_screen(screen_name):
+    run('screen', '-S', screen_name, '-X', 'quit')
+
 ##############################################################################
 # Start Master
 
@@ -208,8 +216,6 @@ except OSError as e:
 
 #start the master
 stuff_to_screen(opts.jobname, 0, master_command + '\n')
-if opts.autoexit:
-    stuff_to_screen(opts.jobname, 0, 'exit\n')
 
 # Wait for the master to start and get the port number.
 while True:
@@ -253,10 +259,20 @@ print('Starting the slaves.')
 # add a second window to the screen session and run pssh command.
 run('screen', '-S', opts.jobname, '-X', 'screen')
 stuff_to_screen(opts.jobname, 1, pssh_command + '\n')
-if opts.autoexit:
-    stuff_to_screen(opts.jobname, 1, 'exit\n')
 
 # Load the screen session.
-print('Loading screen session')
-run('screen', '-r', opts.jobname, '-p0')
+if not opts.background:
+    print('Loading screen session')
+    run('screen', '-r', opts.jobname, '-p0')
 
+# wait for the run file to be empty, then exit screen
+while True:
+    time.sleep(5)
+    try:
+        with open(runfilename) as runfile:
+            if runfile.read().strip() == '':
+                break
+    except IOError:
+        break
+
+quit_screen(opts.jobname)
