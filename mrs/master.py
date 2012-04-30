@@ -81,6 +81,7 @@ class MasterRunner(runner.TaskRunner):
     def run(self):
         for i in xrange(INITIAL_PEON_THREADS):
             self.start_peon_thread()
+        self.sched_timing_stats()
 
         self.sched_pipe, sched_write_pipe = os.pipe()
         self.event_loop.register_fd(self.sched_pipe, self.read_sched_pipe)
@@ -91,6 +92,11 @@ class MasterRunner(runner.TaskRunner):
             self.start_rpc_server()
             self.event_loop.run(timeout_function=self.maintain_chore_queue)
         finally:
+            if self.opts.mrs__runfile:
+                # Rewrite the runfile with an empty line to signify that
+                # execution is complete.
+                with open(self.opts.mrs__runfile, 'w') as f:
+                    print_(file=f)
             self.slaves.disconnect_all()
         return self.exitcode
 
@@ -243,6 +249,14 @@ class MasterRunner(runner.TaskRunner):
         items = [(slave.remove, (dataset_id, source, delete))
                 for slave, source in slave_source_list]
         self.chore_queue.do_many(items)
+
+    def sched_timing_stats(self):
+        self.chore_queue.do(self.do_timing_stats,
+                delay=self.opts.mrs__timing_interval)
+
+    def do_timing_stats(self):
+        self.timing_stats()
+        self.sched_timing_stats()
 
     def debug_status(self):
         super(MasterRunner, self).debug_status()

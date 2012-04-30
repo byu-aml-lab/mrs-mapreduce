@@ -113,6 +113,11 @@ parser.add_option('--mrs-debug',
         action='store_true',
         help='run mrs in debug mode',
         default=False)
+parser.add_option('--background',
+                  dest='background',
+                  action='store_true',
+                  help='run mrs in the background',
+                  default=False)
 
 opts, args = parser.parse_args()
 
@@ -137,13 +142,9 @@ runfilename = os.path.join(job_dir, 'master.run') # this will have the port num
 host_options = ' '.join('--hosts %s' % hostfile for hostfile in opts.hostfiles)
 master_hostname = socket.gethostname()
 
-# Make the job directory (note that this will fail if it already exists).
-try:
-    os.makedirs(job_dir)
-except OSError as e:
-    errno, message = e.args
-    print('Error making "%s":' % job_dir, message,
-            file=sys.stderr)
+# Check if the job directory already exists
+if os.path.exists(job_dir):
+    print('Job directory already exists!')
     sys.exit(1)
 
 # This method will be called to run commands on the command line.
@@ -164,6 +165,9 @@ def stuff_to_screen(screen_name, window, string):
         chunk_string = string[i * SCREEN_STUFF_MAX: (i + 1) * SCREEN_STUFF_MAX]
         run('screen', '-S', screen_name, '-p%s' % window, '-X', 'stuff',
                 chunk_string)
+
+def quit_screen(screen_name):
+    run('screen', '-S', screen_name, '-X', 'quit')
 
 ##############################################################################
 # Start Master
@@ -198,8 +202,19 @@ master_command = ' '.join(master_args)
 
 print('Starting the master.')
 
-# Create a screen session named after the job name, and then start master.
+# Create a screen session named after the job name
 run('screen', '-dmS', opts.jobname)
+
+# Make the job directory (note that this will fail if it already exists).
+try:
+    os.makedirs(job_dir)
+except OSError as e:
+    errno, message = e.args
+    print('Error making "%s":' % job_dir, message,
+            file=sys.stderr)
+    sys.exit(1)
+
+#start the master
 stuff_to_screen(opts.jobname, 0, master_command + '\n')
 
 # Wait for the master to start and get the port number.
@@ -246,5 +261,18 @@ run('screen', '-S', opts.jobname, '-X', 'screen')
 stuff_to_screen(opts.jobname, 1, pssh_command + '\n')
 
 # Load the screen session.
-print('Loading screen session')
-run('screen', '-r', opts.jobname, '-p0')
+if not opts.background:
+    print('Loading screen session')
+    run('screen', '-r', opts.jobname, '-p0')
+
+# wait for the run file to be empty, then exit screen
+while True:
+    time.sleep(5)
+    try:
+        with open(runfilename) as runfile:
+            if runfile.read().strip() == '':
+                break
+    except IOError:
+        break
+
+quit_screen(opts.jobname)

@@ -333,6 +333,8 @@ class TaskRunner(BaseRunner):
             t = tasklist.pop()
             if t is not None:
                 return t
+            if self.opts.mrs__sequential_datasets:
+                break
         return None
 
     def available_tasks(self):
@@ -506,17 +508,21 @@ class TaskRunner(BaseRunner):
         else:
             self.chore_queue.do(dataset.delete)
 
-    def debug_status(self):
-        super(TaskRunner, self).debug_status()
-
+    def timing_stats(self):
         num_tasks = self.task_counter
         self.task_counter = 0
         now = time.time()
         elapsed_time = now - self.last_status_time
         self.last_status_time = now
-        print_('Completed tasks (since last):',
+        print_('TIMING: Completed tasks (since last):',
                 num_tasks, file=sys.stderr)
-        print_('Elapsed time (since last):', elapsed_time, file=sys.stderr)
+        print_('TIMING: Elapsed time (since last):', elapsed_time,
+                file=sys.stderr)
+
+    def debug_status(self):
+        super(TaskRunner, self).debug_status()
+
+        self.timing_stats()
 
         print_('Runnable datasets:', (', '.join(ds.id
                 for ds in self.runnable_datasets)), file=sys.stderr)

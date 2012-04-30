@@ -294,7 +294,19 @@ class FileParams(ParamObj):
         )
 
 
-class MockParallel(Implementation, FileParams):
+class TaskRunnerParams(ParamObj):
+    _params = dict(
+        shared=Param(doc='Global shared area for temporary storage (optional)'),
+        reduce_tasks=Param(default=1, type='int',
+            doc='Default number of reduce tasks'),
+        timing_interval=Param(default=0, type='float',
+            doc="Interval (seconds) between outputting timing statistics"),
+        sequential_datasets=Param(type='bool',
+            doc="Compute datasets sequentially (for performance comparisons)"),
+        )
+
+
+class MockParallel(Implementation, FileParams, TaskRunnerParams):
     """MapReduce execution on POSIX shared storage, such as NFS.
 
     This creates all of the tasks that are used in the normal parallel
@@ -305,12 +317,6 @@ class MockParallel(Implementation, FileParams):
     that most of the execution time is in I/O, and mockparallel tries to load
     the input for all reduce tasks before doing the first reduce task.
     """
-    _params = dict(
-        shared=Param(doc='Global shared area for temporary storage (optional)'),
-        reduce_tasks=Param(default=1, type='int',
-            doc='Default number of reduce tasks'),
-        )
-
     runner_class = runner.MockParallelRunner
 
 
@@ -325,11 +331,8 @@ class NetworkParams(ParamObj):
         )
 
 
-class Master(Implementation, FileParams, NetworkParams):
+class Master(Implementation, FileParams, NetworkParams, TaskRunnerParams):
     _params = dict(
-        shared=Param(doc='Global shared area for temporary storage (optional)'),
-        reduce_tasks=Param(default=1, type='int',
-            doc='Default number of reduce tasks'),
         runfile=Param(default='',
             doc="Server's RPC port will be written here"),
         )

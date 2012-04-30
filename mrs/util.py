@@ -98,6 +98,8 @@ class EventLoop(object):
 
 def try_makedirs(path):
     """Do the equivalent of mkdir -p."""
+    # Workaround for Python issue #14702:
+    os.stat(path)
     try:
         os.makedirs(path)
     except OSError as e:
