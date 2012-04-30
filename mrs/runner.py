@@ -333,6 +333,8 @@ class TaskRunner(BaseRunner):
             t = tasklist.pop()
             if t is not None:
                 return t
+            if self.opts.mrs__sequential_datasets:
+                break
         return None
 
     def available_tasks(self):
