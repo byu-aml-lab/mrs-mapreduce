@@ -266,6 +266,7 @@ if not opts.background:
     run('screen', '-r', opts.jobname, '-p0')
 
 # wait for the run file to be empty, then exit screen
+print('Mrs is running, feel free to control-c to quit')
 while True:
     time.sleep(5)
     try:

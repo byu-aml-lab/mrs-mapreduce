@@ -251,8 +251,9 @@ class MasterRunner(runner.TaskRunner):
         self.chore_queue.do_many(items)
 
     def sched_timing_stats(self):
-        self.chore_queue.do(self.do_timing_stats,
-                delay=self.opts.mrs__timing_interval)
+        if self.opts.mrs__timing_interval > 0:
+            self.chore_queue.do(self.do_timing_stats,
+                    delay=self.opts.mrs__timing_interval)
 
     def do_timing_stats(self):
         self.timing_stats()
