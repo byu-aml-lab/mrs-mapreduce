@@ -25,11 +25,9 @@
 from __future__ import division
 
 import collections
-import multiprocessing
 import os
 from six.moves import xrange as range
 import sys
-import threading
 import time
 
 from six import print_
@@ -532,7 +530,7 @@ class TaskRunner(BaseRunner):
         for ds in self.runnable_datasets:
             if ds in self.tasklists:
                 sources = (str(t[1]) for t in self.tasklists[ds])
-                print_('    %s:' % ds_id, ', '.join(sources))
+                print_('    %s:' % ds.id, ', '.join(sources))
 
 
 class TaskList(object):
@@ -633,7 +631,7 @@ class MockParallelRunner(TaskRunner, worker.WorkerManager):
         self.current_task = None
 
     def run(self):
-        for i in xrange(INITIAL_PEON_THREADS):
+        for _ in xrange(INITIAL_PEON_THREADS):
             self.start_peon_thread()
         self.worker_setup(self.opts, self.args, self.default_dir)
         self.schedule()
