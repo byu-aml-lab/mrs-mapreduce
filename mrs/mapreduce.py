@@ -177,14 +177,25 @@ class MapReduce(object):
         setting it to 0.
         """
         import random
-
         shift = 0
         seed = int(self.opts.mrs__seed)
         for x in offsets:
             shift += RAND_OFFSET_SHIFT
             seed += x << shift
-
         return random.Random(seed)
+
+    def numpy_random(self, *offsets):
+        """Creates a numpy.random.RandomState instance for MapReduce programs.
+
+        See the `random()` method for details about the parameters.  Note
+        that the rng given by `random()` is _not_ numerically equivalent.
+
+        Note that unlike Python's random module, numpy does not accept big
+        numbers, so we have to pass tuples.  This makes omitting an offset
+        _not_ equivalent to setting it to 0.
+        """
+        import numpy
+        return numpy.random.RandomState(offsets)
 
 
 class IterativeMR(MapReduce):
