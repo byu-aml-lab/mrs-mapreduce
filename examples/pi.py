@@ -90,12 +90,12 @@ def update_parser(parser):
     parser.add_option('-p', '--points',
                       dest='num_points', type='int',
                       help='Number of points for each map task',
-                      default=10000)
+                      default=1000)
 
     parser.add_option('-t', '--tasks',
                       dest='num_tasks', type='int',
                       help='Number of map tasks to use',
-                      default=100)
+                      default=10)
 
     return parser
 
