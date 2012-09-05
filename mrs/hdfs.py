@@ -58,11 +58,11 @@ class WebHDFSProxy(object):
         if not path.startswith('/'):
             path = os.path.join(self.get_home_directory(), path)
         response = self._namenode_request('GET', path, 'OPEN', args)
-        response.read()
+        content = response.read()
         check_code(response.status, content, httplib.TEMPORARY_REDIRECT)
         datanode_url = response.getheader('Location')
 
-        response = self._datanode_get(datanode_url)
+        response = self._datanode_request('GET', datanode_url)
         content = response.read()
         check_code(response.status, content)
         return content
@@ -144,8 +144,8 @@ class WebHDFSProxy(object):
         if not path.startswith('/'):
             path = os.path.join(self.get_home_directory(), path)
         response = self._namenode_request('PUT', path, 'CREATE', args)
-        response.read()
-        check_code(response.status, data, httplib.TEMPORARY_REDIRECT)
+        content = response.read()
+        check_code(response.status, content, httplib.TEMPORARY_REDIRECT)
         datanode_url = response.getheader('Location')
 
         response = self._datanode_request('PUT', datanode_url, data)
