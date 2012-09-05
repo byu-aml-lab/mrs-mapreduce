@@ -31,6 +31,7 @@ from __future__ import division
 import httplib
 import json
 import urllib
+import urlparse
 
 
 class WebHDFSProxy(object):
@@ -40,7 +41,8 @@ class WebHDFSProxy(object):
     whatever username you give).
     """
     def __init__(self, addr, username, port=50070):
-        self._namenode_conn = httplib.HTTPConnection(addr, port)
+        self._addr = addr
+        self._port = port
         self._homedir = None
         self._username = username
 
@@ -143,7 +145,7 @@ class WebHDFSProxy(object):
             path = os.path.join(self.get_home_directory(), path)
         response = self._namenode_request('PUT', path, 'CREATE', args)
         response.read()
-        check_code(response.status, content, httplib.TEMPORARY_REDIRECT)
+        check_code(response.status, data, httplib.TEMPORARY_REDIRECT)
         datanode_url = response.getheader('Location')
 
         response = self._datanode_request('PUT', datanode_url, data)
@@ -242,6 +244,10 @@ class WebHDFSProxy(object):
     ##########################################################################
     # Other
 
+    def _namenode_conn(self):
+        """Make and return a new http connection to the namenode."""
+        return httplib.HTTPConnection(self._addr, self._port)
+
     def _namenode_request(self, method, path, op, args=None, body=None):
         """Send a PUT request to the namenode.
 
@@ -250,11 +256,12 @@ class WebHDFSProxy(object):
         subsequent response.
         """
         request_uri = self._request_uri(path, op, args)
-        self._namenode_conn.request(method, request_uri, body)
-        response = self._namenode_conn.getresponse()
+        namenode_conn = self._namenode_conn()
+        namenode_conn.request(method, request_uri, body)
+        response = namenode_conn.getresponse()
         return response
 
-    def _datanode_request(self, url, body=None):
+    def _datanode_request(self, method, url, body=None):
         """Send a PUT request to the datanode.
 
         Returns the HTTPResponse object, which is filelike. Note that this
@@ -265,7 +272,7 @@ class WebHDFSProxy(object):
         datanode_conn = httplib.HTTPConnection(host)
         # TODO: check whether the datanode is happy with an absolute URL or
         # if it needs a relative url here.
-        self._namenode_conn.request(method, url, body)
+        datanode_conn.request(method, url, body)
         response = datanode_conn.getresponse()
         return response
 
