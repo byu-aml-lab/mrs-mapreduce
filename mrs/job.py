@@ -26,6 +26,7 @@ import multiprocessing
 import os
 import select
 import threading
+import time
 import traceback
 import weakref
 
@@ -358,11 +359,19 @@ class DataManager(object):
         with self._runwaitcv:
             self._runwaitlist = datasets
 
-            ready_list = self._check_runwaitlist()
-            if not ready_list:
-                self._runwaitcv.wait(timeout)
+            if timeout is not None:
+                last_time = time.time()
+
+            while True:
                 ready_list = self._check_runwaitlist()
-                self._runwaitlist = None
+                if ready_list or (timeout is not None and timeout < 0):
+                    break
+
+                self._runwaitcv.wait(timeout)
+                if timeout is not None:
+                    now = time.time()
+                    timeout -= now - last_time
+            self._runwaitlist = None
         return ready_list
 
     def progress(self, dataset):
