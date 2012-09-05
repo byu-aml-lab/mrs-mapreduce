@@ -73,10 +73,7 @@ class SamplePi(mrs.MapReduce):
         output = job.reduce_data(intermediate, self.reduce)
         intermediate.close()
 
-        ready = False
-        while not ready:
-            ready = job.wait(output)
-
+        job.wait(output)
         output.fetchall()
         for key, value in output.data():
             if key == 'True':
