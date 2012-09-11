@@ -22,6 +22,7 @@
 # (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
 
 import mrs
+import string
 
 class WordCount(mrs.MapReduce):
     """Count the number of occurrences of each word in a set of documents.
@@ -32,7 +33,9 @@ class WordCount(mrs.MapReduce):
     """
     def map(self, key, value):
         for word in value.split():
-            yield (word, str(1))
+            word = word.strip(string.punctuation).lower()
+            if word.isalpha():
+                yield (word, str(1))
 
     def reduce(self, key, values):
         count = sum(int(x) for x in values)
