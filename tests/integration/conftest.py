@@ -66,6 +66,8 @@ def run_slave(program, master, tmpdir):
 
     with pytest.raises(SystemExit) as excinfo:
         mrs.main(program, args=args)
+    if not excinfo.value.args:
+        assert False, 'SystemExit raised without a value.'
     exitcode = excinfo.value.args[0]
     assert exitcode == 0
 
