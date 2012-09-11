@@ -192,7 +192,7 @@ class Job(object):
         return ds
 
     def progress(self, dataset):
-        """Reports the progress (portion complete) of the given dataset."""
+        """Reports the progress (fraction complete) of the given dataset."""
         return self._manager.progress(dataset)
 
 
@@ -268,7 +268,7 @@ class DataManager(object):
         self._pipe = pipe
         self._quit_pipe = quit_pipe
         self._datasets = weakref.WeakValueDictionary()
-        self._status_dict = {}
+        self._progress_dict = {}
 
         self._runwaitlock = threading.Lock()
         self._runwaitcv = threading.Condition(self._runwaitlock)
@@ -302,17 +302,23 @@ class DataManager(object):
                 ds = None
 
             bucket = message.bucket
-            self._status_dict[message.dataset_id].source_seen(bucket.source)
 
             if ds is not None:
                 ds[bucket.source, bucket.split] = bucket
+        elif isinstance(message, ProgressUpdate):
+            try:
+                ds = self._datasets[message.dataset_id]
+            except KeyError:
+                ds = None
+
+            self._progress_dict[message.dataset_id] = message.fraction_complete
         elif isinstance(message, DatasetComputed):
             try:
                 ds = self._datasets[message.dataset_id]
             except KeyError:
                 ds = None
 
-            del self._status_dict[message.dataset_id]
+            del self._progress_dict[message.dataset_id]
 
             if ds is not None:
                 ds.notify_urls_known()
@@ -330,7 +336,7 @@ class DataManager(object):
         """Sends the given dataset to the implementation."""
         self._datasets[dataset.id] = dataset
         if isinstance(dataset, computed_data.ComputedData):
-            self._status_dict[dataset.id] = DatasetStatus(dataset)
+            self._progress_dict[dataset.id] = 0.0
         # TODO: if we're running parallel PSO and the dataset is a LocalData,
         # then convert it to FileData to avoid serializing unnecessary data.
         message = DatasetSubmission(dataset)
@@ -375,17 +381,11 @@ class DataManager(object):
         return ready_list
 
     def progress(self, dataset):
-        """Reports on the progress (portion complete) of the specified dataset.
-        """
+        """Reports the fraction of the specified dataset that is complete."""
         try:
-            stat = self._status_dict[dataset.id]
+            return self._progress_dict[dataset.id]
         except KeyError:
-            stat = None
-
-        if stat:
-            return stat.progress()
-        else:
-            return 1
+            return 1.0
 
     def _check_runwaitlist(self):
         """Finds whether any dataset in the runwaitlist is ready.
@@ -400,22 +400,6 @@ class DataManager(object):
             return [ds for ds in runwaitlist if not ds.computing]
         else:
             return None
-
-
-class DatasetStatus(object):
-    """Keeps track of the status of current datasets."""
-    def __init__(self, dataset):
-        self.id = dataset.id
-        self.total_sources = dataset.ntasks
-        self.max_source_seen = -1
-
-    def source_seen(self, source):
-        """Called each time a bucket is received."""
-        self.max_source_seen = max(self.max_source_seen, source)
-
-    def progress(self):
-        """Reports the progress (portion complete) of the dataset."""
-        return (self.max_source_seen + 1) / self.total_sources
 
 
 class JobToRunner(object):
@@ -456,6 +440,12 @@ class BucketReady(RunnerToJob):
         # should be a separate mechanism for requesting the data in the
         # serial case.
         self.bucket = bucket
+
+
+class ProgressUpdate(RunnerToJob):
+    def __init__(self, dataset_id, fraction_complete):
+        self.dataset_id = dataset_id
+        self.fraction_complete = fraction_complete
 
 
 class DatasetComputed(RunnerToJob):

@@ -42,6 +42,7 @@ logger = logging.getLogger('mrs')
 del logging
 
 INITIAL_PEON_THREADS = 4
+PROGRESS_INTERVAL = 0.25
 
 
 class BaseRunner(object):
@@ -410,6 +411,10 @@ class TaskRunner(BaseRunner):
                 if dataset_id not in self.close_requests:
                     response = job.BucketReady(dataset_id, bucket)
                     self.job_conn.send(response)
+            if tasklist.time_to_report_progress():
+                response = job.ProgressUpdate(dataset_id,
+                        tasklist.fraction_complete())
+                self.job_conn.send(response)
             dataset.notify_urls_known()
 
         if tasklist.complete():
@@ -446,12 +451,12 @@ class TaskRunner(BaseRunner):
         except KeyError:
             return
         if ds.computing:
-            percent_complete = self.tasklists[dataset_id].percent_complete()
+            fraction_complete = self.tasklists[dataset_id].fraction_complete()
         else:
-            percent_complete = 1
+            fraction_complete = 1
 
-        if percent_complete < 1:
-            if percent_complete < ds.blocking_percent:
+        if fraction_complete < 1:
+            if fraction_complete < ds.blocking_percent:
                 return
             if self.available_tasks() >= self.available_workers():
                 return
@@ -460,14 +465,14 @@ class TaskRunner(BaseRunner):
         for dependent_id in self.data_dependents[dataset_id]:
             dep_ds = self.datasets[dependent_id]
             if (dep_ds in self.pending_datasets and
-                    (percent_complete == 1 or dep_ds.async_start)):
+                    (fraction_complete == 1 or dep_ds.async_start)):
                 wakeup_count += 1
                 self.pending_datasets.remove(dep_ds)
                 self.runnable_datasets.append(dep_ds)
 
-        if wakeup_count and percent_complete < 1:
+        if wakeup_count and fraction_complete < 1:
             logger.info('Wakeup children of %s at %.2f complete' %
-                    (dataset_id, percent_complete))
+                    (dataset_id, fraction_complete))
 
     def send_dataset_response(self, dataset):
         response = job.DatasetComputed(dataset.id, False)
@@ -543,6 +548,7 @@ class TaskList(object):
         self._ready_tasks = collections.deque()
         self._tasks_made = False
         self._async_incomplete = None
+        self._last_progress_report = 0.0
 
     def make_tasks(self, done_tasks, backlink_tasks, incomplete_sources):
         """Generate tasks for the given dataset, adding them to ready_tasks.
@@ -578,12 +584,20 @@ class TaskList(object):
             self._async_incomplete = self._remaining_tasks.copy()
         return self._async_incomplete
 
-    def percent_complete(self):
-        """Returns the percent of datasets that have been computed."""
+    def fraction_complete(self):
+        """Returns the fraction of datasets that have been computed."""
         if self._tasks_made:
-            return len(self._remaining_tasks) / self.dataset.ntasks
+            return 1 - len(self._remaining_tasks) / self.dataset.ntasks
         else:
             return 0
+
+    def time_to_report_progress(self):
+        now = time.time()
+        if now - self._last_progress_report > PROGRESS_INTERVAL:
+            self._last_progress_report = now
+            return True
+        else:
+            return False
 
     def complete(self):
         return not self._remaining_tasks
