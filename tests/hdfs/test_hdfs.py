@@ -15,11 +15,17 @@ def test_round_trip():
 
     hdfs.hdfs_create('0potato', 'amcnabb', path, contents)
 
-    data = hdfs.hdfs_open('0potato', 'amcnabb', path)
+    data = hdfs.hdfs_open('0potato', 'amcnabb', path).read()
     assert data == contents
 
     result = hdfs.hdfs_delete('0potato', 'amcnabb', path)
     assert result == True
+
+@pytest.mark.hadoop
+def test_missing_file():
+    path = '/aeuaoeu/oeau/aoeu/oaeuoaeu/aoeuaoeu'
+    with pytest.raises(hdfs.FileNotFoundException):
+        hdfs.hdfs_open('0potato', 'amcnabb', path)
 
 
 if __name__ == '__main__':

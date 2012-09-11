@@ -52,19 +52,45 @@ DEFAULT_PORT = 50070
 
 
 ##############################################################################
+# High-level functionality
+
+def urlsplit(url):
+    """Split an HDFS URL into a (server, username, path) tuple.
+
+    If the URL's scheme is not 'hdfs', returns None.
+    """
+    fields = urlparse.urlsplit(url)
+    if fields.scheme != 'hdfs':
+        return None
+
+    if fields.port:
+        server = ':'.join((fields.hostname, fields.port))
+    else:
+        server = fields.hostname
+    if not username:
+        username = ''
+    return (server, username, fields.path)
+
+
+##############################################################################
 # Get Methods
 
 def hdfs_open(server, username, path, **args):
-    """Read a file."""
+    """Read a file.
+
+    Returns a filelike object (specifically, an httplib response object).
+    """
     response = _namenode_request(server, username, 'GET', path, 'OPEN', args)
     content = response.read()
     _check_code(response.status, content, httplib.TEMPORARY_REDIRECT)
     datanode_url = response.getheader('Location')
 
     response = _datanode_request(server, username, 'GET', datanode_url)
-    content = response.read()
-    _check_code(response.status, content)
-    return content
+    if response.status == httplib.OK:
+        return response
+    else:
+        content = response.read()
+        _raise_error(response.status, content)
 
 def hdfs_get_home_directory(server, username):
     """Returns the path to the home directory of the configured user."""
@@ -230,7 +256,7 @@ def _datanode_request(server, username, method, url, body=None):
     response object must be fully read before beginning to read any
     subsequent response.
     """
-    host = urlparse.urlparse(url)[1]
+    host = urlparse.urlsplit(url)[1]
     datanode_conn = httplib.HTTPConnection(host)
     datanode_conn.request(method, url, body)
     response = datanode_conn.getresponse()
@@ -278,7 +304,11 @@ def _check_code(code, content, expected_code=httplib.OK):
     """Raise a remote exception if necessary."""
     if code == expected_code:
         return
+    else:
+        _raise_error(code, content)
 
+def _raise_error(code, content):
+    """Raise a remote exception."""
     try:
         exception_cls = exceptions[code]
     except KeyError:
