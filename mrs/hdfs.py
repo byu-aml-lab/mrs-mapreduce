@@ -43,6 +43,7 @@ the proxy object would be created unnecessarily over and over.
 
 from __future__ import division
 
+import getpass
 import httplib
 import json
 import urllib
@@ -67,8 +68,10 @@ def urlsplit(url):
         server = ':'.join((fields.hostname, fields.port))
     else:
         server = fields.hostname
-    if not username:
-        username = ''
+    if fields.username:
+        username = fields.username
+    else:
+        username = getpass.getuser()
     return (server, username, fields.path)
 
 
@@ -80,10 +83,7 @@ def hdfs_open(server, username, path, **args):
 
     Returns a filelike object (specifically, an httplib response object).
     """
-    response = _namenode_request(server, username, 'GET', path, 'OPEN', args)
-    content = response.read()
-    _check_code(response.status, content, httplib.TEMPORARY_REDIRECT)
-    datanode_url = response.getheader('Location')
+    datanode_url = datanode_url(server, username, path, **args)
 
     response = _datanode_request(server, username, 'GET', datanode_url)
     if response.status == httplib.OK:
@@ -91,6 +91,14 @@ def hdfs_open(server, username, path, **args):
     else:
         content = response.read()
         _raise_error(response.status, content)
+
+def datanode_url(server, username, path, **args):
+    """Finds the URL on the datanode associated with an HDFS path."""
+    response = _namenode_request(server, username, 'GET', path, 'OPEN', args)
+    content = response.read()
+    _check_code(response.status, content, httplib.TEMPORARY_REDIRECT)
+    datanode_url = response.getheader('Location')
+    return datanode_url
 
 def hdfs_get_home_directory(server, username):
     """Returns the path to the home directory of the configured user."""

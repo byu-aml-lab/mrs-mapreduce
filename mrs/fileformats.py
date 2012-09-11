@@ -37,6 +37,8 @@ except ImportError:
     from urllib import URLopener
     from urllib2 import urlopen
 
+from . import hdfs
+
 
 DEFAULT_BUFFER_SIZE = 4096
 # 1 is fast and unaggressive, 9 is slow and aggressive
@@ -301,15 +303,20 @@ def open_url(url):
     parsed_url = urlparse(url, 'file')
     if parsed_url.scheme == 'file':
         f = open(parsed_url.path, 'rb')
-    elif reader_cls is ZipReader and sys.version_info < (3, 2):
-        # In Python <3.2, the gzip module is broken because it depends on the
-        # underlying file being seekable (not true for url objects).
-        opener = URLopener()
-        filename, _ = opener.retrieve(url)
-        f = open(filename, 'rb')
-        os.unlink(filename)
     else:
-        f = urlopen(url)
+        if parsed_url.scheme == 'hdfs':
+            server, username, path = hdfs.urlsplit(url)
+            url = hdfs.datanode_url(server, username, path)
+
+        if reader_cls is ZipReader and sys.version_info < (3, 2):
+            # In Python <3.2, the gzip module is broken because it depends on
+            # the underlying file being seekable (not true for url objects).
+            opener = URLopener()
+            filename, _ = opener.retrieve(url)
+            f = open(filename, 'rb')
+            os.unlink(filename)
+        else:
+            f = urlopen(url)
 
     return reader_cls(f)
 
