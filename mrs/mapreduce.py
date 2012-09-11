@@ -133,6 +133,7 @@ class MapReduce(object):
                 reduce_percent = 100 * job.progress(output)
                 print('Map: %.1f%% complete. Reduce: %.1f%% complete.'
                         % (map_percent, reduce_percent))
+                sys.stdout.flush()
         except KeyboardInterrupt:
             print('Interrupted.')
 
