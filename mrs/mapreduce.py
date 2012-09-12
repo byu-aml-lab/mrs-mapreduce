@@ -119,7 +119,11 @@ class MapReduce(object):
             return 1
 
         try:
-            intermediate = job.map_data(source, self.map)
+            try:
+                combiner = self.combine
+            except AttributeError:
+                combiner = None
+            intermediate = job.map_data(source, self.map, combiner=combiner)
             source.close()
             output = job.reduce_data(intermediate, self.reduce,
                     outdir=outdir, format=fileformats.TextWriter)

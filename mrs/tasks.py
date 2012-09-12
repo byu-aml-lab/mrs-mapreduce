@@ -25,6 +25,8 @@
 A Task represents a unit of work and the mechanism for carrying it out.
 """
 
+from operator import itemgetter
+
 from . import datasets
 from . import fileformats
 from . import util
@@ -147,7 +149,7 @@ class ReduceTask(Task):
             all_input = self.input_ds.splitdata(self.task_index)
 
         # SORT PHASE
-        sorted_input = sorted(all_input)
+        sorted_input = sorted(all_input, key=itemgetter(0))
 
         # SETUP OUTPUT
         permanent = self.make_outdir(default_dir)
@@ -171,7 +173,7 @@ class ReduceMapTask(Task):
             all_input = self.input_ds.splitdata(self.task_index)
 
         # SORT PHASE
-        sorted_input = sorted(all_input)
+        sorted_input = sorted(all_input, key=itemgetter(0))
 
         # SETUP OUTPUT
         permanent = self.make_outdir(default_dir)
@@ -201,9 +203,10 @@ class MapOperation(Operation):
     op_name = 'map'
     task_class = MapTask
 
-    def __init__(self, map_name, *args):
+    def __init__(self, map_name, combine_name, *args):
         Operation.__init__(self, *args)
         self.map_name = map_name
+        self.combine_name = combine_name
         self.id = '%s' % self.map_name
 
     def map(self, program, input):
@@ -213,12 +216,28 @@ class MapOperation(Operation):
         else:
             mapper = getattr(program, self.map_name)
 
+        if self.combine_name:
+            combine_op = ReduceOperation(self.combine_name, self.part_name)
+        else:
+            combine_op = None
+
+        map_iter = self._map(mapper, input)
+        if combine_op:
+            # SORT PHASE
+            sorted_map_iter = sorted(map_iter, key=itemgetter(0))
+            combine_iter = combine_op.reduce(program, sorted_map_iter)
+            return combine_iter
+        else:
+            return map_iter
+
+    def _map(self, mapper, input):
         for inkey, invalue in input:
             for key, value in mapper(inkey, invalue):
                 yield (key, value)
 
     def to_args(self):
-        return (self.op_name, self.map_name, self.part_name)
+        return (self.op_name, self.map_name, self.combine_name,
+                self.part_name)
 
 
 class ReduceOperation(Operation):
@@ -253,14 +272,16 @@ class ReduceMapOperation(MapOperation, ReduceOperation):
     op_name = 'reducemap'
     task_class = ReduceMapTask
 
-    def __init__(self, reduce_name, map_name, *args):
+    def __init__(self, reduce_name, map_name, combine_name, *args):
         Operation.__init__(self, *args)
         self.reduce_name = reduce_name
         self.map_name = map_name
+        self.combine_name = combine_name
         self.id = '%s_%s' % (self.reduce_name, self.map_name)
 
     def to_args(self):
-        return (self.op_name, self.reduce_name, self.map_name, self.part_name)
+        return (self.op_name, self.reduce_name, self.map_name,
+                self.combine_name, self.part_name)
 
 
 def grouped_read(input_file):

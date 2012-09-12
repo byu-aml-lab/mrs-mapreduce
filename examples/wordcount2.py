@@ -24,7 +24,7 @@
 import string
 import mrs
 
-class WordCount(mrs.MapReduce):
+class WordCount2(mrs.MapReduce):
     """Count the number of occurrences of each word in a set of documents.
 
     This program is just like wordcount.py except:
@@ -34,6 +34,8 @@ class WordCount(mrs.MapReduce):
     MRS_HOME/mrs/mapreduce.py.
 
     2. It is smart about punctuation, case, etc.
+
+    3. It uses the reduce function as a combiner.
     """
 
     def map(self, key, value):
@@ -45,6 +47,8 @@ class WordCount(mrs.MapReduce):
     def reduce(self, key, values):
         count = sum(int(x) for x in values)
         yield str(count)
+
+    combine = reduce
 
     def input_data(self, job):
         if len(self.args) < 2:
@@ -58,6 +62,6 @@ class WordCount(mrs.MapReduce):
         return job.file_data(inputs)
 
 if __name__ == '__main__':
-    mrs.main(WordCount)
+    mrs.main(WordCount2)
 
 # vim: et sw=4 sts=4

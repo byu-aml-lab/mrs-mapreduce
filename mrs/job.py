@@ -100,8 +100,8 @@ class Job(object):
         ds._close_callback = self._manager.close_dataset
         return ds
 
-    def map_data(self, input, mapper, splits=None, outdir=None, parter=None,
-            **kwds):
+    def map_data(self, input, mapper, splits=None, outdir=None, combiner=None,
+            parter=None, **kwds):
         """Define a set of data computed with a map operation.
 
         Specify the input dataset and a mapper function.  The mapper must be
@@ -111,6 +111,7 @@ class Job(object):
         """
         if splits is None:
             splits = self.default_reduce_tasks
+        assert isinstance(splits, int)
 
         if outdir:
             permanent = True
@@ -122,9 +123,13 @@ class Job(object):
             parter = self.default_partition
 
         map_name = self._registry[mapper]
+        if combiner:
+            combine_name = self._registry[combiner]
+        else:
+            combine_name = ''
         part_name = self._registry[parter]
 
-        op = tasks.MapOperation(map_name, part_name)
+        op = tasks.MapOperation(map_name, combine_name, part_name)
         ds = computed_data.ComputedData(op, input, splits=splits, dir=outdir,
                 permanent=permanent, **kwds)
         self._manager.submit(ds)
@@ -163,7 +168,7 @@ class Job(object):
         return ds
 
     def reducemap_data(self, input, reducer, mapper, splits=None, outdir=None,
-            parter=None, **kwds):
+            combiner=None, parter=None, **kwds):
         """Define a set of data computed with the reducemap operation.
 
         Called from the user-specified run function.
@@ -182,9 +187,14 @@ class Job(object):
 
         reduce_name = self._registry[reducer]
         map_name = self._registry[mapper]
+        if combiner:
+            combine_name = self._registry[combiner]
+        else:
+            combine_name = ''
         part_name = self._registry[parter]
 
-        op = tasks.ReduceMapOperation(reduce_name, map_name, part_name)
+        op = tasks.ReduceMapOperation(reduce_name, map_name, combine_name,
+                part_name)
         ds = computed_data.ComputedData(op, input, splits=splits, dir=outdir,
                 permanent=permanent, **kwds)
         self._manager.submit(ds)
