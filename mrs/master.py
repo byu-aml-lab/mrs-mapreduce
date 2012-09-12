@@ -192,22 +192,25 @@ class MasterRunner(runner.TaskRunner):
                 # comes back).
                 break
             dataset_id, source = next
-
-            # Slave-task affinity: when possible, assign to the slave that
-            # computed the task with the same source id in the input dataset.
-            input_id = self.datasets[dataset_id].input_id
-            try:
-                input_results = self.result_maps[input_id]
-            except KeyError:
-                input_results = None
+            dataset = self.datasets[dataset_id]
 
             slave = None
-            if input_results is not None:
-                for s in input_results.get(source):
-                    if s in self.idle_slaves:
-                        self.idle_slaves.remove(s)
-                        slave = s
-                        break
+            if dataset.affinity:
+                # Slave-task affinity: when possible, assign to the slave that
+                # computed the task with the same source id in the input
+                # dataset.
+                input_id = dataset.input_id
+                try:
+                    input_results = self.result_maps[input_id]
+                except KeyError:
+                    input_results = None
+
+                if input_results is not None:
+                    for s in input_results.get(source):
+                        if s in self.idle_slaves:
+                            self.idle_slaves.remove(s)
+                            slave = s
+                            break
             if slave is None:
                 slave = self.idle_slaves.pop()
 
