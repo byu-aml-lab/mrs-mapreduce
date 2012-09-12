@@ -41,8 +41,7 @@ class WordCount2(mrs.MapReduce):
     def map(self, key, value):
         for word in value.split():
             word = word.strip(string.punctuation).lower()
-            if word.isalpha():
-                yield (word, str(1))
+            yield (word, str(1))
 
     def reduce(self, key, values):
         count = sum(int(x) for x in values)
