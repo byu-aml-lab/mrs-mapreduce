@@ -38,7 +38,7 @@ logger = getLogger('mrs')
 try:
     from cStringIO import StringIO as BytesIO
 except ImportError:
-    BytesIO = io.BytesIO
+    from io import BytesIO
 
 
 class ReadBucket(object):

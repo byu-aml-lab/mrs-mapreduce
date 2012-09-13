@@ -33,12 +33,13 @@ class WordCount(mrs.MapReduce):
     """
     def map(self, key, value):
         for word in value.split():
+            word = str(word)
             word = word.strip(string.punctuation).lower()
-            yield (word, str(1))
+            yield (word.encode('utf-8'), b'1')
 
     def reduce(self, key, values):
         count = sum(int(x) for x in values)
-        yield str(count)
+        yield str(count).encode('utf-8')
 
 if __name__ == '__main__':
     mrs.main(WordCount)

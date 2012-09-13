@@ -44,10 +44,19 @@ the proxy object would be created unnecessarily over and over.
 from __future__ import division
 
 import getpass
-import httplib
 import json
 import urllib
-import urlparse
+
+try:
+    import httplib
+except ImportError:
+    import http.client as httplib
+
+try:
+    import urlparse
+except ImportError:
+    import urllib.parse as urlparse
+
 
 DEFAULT_PORT = 50070
 
