@@ -21,13 +21,8 @@
 # Licensing Office, Brigham Young University, 3760 HBLL, Provo, UT 84602,
 # (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
 
+"""Script for submitting jobs using pssh (parallel-ssh)."""
 
-################################################################################
-#
-# This is the clusterrun.py run-script referenced in the Mrs documentation. It
-# should work as is, but of course is meant to be adapted as needed.
-#
-################################################################################
 
 from __future__ import division, print_function
 
@@ -41,16 +36,16 @@ import sys
 import time
 
 DESCRIPTION = 'Runs a Mrs program using screen and pssh.'
-USAGE = '%prog --hosts [slaves] [mrs_program] [args]'
+USAGE = '%prog --hosts slave_hosts_file mrs_program [args]'
 EPILOG = """
-The 'slaves' file will be passed to the pssh program and should be a text file
+The 'slave_hosts_file' will be passed to pssh and should be a text file
 with the name of a slave machine on each line in the format
 "[user@][host][:port]".
 
 If the user name is left off, pssh will use the current user name, and
 for the port number, the ssh default will be used (port 22).
 
-Note that you will need to set up passphraseless ssh between the master
+Note that you will need to set up passphraseless ssh to the master
 and slave machines before running this script.
 
 All output is put in a folder named after the jobname.
