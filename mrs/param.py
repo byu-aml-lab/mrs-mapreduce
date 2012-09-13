@@ -29,8 +29,6 @@ a special directory of Param objects.
 import optparse
 import sys
 
-from six import with_metaclass
-
 #TODO: make it so that you can put None in your dictionary to cancel out
 # a parameter defined in one of your superclasses.
 
@@ -180,6 +178,12 @@ class _ParamMeta(type):
 
         # Create and return the new class
         return type.__new__(cls, classname, bases, classdict)
+
+
+# Python 3 compatibility.
+def with_metaclass(meta, base=object):
+    """Create a base class with a metaclass."""
+    return meta("NewBase", (base,), {})
 
 
 class ParamObj(with_metaclass(_ParamMeta)):
