@@ -186,6 +186,7 @@ master_args = [
     '--mrs=Master',
     '--mrs-runfile %s' % runfilename,
     '--mrs-tmpdir=%s' % opts.mrs_tmpdir,
+    '--mrs-timing-file=%s' % os.path.join(job_dir, 'time.txt')
     ]
 if opts.mrs_profile:
     master_args.append('--mrs-profile')
