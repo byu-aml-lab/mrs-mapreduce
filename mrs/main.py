@@ -36,7 +36,6 @@ import multiprocessing
 import os
 import random
 import signal
-from six import b, print_
 import sys
 import threading
 import time
@@ -280,7 +279,7 @@ class Implementation(BaseImplementation):
     def sigusr1_handler(self, signum, stack_frame):
         # Apparently the setting siginterrupt can get reset on some platforms.
         signal.siginterrupt(signal.SIGUSR1, False)
-        print_('Received SIGUSR1. Current stack trace:', file=sys.stderr)
+        print('Received SIGUSR1. Current stack trace:', file=sys.stderr)
         traceback.print_stack(stack_frame)
         if self.runner is not None:
             self.runner.debug_status()

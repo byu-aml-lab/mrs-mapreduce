@@ -21,7 +21,6 @@
 # (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
 
 import os
-from six import BytesIO
 
 from . import util
 
@@ -34,6 +33,12 @@ from . import fileformats
 
 from logging import getLogger
 logger = getLogger('mrs')
+
+# Python 3 compatibility
+try:
+    from cStringIO import StringIO as BytesIO
+except ImportError:
+    BytesIO = io.BytesIO
 
 
 class ReadBucket(object):

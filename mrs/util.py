@@ -22,16 +22,16 @@
 
 """Miscellaneous Helper Functions"""
 
-from __future__ import division
+from __future__ import division, print_function
 
 import errno
 import math
 import os
 import random
 import select
-from six.moves import xrange as range
 import string
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -44,6 +44,12 @@ ID_CHARACTERS = string.ascii_letters + string.digits
 BITS_IN_DOUBLE = 53
 ID_MAXLEN = int(BITS_IN_DOUBLE * math.log(2) / math.log(len(ID_CHARACTERS)))
 ID_RANGES = [len(ID_CHARACTERS) ** i for i in range(ID_MAXLEN + 1)]
+
+# Python 3 compatibility
+PY3 = sys.version_info[0] == 3
+if not PY3:
+    range = xrange
+
 
 
 class EventLoop(object):

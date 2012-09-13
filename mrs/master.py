@@ -20,14 +20,12 @@
 # Licensing Office, Brigham Young University, 3760 HBLL, Provo, UT 84602,
 # (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
 
-"""Mrs Master
+"""Mrs Master"""
 
-"""
+from __future__ import division, print_function
 
 # Note that the actual backlog may be limited by the OS--in Linux see:
 # /proc/sys/net/core/somaxconn (which seems to be 128 by default)
-
-from six import print_
 
 import collections
 import os
@@ -52,6 +50,12 @@ except ImportError:
 import logging
 logger = logging.getLogger('mrs')
 del logging
+
+# Python 3 compatibility
+PY3 = sys.version_info[0] == 3
+if not PY3:
+    range = xrange
+
 
 INITIAL_PEON_THREADS = 4
 MAX_PEON_THREADS = 20
@@ -79,7 +83,7 @@ class MasterRunner(runner.TaskRunner):
         self.sched_pipe = None
 
     def run(self):
-        for i in xrange(INITIAL_PEON_THREADS):
+        for i in range(INITIAL_PEON_THREADS):
             self.start_peon_thread()
         self.sched_timing_stats()
 
@@ -96,7 +100,7 @@ class MasterRunner(runner.TaskRunner):
                 # Rewrite the runfile with an empty line to signify that
                 # execution is complete.
                 with open(self.opts.mrs__runfile, 'w') as f:
-                    print_(file=f)
+                    print(file=f)
             self.slaves.disconnect_all()
         return self.exitcode
 
@@ -117,7 +121,7 @@ class MasterRunner(runner.TaskRunner):
         logger.info('Listening on port %s.' % port)
         if self.opts.mrs__runfile:
             with open(self.opts.mrs__runfile, 'w') as f:
-                print_(port, file=f)
+                print(port, file=f)
 
     def maintain_chore_queue(self):
         """Maintains the chore_queue and returns the timeout value for poll."""
@@ -179,7 +183,7 @@ class MasterRunner(runner.TaskRunner):
         if self.peon_thread_count < MAX_PEON_THREADS:
             slave_count = len(self.slaves) - len(self.dead_slaves)
             new_peon_thread_count = slave_count + INITIAL_PEON_THREADS
-            for i in xrange(new_peon_thread_count - self.peon_thread_count):
+            for i in range(new_peon_thread_count - self.peon_thread_count):
                 self.start_peon_thread()
 
         chore_list = []
@@ -264,11 +268,11 @@ class MasterRunner(runner.TaskRunner):
 
     def debug_status(self):
         super(MasterRunner, self).debug_status()
-        print_('Current assignments:', (', '.join('(%s, %s)' % a
+        print('Current assignments:', (', '.join('(%s, %s)' % a
                 for a in self.current_assignments)), file=sys.stderr)
-        print_('Idle slaves:', (', '.join(str(slave.id)
+        print('Idle slaves:', (', '.join(str(slave.id)
                 for slave in self.idle_slaves)), file=sys.stderr)
-        print_('Dead slaves:', (', '.join(str(slave.id)
+        print('Dead slaves:', (', '.join(str(slave.id)
                 for slave in self.dead_slaves)), file=sys.stderr)
 
 

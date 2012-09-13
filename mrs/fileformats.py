@@ -20,12 +20,12 @@
 # Licensing Office, Brigham Young University, 3760 HBLL, Provo, UT 84602,
 # (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
 
+from __future__ import division, print_function
+
 import codecs
 import gzip
 from itertools import islice
 import os
-from six import b
-from six import print_
 import struct
 import sys
 
@@ -125,7 +125,7 @@ class TextWriter(Writer):
 
     def writepair(self, kvpair):
         key, value = kvpair
-        print_(key, value, file=self.fileobj)
+        print(key, value, file=self.fileobj)
 
 
 class HexReader(Reader):
@@ -153,7 +153,7 @@ class HexWriter(TextWriter):
         key, value = kvpair
         encoded_key, length = hex_encoder(key)
         encoded_value, length = hex_encoder(value)
-        print_(encoded_key, encoded_value, file=self.fileobj)
+        print(encoded_key, encoded_value, file=self.fileobj)
 
 
 class BinWriter(TextWriter):

@@ -27,8 +27,9 @@ for a standard MapReduce program.  However, the MapReduce class can be extended
 to create much more complex programs.
 """
 
+from __future__ import division, print_function
+
 import sys
-from six import print_
 from . import fileformats
 
 ITERATIVE_QMAX = 10
@@ -92,7 +93,7 @@ class MapReduce(object):
         self.args.
         """
         if len(self.args) < 2:
-            print_("Requires input(s) and an output.", file=sys.stderr)
+            print("Requires input(s) and an output.", file=sys.stderr)
             return None
         inputs = self.args[:-1]
         return job.file_data(inputs)
@@ -105,7 +106,7 @@ class MapReduce(object):
         error, None is returned.
         """
         if len(self.args) < 1:
-            print_("Requires an output.", file=sys.stderr)
+            print("Requires an output.", file=sys.stderr)
             return None
         return self.args[-1]
 

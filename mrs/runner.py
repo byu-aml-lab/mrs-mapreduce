@@ -22,15 +22,13 @@
 
 """Mrs Runner"""
 
-from __future__ import division
+from __future__ import division, print_function
 
 import collections
 import os
-from six.moves import xrange as range
 import sys
 import time
 
-from six import print_
 from . import job
 from . import peons
 from . import computed_data
@@ -40,6 +38,12 @@ from . import worker
 import logging
 logger = logging.getLogger('mrs')
 del logging
+
+# Python 3 compatibility
+PY3 = sys.version_info[0] == 3
+if not PY3:
+    range = xrange
+
 
 INITIAL_PEON_THREADS = 4
 PROGRESS_INTERVAL = 0.25
@@ -517,9 +521,9 @@ class TaskRunner(BaseRunner):
         now = time.time()
         elapsed_time = now - self.last_status_time
         self.last_status_time = now
-        print_('TIMING: Completed tasks (since last):',
+        print('TIMING: Completed tasks (since last):',
                 num_tasks, file=sys.stderr)
-        print_('TIMING: Elapsed time (since last):', elapsed_time,
+        print('TIMING: Elapsed time (since last):', elapsed_time,
                 file=sys.stderr)
 
     def debug_status(self):
@@ -527,15 +531,15 @@ class TaskRunner(BaseRunner):
 
         self.timing_stats()
 
-        print_('Runnable datasets:', (', '.join(ds.id
+        print('Runnable datasets:', (', '.join(ds.id
                 for ds in self.runnable_datasets)), file=sys.stderr)
-        print_('Pending datasets:', (', '.join(ds.id
+        print('Pending datasets:', (', '.join(ds.id
                 for ds in self.pending_datasets)), file=sys.stderr)
-        print_('Ready tasks:', file=sys.stderr)
+        print('Ready tasks:', file=sys.stderr)
         for ds in self.runnable_datasets:
             if ds in self.tasklists:
                 sources = (str(t[1]) for t in self.tasklists[ds])
-                print_('    %s:' % ds.id, ', '.join(sources))
+                print('    %s:' % ds.id, ', '.join(sources))
 
 
 class TaskList(object):
@@ -645,7 +649,7 @@ class MockParallelRunner(TaskRunner, worker.WorkerManager):
         self.current_task = None
 
     def run(self):
-        for _ in xrange(INITIAL_PEON_THREADS):
+        for _ in range(INITIAL_PEON_THREADS):
             self.start_peon_thread()
         self.worker_setup(self.opts, self.args, self.default_dir)
         self.schedule()
