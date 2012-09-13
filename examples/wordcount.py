@@ -21,20 +21,16 @@
 # Licensing Office, Brigham Young University, 3760 HBLL, Provo, UT 84602,
 # (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
 
-
-################################################################################
-#
-# wordcount.py is the classic, hello world MapReduce program. This is a working
-# example and is provided to demonstrate a simple Mrs implementation. It is
-# further explained in the tutorials provided in the MRS_HOME/tutorials folder.
-#
-################################################################################
-
-import string
 import mrs
+import string
 
 class WordCount(mrs.MapReduce):
+    """Count the number of occurrences of each word in a set of documents.
 
+    Word Count is the classic "hello world" MapReduce program. This is a
+    working example and is provided to demonstrate a simple Mrs program. It is
+    further explained in the tutorials provided in the docs directory.
+    """
     def map(self, key, value):
         for word in value.split():
             word = word.strip(string.punctuation).lower()
@@ -42,7 +38,8 @@ class WordCount(mrs.MapReduce):
                 yield (word, str(1))
 
     def reduce(self, key, values):
-        yield str(sum(int(x) for x in values))
+        count = sum(int(x) for x in values)
+        yield str(count)
 
 if __name__ == '__main__':
     mrs.main(WordCount)

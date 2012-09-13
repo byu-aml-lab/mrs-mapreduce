@@ -69,7 +69,7 @@ class MasterRunner(runner.TaskRunner):
         super(MasterRunner, self).__init__(*args)
 
         self.slaves = None
-        self.idle_slaves = set()
+        self.idle_slaves = IdleSlaves()
         self.dead_slaves = set()
         self.current_assignments = set()
         self.result_maps = {}
@@ -192,22 +192,25 @@ class MasterRunner(runner.TaskRunner):
                 # comes back).
                 break
             dataset_id, source = next
-
-            # Slave-task affinity: when possible, assign to the slave that
-            # computed the task with the same source id in the input dataset.
-            input_id = self.datasets[dataset_id].input_id
-            try:
-                input_results = self.result_maps[input_id]
-            except KeyError:
-                input_results = None
+            dataset = self.datasets[dataset_id]
 
             slave = None
-            if input_results is not None:
-                for s in input_results.get(source):
-                    if s in self.idle_slaves:
-                        self.idle_slaves.remove(s)
-                        slave = s
-                        break
+            if dataset.affinity:
+                # Slave-task affinity: when possible, assign to the slave that
+                # computed the task with the same source id in the input
+                # dataset.
+                input_id = dataset.input_id
+                try:
+                    input_results = self.result_maps[input_id]
+                except KeyError:
+                    input_results = None
+
+                if input_results is not None:
+                    for s in input_results.get(source):
+                        if s in self.idle_slaves:
+                            self.idle_slaves.remove(s)
+                            slave = s
+                            break
             if slave is None:
                 slave = self.idle_slaves.pop()
 
@@ -829,5 +832,100 @@ class Slaves(object):
         """Returns the total number of slaves (including dead slaves)."""
         return len(self._slaves)
 
+
+class IdleSlaves(object):
+    """A priority-queue-like container of Slave objects.
+
+    Attributes:
+        _host_map: A map from a host to the corresponding set of slaves.
+        _counter: A dictionary that maps a count c to a set of hosts with c
+            idle slaves.
+    """
+    def __init__(self):
+        self._host_map = collections.defaultdict(set)
+        self._counter = collections.defaultdict(set)
+        self._all_slaves = set()
+        self._max_count = 0
+
+    def add(self, slave):
+        host = slave.host
+
+        # Remove the host's slave set from the counter.
+        slave_set = self._host_map[host]
+        self._remove_from_counter(host, len(slave_set))
+
+        # Add the host to the slave_set.
+        slave_set.add(slave)
+        self._all_slaves.add(slave)
+
+        # Reinsert the slave_set with its new count.
+        self._add_to_counter(host, len(slave_set))
+
+    def remove(self, slave):
+        """Remove the given slave from the set.
+
+        If it is not a member, raise a KeyError.
+        """
+        self._all_slaves.remove(slave)
+        host = slave.host
+
+        # Find the host's slave set and remove it from the counter.
+        slave_set = self._host_map[host]
+        self._remove_from_counter(host, len(slave_set))
+
+        # Remove the host from the slave_set.
+        slave_set.remove(slave)
+
+        # Reinsert the slave_set with its new count.
+        self._add_to_counter(host, len(slave_set))
+
+    def discard(self, slave):
+        """Remove the given slave from the set, if present."""
+        self._all_slaves.discard(slave)
+        host = slave.host
+
+        # Find the host's slave set and remove it from the counter.
+        slave_set = self._host_map[host]
+        self._remove_from_counter(host, len(slave_set))
+
+        # Discard the host from the slave_set.
+        slave_set.discard(slave)
+
+        # Reinsert the slave_set with its new count.
+        self._add_to_counter(host, len(slave_set))
+
+    def pop(self):
+        """Remove and return a slave from the most idle host."""
+        # Find and remove a host with the maximum number of idle slaves.
+        counter_set = self._counter[self._max_count]
+        host = counter_set.pop()
+        if not counter_set:
+            self._max_count -= 1
+
+        # Pop a slave and reinsert the host (with its new count).
+        slave_set = self._host_map[host]
+        slave = slave_set.pop()
+        self._all_slaves.remove(slave)
+        self._add_to_counter(host, len(slave_set))
+        return slave
+
+    def _add_to_counter(self, host, host_size):
+        counter_set = self._counter[host_size]
+        counter_set.add(host)
+        if host_size > self._max_count:
+            self._max_count = host_size
+
+    def _remove_from_counter(self, host, host_size):
+        if host_size != 0:
+            counter_set = self._counter[host_size]
+            counter_set.remove(host)
+            if not counter_set:
+                self._max_count -= 1
+
+    def __nonzero__(self):
+        return self._max_count > 0
+
+    def __contains__(self, slave):
+        return slave in self._all_slaves
 
 # vim: et sw=4 sts=4

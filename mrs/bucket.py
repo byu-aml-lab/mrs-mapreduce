@@ -117,6 +117,7 @@ class WriteBucket(ReadBucket):
     to the given filename with the specified format.
 
     Attributes:
+        url: Always None: use `readonly_copy` to make it readable
         source: An integer showing which source the data come from.
         split: An integer showing which split the data is directed to.
         dir: A string specifying the directory for writes.
@@ -140,6 +141,7 @@ class WriteBucket(ReadBucket):
             format = fileformats.default_write_format
         self.format = format
 
+        self._filename = None
         self._output_file = None
         self._writer = None
 
@@ -149,24 +151,29 @@ class WriteBucket(ReadBucket):
     def readonly_copy(self):
         b = ReadBucket(self.source, self.split)
         b._data = self._data
-        b.url = self.url
+        b.url = self._filename
         return b
 
     def open_writer(self):
         # Don't open if 1) there's no place to put it; 2) it's already saved
         # some place; or 3) it's already open.
-        if self.dir and not self.url and not self._writer:
+        if self.dir and not self._filename and not self._writer:
             # TODO: consider using SpooledTemporaryFile when self.dir is
             # local (i.e., in /tmp).
+
+            # TODO: if the directory is an hdfs url, write to a local
+            # temporary file (or SpooledTemporaryFile)
             suffix='.' + self.format.ext
-            self._output_file, self.url = util.mktempfile(self.dir,
+            self._output_file, self._filename = util.mktempfile(self.dir,
                     self.prefix(), suffix)
             self._writer = self.format(self._output_file)
 
     def close_writer(self, do_sync):
+        """Close the bucket for future writes."""
         if self._writer:
             self._writer.finish()
             self._writer = None
+        # TODO: If the directory is an HDFS URL, upload the file here.
         if self._output_file:
             if do_sync:
                 self._output_file.flush()
@@ -213,8 +220,8 @@ class WriteBucket(ReadBucket):
         """Removes any temporary files created and empties cached data."""
         super(WriteBucket, self).clean()
         self._data = None
-        if self.url:
-            os.remove(self.url)
+        if self._filename:
+            os.remove(self._filename)
 
 
 class URLConverter(object):

@@ -38,6 +38,9 @@ class ComputedData(datasets.RemoteData):
     permanent storage or to leave them in memory on the slaves.
 
     Arguments:
+        affinity: whether to try to assign tasks to the same slave that
+            computed the input task of the same id (often true for iterative
+            programs)
         async_start: whether to allow the dataset to start asynchronously
             (while some tasks in the parent are still running)
         blocking_percent: dependent datasets may start being computed when
@@ -50,8 +53,8 @@ class ComputedData(datasets.RemoteData):
         parter: name of the partition function (see registry for more info)
         backlink_id: string id of the dataset backlinked to
     """
-    def __init__(self, operation, input, splits, blocking_percent=1,
-            backlink=None, async_start=False, **kwds):
+    def __init__(self, operation, input, splits, affinity=False,
+            blocking_percent=1, backlink=None, async_start=False, **kwds):
         # Create exactly one task for each split in the input.
         self.ntasks = input.splits
         super(ComputedData, self).__init__(**kwds)
@@ -64,9 +67,11 @@ class ComputedData(datasets.RemoteData):
 
         assert not input.closed
         self.input_id = input.id
+
+        # Options
+        self.affinity = affinity
         self.blocking_percent = blocking_percent
         self.async_start = async_start
-
         if backlink is None:
             self.backlink_id = None
         elif not isinstance(backlink, ComputedData):
