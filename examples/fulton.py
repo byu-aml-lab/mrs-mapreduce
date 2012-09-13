@@ -29,6 +29,9 @@ submit MapReduce jobs to Brigham Young University's Fulton Supercomputing Lab.
 It is included just as a helpful example.
 """
 
+# TODO: make the number of slaves per job default to '0' (all-in-one) and
+# also include the master in the same job as the first batch of slaves.
+
 
 from __future__ import division
 
