@@ -2,6 +2,7 @@
 
 from __future__ import division
 
+import sys
 import mrs
 try:
     import numpy
@@ -55,8 +56,8 @@ class SamplePi(mrs.MapReduce):
             else:
                 inside += 1
 
-            yield (str(True), str(inside))
-            yield (str(False), str(outside))
+        yield (str(True), str(inside))
+        yield (str(False), str(outside))
 
     def reduce(self, key, values):
         values = list(values)
@@ -66,7 +67,7 @@ class SamplePi(mrs.MapReduce):
         points = self.opts.num_points
         tasks = self.opts.num_tasks
         kvpairs = ((str(i * points), str(points)) for i in range(tasks))
-        source = job.local_data(kvpairs)
+        source = job.local_data(kvpairs, splits=tasks)
 
         intermediate = job.map_data(source, self.map)
         source.close()
@@ -83,6 +84,7 @@ class SamplePi(mrs.MapReduce):
 
         pi = 4 * inside / (inside + outside)
         print pi
+        sys.stdout.flush()
 
         return 0
 
@@ -95,7 +97,7 @@ def update_parser(parser):
     parser.add_option('-t', '--tasks',
                       dest='num_tasks', type='int',
                       help='Number of map tasks to use',
-                      default=10)
+                      default=40)
 
     return parser
 
