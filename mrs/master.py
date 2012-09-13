@@ -326,18 +326,21 @@ class MasterInterface(object):
             host=None):
         """Slave reporting for duty.
 
-        It returns the slave_id and option dictionary.  Returns (-1, {}, [])
-        if the signin is rejected.
+        It returns the slave_id and option dictionary.  Returns
+        (-1, '', '', {}, []) if the signin is rejected.
         """
         if version != __version__:
-            logger.warning('Client tried to sign in with mismatched version.')
+            logger.warning('Slave tried to sign in with mismatched version.')
             return -1, '', '', {}, []
         if self.program_hash != program_hash:
             # The slaves are running different code than the master is.
-            logger.warning('Client tried to sign in with nonmatching code.')
+            logger.warning('Slave tried to sign in with nonmatching code.')
             return -1, '', '', {}, []
 
         slave = self.slaves.new_slave(host, slave_port, cookie)
+        if slave is None:
+            logger.warning('Slave tried to sign in during shutdown.')
+            return -1, '', '', {}, []
         logger.info('New slave %s on host %s' % (slave.id, host))
 
         return (slave.id, host, self.jobdir, self.opts_dict, self.args)
@@ -714,6 +717,7 @@ class Slaves(object):
         self._lock = threading.Lock()
         self._next_slave_id = 0
         self._slaves = {}
+        self._accepting_new_slaves = True
 
         # Note that collections.deque is documented to be thread-safe.
         self._changed_slaves = collections.deque()
@@ -741,6 +745,8 @@ class Slaves(object):
         added to the idle queue until push_idle is called.
         """
         with self._lock:
+            if not self._accepting_new_slaves:
+                return None
             slave_id = self._next_slave_id
             self._next_slave_id += 1
             slave = RemoteSlave(slave_id, host, slave_port, cookie, self)
@@ -807,6 +813,8 @@ class Slaves(object):
 
     def disconnect_all(self):
         """Sends an exit request to the slaves and waits for completion."""
+        with self._lock:
+            self._accepting_new_slaves = False
 
         # Each slave writes to the write_pipe when the disconnect completes.
         read_pipe, write_pipe = os.pipe()
