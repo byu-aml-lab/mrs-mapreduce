@@ -26,6 +26,8 @@ An Implementation defines the implementation function that will be run and
 specifies its command-line options.
 """
 
+from __future__ import division, print_function
+
 # In this file, we perform several imports inside of methods in order to
 # reduce the initial startup time (especially to make --help more pleasant).
 import binascii
@@ -37,6 +39,7 @@ import signal
 from six import b, print_
 import sys
 import threading
+import time
 import traceback
 
 from . import master
@@ -135,6 +138,7 @@ class BaseImplementation(ParamObj):
         # Seed needs to be a string to avoid triggering XMLRPC limits:
         seed=Param(default=str(DEFAULT_SEED),
             doc='Random seed, default changes each run'),
+        timing_file=Param(doc='Name of a file to write timing data to')
         )
 
     def __init__(self):
@@ -146,6 +150,8 @@ class BaseImplementation(ParamObj):
         if args is None:
             args = []
 
+        start_time = time.time()
+
         if self.debug:
             logger.setLevel(logging.DEBUG)
         elif self.verbose:
@@ -153,7 +159,13 @@ class BaseImplementation(ParamObj):
         else:
             logger.setLevel(logging.WARNING)
 
-        return self._main(opts, args)
+        try:
+            return self._main(opts, args)
+        finally:
+            if self.timing_file:
+                with open(self.timing_file, 'w') as timing_file:
+                    total_time = time.time() - start_time
+                    print('total_time=%s' % total_time, file=timing_file)
 
     def _main(self, opts, args):
         """Method to be overridden by subclasses."""
