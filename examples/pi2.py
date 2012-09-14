@@ -1,10 +1,11 @@
 #!/usr/bin/python
 
-from __future__ import division
+from __future__ import division, print_function
 
+import mrs
 import random
 import sys
-import mrs
+import time
 
 try:
     range = xrange
@@ -13,18 +14,21 @@ except NameError:
 
 class SamplePi(mrs.MapReduce):
     """A less numerically-intensive version of the pi calculator."""
-
     def map(self, key, value):
+        random_ = random.random
         inside = 0
         outside = 0
 
-        for _ in range(int(value)):
-            x = random.random() - 0.5
-            y = random.random() - 0.5
+        #start = time.time()
+        for _ in range(self.opts.num_points):
+            x = random_() - 0.5
+            y = random_() - 0.5
             if x * x + y * y > 0.25:
                 outside += 1
             else:
                 inside += 1
+        #end = time.time()
+        #print('Elapsed time:', end - start)
 
         yield (str(True), str(inside))
         yield (str(False), str(outside))
@@ -36,8 +40,9 @@ class SamplePi(mrs.MapReduce):
     def run(self, job):
         points = self.opts.num_points
         tasks = self.opts.num_tasks
-        kvpairs = ((str(i * points), str(points)) for i in range(tasks))
-        source = job.local_data(kvpairs, splits=tasks)
+        kvpairs = ((str(i), str(i * points)) for i in range(tasks))
+        source = job.local_data(kvpairs, splits=tasks,
+                parter=self.mod_partition)
 
         intermediate = job.map_data(source, self.map)
         source.close()
@@ -53,7 +58,7 @@ class SamplePi(mrs.MapReduce):
                 outside = int(value)
 
         pi = 4 * inside / (inside + outside)
-        print pi
+        print(pi)
         sys.stdout.flush()
 
         return 0
