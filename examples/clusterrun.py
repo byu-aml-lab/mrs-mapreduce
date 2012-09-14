@@ -134,6 +134,7 @@ mrs_program = args[0] # get name of Mrs program
 mrs_argv = args[1:] # get input file
 job_dir = os.path.join(opts.out_dir, opts.jobname)
 runfilename = os.path.join(job_dir, 'master.run') # this will have the port num
+timefilename = os.path.join(job_dir, 'time.txt')
 host_options = ' '.join('--hosts %s' % hostfile for hostfile in opts.hostfiles)
 master_hostname = socket.gethostname()
 
@@ -273,3 +274,12 @@ while True:
         break
 
 quit_screen(opts.jobname)
+
+while True:
+    time.sleep(1)
+    try:
+        with open(timefilename) as timefile:
+            if timefile.read().strip() != '':
+                break
+    except IOError:
+        pass
