@@ -9,6 +9,11 @@ try:
 except ImportError:
     import numpypy as numpy
 
+try:
+    range = xrange
+except NameError:
+    pass
+
 class HaltonSequence(object):
 
     P = [2, 3]

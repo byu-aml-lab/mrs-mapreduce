@@ -6,6 +6,11 @@ import random
 import sys
 import mrs
 
+try:
+    range = xrange
+except NameError:
+    pass
+
 class SamplePi(mrs.MapReduce):
     """A less numerically-intensive version of the pi calculator."""
 
