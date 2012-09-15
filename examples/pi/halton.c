@@ -1,7 +1,7 @@
 //starting at the given index, samples from the halton sequence size times
 //returns the number of points inside the unit circle so that pi can be
 //approximating using 4 * inside / size
-long long pi(long long index, long long size) {
+long long halton_darts(long long index, long long size) {
     // indexes
     int j;
     long long k, i;
