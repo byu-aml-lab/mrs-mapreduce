@@ -1,13 +1,19 @@
 #include <stdio.h>
 
-void pi(long start, long size);
+long pi(long start, long size);
 
 int main(int argc, char** argv) {
-    pi(10003, 10);
+    long size = 100000;
+    long inside = pi(10003, size);
+    double pi = (4.0 * inside) / size;
+    printf("%lf\n", pi);
     return 0;
 }
 
-void pi(long index, long size) {
+//starting at the given index, samples from the halton sequence size times
+//returns the number of points inside the unit circle so that pi can be
+//approximating using 4 * inside / size
+long pi(long index, long size) {
     // indexes
     int j;
     long k, i;
@@ -69,6 +75,9 @@ void pi(long index, long size) {
         x = x0 - .5;
         y = x1 - .5;
 
-        printf("%lf %lf\n", x, y);
+        if(x * x + y * y <= .25)
+            ++inside;
     }
+
+    return inside;
 }
