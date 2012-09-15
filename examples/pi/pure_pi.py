@@ -16,34 +16,46 @@ except NameError:
 
 class HaltonSequence(object):
 
-    P = [2, 3]
-    K = [63, 40]
-
     def __init__(self, start):
         self.index = start
-        self.x = numpy.zeros(len(self.K), dtype='float64')
-        self.q = [numpy.zeros(n, dtype='float64') for n in self.K]
-        self.d = [numpy.zeros(n, dtype='int32') for n in self.K]
+        self.q0 = numpy.zeros(63, dtype='float64')
+        self.d0 = numpy.zeros(63, dtype='int32')
+        self.q1 = numpy.zeros(40, dtype='float64')
+        self.d1 = numpy.zeros(40, dtype='int32')
 
-        for i, n in enumerate(self.K):
-            k = start
-            self.x[i] = 0
-            for j in range(n):
-                self.q[i][j] = (1 if j == 0 else self.q[i][j - 1]) / self.P[i]
-                self.d[i][j] = int(k % self.P[i])
-                k = (k - self.d[i][j]) // self.P[i]
-                self.x[i] += self.d[i][j] * self.q[i][j]
+        k = start
+        self.x0 = 0.0
+        for j in range(63):
+            self.q0[j] = (1 if j == 0 else self.q0[j - 1]) / 2
+            self.d0[j] = int(k % 2)
+            k = (k - self.d0[j]) // 2
+            self.x0 += self.d0[j] * self.q0[j]
+
+        k = start
+        self.x1 = 0.0
+        for j in range(40):
+            self.q1[j] = (1 if j == 0 else self.q1[j - 1]) / 3
+            self.d1[j] = int(k % 3)
+            k = (k - self.d1[j]) // 3
+            self.x1 += self.d1[j] * self.q1[j]
 
     def next_point(self):
         self.index += 1
-        for i, n in enumerate(self.K):
-            for j in range(n):
-                self.d[i][j] += 1
-                self.x[i] += self.q[i][j]
-                if self.d[i][j] < self.P[i]:
-                    break
-                self.d[i][j] = 0
-                self.x[i] -= 1 if j == 0 else self.q[i][j - 1]
+        for j in range(63):
+            self.d0[j] += 1
+            self.x0 += self.q0[j]
+            if self.d0[j] < 2:
+                break
+            self.d0[j] = 0
+            self.x0 -= 1 if j == 0 else self.q0[j - 1]
+
+        for j in range(63):
+            self.d1[j] += 1
+            self.x1 += self.q1[j]
+            if self.d1[j] < 3:
+                break
+            self.d1[j] = 0
+            self.x1 -= 1 if j == 0 else self.q1[j - 1]
         return tuple(self.x)
 
 class SamplePi(mrs.MapReduce):
