@@ -1,12 +1,9 @@
-bin = halton
+target = halton.so
 
-all: $(bin)
+all: $(target)
 
-$(bin): halton.c
-	gcc halton.c -o $(bin)
+$(target): halton.c
+	gcc -shared -Wl,-soname,$@ -o $@ -fPIC $< -O2
 
 clean:
-	rm $(bin)
-
-run: $(bin)
-	@./$(bin)
+	rm $(target)

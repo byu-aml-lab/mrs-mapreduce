@@ -1,22 +1,10 @@
-#include <stdio.h>
-
-long pi(long start, long size);
-
-int main(int argc, char** argv) {
-    long size = 100000;
-    long inside = pi(10003, size);
-    double pi = (4.0 * inside) / size;
-    printf("%lf\n", pi);
-    return 0;
-}
-
 //starting at the given index, samples from the halton sequence size times
 //returns the number of points inside the unit circle so that pi can be
 //approximating using 4 * inside / size
-long pi(long index, long size) {
+long long pi(long long index, long long size) {
     // indexes
     int j;
-    long k, i;
+    long long k, i;
 
     // halton data
     double x0, x1;
@@ -25,7 +13,7 @@ long pi(long index, long size) {
     double x, y;
 
     // counters
-    long inside = 0L;
+    long long inside = 0;
 
     x0 = 0;
     q0[0] = 1.0 / 2;
