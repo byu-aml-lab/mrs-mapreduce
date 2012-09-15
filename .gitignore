@@ -7,3 +7,4 @@ mrs_mapreduce.egg-info/*
 mrs.job*
 .coverage
 .nfs*
+*.so
