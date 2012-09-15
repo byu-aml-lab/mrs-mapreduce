@@ -49,26 +49,25 @@ class HaltonSequence(object):
 class SamplePi(mrs.MapReduce):
     def map(self, key, value):
         halton = HaltonSequence(int(value))
-        inside, outside = 0, 0
+        inside = 0
 
-        for _ in range(self.opts.num_points):
+        num_points = int(self.opts.num_points)
+        for _ in range(num_points):
             point = halton.next_point()
             x = point[0] - .5
             y = point[1] - .5
-            if x * x + y * y > .25:
-                outside += 1
-            else:
+            if x * x + y * y <= .25:
                 inside += 1
 
         yield (str(True), str(inside))
-        yield (str(False), str(outside))
+        yield (str(False), str(num_points - inside))
 
     def reduce(self, key, values):
         values = list(values)
         yield str(sum(int(x) for x in values))
 
     def run(self, job):
-        points = self.opts.num_points
+        points = int(self.opts.num_points)
         tasks = self.opts.num_tasks
         kvpairs = ((str(i), str(i * points)) for i in range(tasks))
         source = job.local_data(kvpairs, splits=tasks,
@@ -95,7 +94,7 @@ class SamplePi(mrs.MapReduce):
 
 def update_parser(parser):
     parser.add_option('-p', '--points',
-                      dest='num_points', type='int',
+                      dest='num_points',
                       help='Number of points for each map task',
                       default=1000)
 

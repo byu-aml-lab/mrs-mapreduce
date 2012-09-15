@@ -25,18 +25,18 @@ class SamplePi(mrs.MapReduce):
     """A less numerically-intensive version of the pi calculator."""
 
     def map(self, key, value):
-        inside = halton_darts(int(value), self.opts.num_points)
-        outside = self.opts.num_points - inside
+        num_points = int(self.opts.num_points)
+        inside = halton_darts(int(value), num_points)
 
         yield (str(True), str(inside))
-        yield (str(False), str(outside))
+        yield (str(False), str(num_points - inside))
 
     def reduce(self, key, values):
         values = list(values)
         yield str(sum(int(x) for x in values))
 
     def run(self, job):
-        points = self.opts.num_points
+        points = int(self.opts.num_points)
         tasks = self.opts.num_tasks
         kvpairs = ((str(i), str(i * points)) for i in range(tasks))
         source = job.local_data(kvpairs, splits=tasks,
@@ -63,7 +63,7 @@ class SamplePi(mrs.MapReduce):
 
 def update_parser(parser):
     parser.add_option('-p', '--points',
-                      dest='num_points', type='int',
+                      dest='num_points',
                       help='Number of points for each map task',
                       default=1000)
 

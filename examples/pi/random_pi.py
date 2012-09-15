@@ -17,28 +17,26 @@ class SamplePi(mrs.MapReduce):
     def map(self, key, value):
         random_ = random.random
         inside = 0
-        outside = 0
 
         #start = time.time()
-        for _ in range(self.opts.num_points):
+        num_points = int(self.opts.num_points)
+        for _ in range(num_points):
             x = random_() - 0.5
             y = random_() - 0.5
-            if x * x + y * y > 0.25:
-                outside += 1
-            else:
+            if x * x + y * y <= 0.25:
                 inside += 1
         #end = time.time()
         #print('Elapsed time:', end - start)
 
         yield (str(True), str(inside))
-        yield (str(False), str(outside))
+        yield (str(False), str(num_points - inside))
 
     def reduce(self, key, values):
         values = list(values)
         yield str(sum(int(x) for x in values))
 
     def run(self, job):
-        points = self.opts.num_points
+        points = int(self.opts.num_points)
         tasks = self.opts.num_tasks
         kvpairs = ((str(i), str(i * points)) for i in range(tasks))
         source = job.local_data(kvpairs, splits=tasks,
@@ -65,7 +63,7 @@ class SamplePi(mrs.MapReduce):
 
 def update_parser(parser):
     parser.add_option('-p', '--points',
-                      dest='num_points', type='int',
+                      dest='num_points',
                       help='Number of points for each map task',
                       default=1000)
 
