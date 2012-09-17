@@ -37,8 +37,7 @@ class WordCount(mrs.MapReduce):
             yield (word, 1)
 
     def reduce(self, key, values):
-        count = sum(values)
-        yield count
+        yield sum(values)
 
 if __name__ == '__main__':
     mrs.main(WordCount)

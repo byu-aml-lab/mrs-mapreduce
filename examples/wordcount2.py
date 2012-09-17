@@ -44,8 +44,7 @@ class WordCount2(mrs.MapReduce):
             yield (word, 1)
 
     def reduce(self, key, values):
-        count = sum(values)
-        yield count
+        yield sum(values)
 
     combine = reduce
 
