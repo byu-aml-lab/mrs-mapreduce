@@ -180,8 +180,8 @@ class HexWriter(TextWriter):
     def writepair(self, kvpair):
         """Write a key-value pair to a HexFormat."""
         key, value = kvpair
-        encoded_key, length = hex_encoder(pickle.dumps(key))
-        encoded_value, length = hex_encoder(pickle.dumps(value))
+        encoded_key, length = hex_encoder(pickle.dumps(key, 2))
+        encoded_value, length = hex_encoder(pickle.dumps(value, 2))
         print(encoded_key, encoded_value, file=self.fileobj)
 
 
@@ -202,8 +202,8 @@ class BinWriter(TextWriter):
     def writepair(self, kvpair):
         """Write a key-value pair to a HexFormat."""
         key, value = kvpair
-        key = pickle.dumps(key)
-        value = pickle.dumps(value)
+        key = pickle.dumps(key, 2)
+        value = pickle.dumps(value, 2)
 
         binlen = struct.pack('<Q', len(key))
         self.fileobj.write(binlen)
