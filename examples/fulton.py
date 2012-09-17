@@ -209,8 +209,18 @@ def submit_slavejob(i, name, script_vars, cmdline, jobdir, master_jobid):
         PORT_FILE="$JOBDIR/port.$MASTER_JOBID"
 
         # Slave
-        while [[ ! -e $PORT_FILE ]]; do sleep 1; done
-        PORT=$(cat $PORT_FILE)
+        while true; do
+            if [[ -e $PORT_FILE ]]; then
+                PORT=$(cat $PORT_FILE)
+                if [[ $PORT = "-" ]]; then
+                    echo "The master quit prematurely."
+                    exit
+                elif [[ ! -z $PORT ]]; then
+                    break;
+                fi
+            fi
+            sleep 0.05;
+        done
         HOST=$(cat $HOST_FILE)
 
         echo "Connecting to master on '$HOST:$PORT'"

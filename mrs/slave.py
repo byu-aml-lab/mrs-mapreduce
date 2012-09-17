@@ -157,7 +157,8 @@ class Slave(worker.WorkerManager):
                     __version__, cookie, self.rpc_port, program_hash)
         except socket.error as e:
             msg = str(e)
-            logger.critical('Unable to contact master: %s' % msg)
+            logger.critical('Unable to contact master at %s: %s' %
+                    (self.master_url, msg))
             return None
 
         if slave_id < 0:

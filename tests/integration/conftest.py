@@ -1,3 +1,5 @@
+from __future__ import division, print_function
+
 import mrs
 from multiprocessing import Process
 import pytest
@@ -73,13 +75,23 @@ def run_slave(program, master, tmpdir):
 
 
 def slave_process(program, runfile, tmpdir):
+    start = time.time()
+    first = True
     while True:
+        assert time.time() - start < 5, 'Master failed to start promptly.'
         try:
             with open(runfile) as f:
                 port = f.read().strip()
-                break
+                if port == '-':
+                    # The master has already finished.
+                    return
+                elif port:
+                    # A port is written to the file.
+                    break
+                # Otherwise, the file hasn't been written yet.
         except IOError:
-            time.sleep(1)
+            pass
+        time.sleep(0.05)
 
     master = '127.0.0.1:%s' % port
     run_slave(program, master, tmpdir)

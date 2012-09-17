@@ -97,10 +97,10 @@ class MasterRunner(runner.TaskRunner):
             self.event_loop.run(timeout_function=self.maintain_chore_queue)
         finally:
             if self.opts.mrs__runfile:
-                # Rewrite the runfile with an empty line to signify that
+                # Rewrite the runfile with a hyphen to signify that
                 # execution is complete.
                 with open(self.opts.mrs__runfile, 'w') as f:
-                    print(file=f)
+                    print('-', file=f)
             self.slaves.disconnect_all()
         return self.exitcode
 

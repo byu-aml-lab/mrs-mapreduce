@@ -217,13 +217,18 @@ stuff_to_screen(opts.jobname, 0, master_command + '\n')
 # Wait for the master to start and get the port number.
 while True:
     try:
-        runfile = open(runfilename)
+        with open(runfilename) as runfile:
+            master_port = runfile.read().strip()
+            if master_port == '-':
+                print('The master exited without writing the runfile.')
+                sys.exit(1)
+            elif master_port:
+                break
         break
     except IOError:
-        time.sleep(0.1)
+        pass
+    time.sleep(0.05)
 
-master_port = runfile.read().strip()
-runfile.close()
 
 ##############################################################################
 # Start Slaves
@@ -268,7 +273,7 @@ while True:
     time.sleep(1)
     try:
         with open(runfilename) as runfile:
-            if runfile.read().strip() == '':
+            if runfile.read().strip() == '-':
                 break
     except IOError:
         break
@@ -279,7 +284,7 @@ while True:
     time.sleep(0.1)
     try:
         with open(timefilename) as timefile:
-            if timefile.read().strip() != '':
+            if timefile.read().strip():
                 break
     except IOError:
         pass
