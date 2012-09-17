@@ -51,7 +51,6 @@ if not PY3:
     range = xrange
 
 
-
 class EventLoop(object):
     """A very simple event loop that wraps select.poll.
 

@@ -210,11 +210,16 @@ class BaseDataset(object):
 
 
 class LocalData(BaseDataset):
-    """Collect output from a map or reduce task.
+    """Collect output from an iterator.
 
-    It takes a partition function and a number of splits to use.  Note that
-    the `source`, which is just used for naming files, represents which output
-    source is being created.
+    If the `parter` function is specified, then it is used to partition data
+    by keys.  The `splits` parameter defines the total number of buckets.  If
+    the `parter` is unspecified, then data are assigned to buckets on a
+    round-robin basis, and if `splits` is also unspecified, then the number of
+    buckets will grow with the size of the iterator.
+
+    Note that the `source`, which is just used for naming files, represents
+    which output source is being created.
 
     >>> lst = [(4, 'to_0'), (5, 'to_1'), (7, 'to_3'), (9, 'to_1')]
     >>> o = LocalData(lst, splits=4, parter=(lambda x, n: x%n))
@@ -225,6 +230,10 @@ class LocalData(BaseDataset):
     >>>
     """
     def __init__(self, itr, splits, source=0, parter=None, **kwds):
+        if parter is not None and splits is None:
+            raise RuntimeError('The splits parameter is required when parter'
+                    ' is specified.')
+
         super(LocalData, self).__init__(splits=splits, **kwds)
         self.id = 'local_' + self.id
         self.fixed_source = source
@@ -244,15 +253,28 @@ class LocalData(BaseDataset):
         """Collect all of the key-value pairs from the given iterator."""
         n = self.splits
         source = self.fixed_source
-        if n == 1:
-            bucket = self[source, 0]
-            bucket.collect(itr)
+        if parter is None:
+            if n:
+                # Assign to buckets in a round-robin fashion.
+                for split, kvpair in enumerate(itr):
+                    bucket = self[source, split % n]
+                    bucket.addpair(kvpair)
+            else:
+                # Grow the number of buckets with the size of the data.
+                for split, kvpair in enumerate(itr):
+                    bucket = self[source, split]
+                    bucket.addpair(kvpair)
+                self.splits = split + 1
         else:
-            for kvpair in itr:
-                key, value = kvpair
-                split = parter(key, n)
-                bucket = self[source, split]
-                bucket.addpair(kvpair)
+            if n == 1:
+                bucket = self[source, 0]
+                bucket.collect(itr)
+            else:
+                for kvpair in itr:
+                    key, value = kvpair
+                    split = parter(key, n)
+                    bucket = self[source, split]
+                    bucket.addpair(kvpair)
         for bucket in self[:, :]:
             bucket.close_writer(self.permanent)
 

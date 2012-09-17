@@ -82,8 +82,7 @@ class SamplePi(mrs.MapReduce):
         points = int(self.opts.num_points)
         tasks = self.opts.num_tasks
         kvpairs = ((str(i), str(i * points)) for i in range(tasks))
-        source = job.local_data(kvpairs, splits=tasks,
-                parter=self.mod_partition)
+        source = job.local_data(kvpairs)
 
         intermediate = job.map_data(source, self.map)
         source.close()

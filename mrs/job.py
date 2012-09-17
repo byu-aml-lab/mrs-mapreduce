@@ -76,9 +76,17 @@ class Job(object):
         return ds
 
     def local_data(self, itr, splits=None, outdir=None, parter=None, **kwds):
-        """Defines a set of data to be built locally from a given iterator."""
-        if splits is None:
-            splits = self.default_reduce_tasks
+        """Defines a set of data to be built locally from a given iterator.
+
+        If the `parter` function is specified, then it is used to partition
+        data by keys.  The `splits` parameter defines the total number of
+        buckets.  If the `parter` is unspecified, then data are assigned to
+        buckets on a round-robin basis, and if `splits` is also unspecified,
+        then the number of buckets will grow with the size of the iterator.
+        If the `parter` is specified, then the `splits` parameter is required.
+        """
+        if parter is not None and splits is None:
+            raise RuntimeError('The splits parameter is required.')
 
         permanent = True
         if not outdir:
@@ -87,9 +95,6 @@ class Job(object):
                 permanent = self._keep_jobdir
         if outdir:
             util.try_makedirs(outdir)
-
-        if not parter:
-            parter = self.default_partition
 
         ds = datasets.LocalData(itr, splits, dir=outdir, parter=parter,
                 permanent=permanent, **kwds)
