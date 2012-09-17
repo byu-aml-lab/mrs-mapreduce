@@ -270,10 +270,19 @@ if not opts.background:
 # wait for the run file to be empty, then exit screen
 print('Mrs is running, feel free to control-c to quit')
 while True:
-    time.sleep(1)
+    time.sleep(0.5)
     try:
         with open(runfilename) as runfile:
             if runfile.read().strip() == '-':
+                break
+    except IOError:
+        break
+
+while True:
+    time.sleep(0.1)
+    try:
+        with open(timefilename) as timefile:
+            if timefile.read().strip():
                 break
     except IOError:
         break
