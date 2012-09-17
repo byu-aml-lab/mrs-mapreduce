@@ -110,8 +110,7 @@ class LineReader(Reader):
 
         Inheriting classes will almost certainly override this method.
         """
-        for index, line in enumerate(self.fileobj):
-            yield index, line
+        return enumerate(self.fileobj)
 
 
 # TODO: implement TextReader
