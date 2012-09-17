@@ -56,7 +56,7 @@ class HaltonSequence(object):
                 break
             self.d1[j] = 0
             self.x1 -= 1 if j == 0 else self.q1[j - 1]
-        return tuple(self.x)
+        return (self.x0, self.x1)
 
 class SamplePi(mrs.MapReduce):
     def map(self, key, value):
