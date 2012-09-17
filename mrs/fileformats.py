@@ -125,9 +125,11 @@ class TextWriter(Writer):
 
     def writepair(self, kvpair):
         key, value = kvpair
+        #print(key, value, file=self.fileobj)
         self.fileobj.write(key)
         self.fileobj.write(b' ')
         self.fileobj.write(value)
+        self.fileobj.write(b'\n')
 
 
 class HexReader(Reader):

@@ -32,8 +32,8 @@ class WordCount(mrs.MapReduce):
     further explained in the tutorials provided in the docs directory.
     """
     def map(self, key, value):
+        value = value.decode('utf-8')
         for word in value.split():
-            word = str(word)
             word = word.strip(string.punctuation).lower()
             yield (word.encode('utf-8'), b'1')
 
