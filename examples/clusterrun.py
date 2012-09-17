@@ -182,7 +182,7 @@ master_args = [
     '--mrs=Master',
     '--mrs-runfile %s' % runfilename,
     '--mrs-tmpdir=%s' % opts.mrs_tmpdir,
-    '--mrs-timing-file=%s' % os.path.join(job_dir, 'time.txt')
+    '--mrs-timing-file=%s' % timefilename,
     ]
 if opts.mrs_profile:
     master_args.append('--mrs-profile')
@@ -279,12 +279,3 @@ while True:
         break
 
 quit_screen(opts.jobname)
-
-while True:
-    time.sleep(0.1)
-    try:
-        with open(timefilename) as timefile:
-            if timefile.read().strip():
-                break
-    except IOError:
-        pass
