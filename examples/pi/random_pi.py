@@ -18,27 +18,23 @@ class SamplePi(mrs.MapReduce):
         random_ = random.random
         inside = 0
 
-        #start = time.time()
         num_points = int(self.opts.num_points)
         for _ in range(num_points):
             x = random_() - 0.5
             y = random_() - 0.5
             if x * x + y * y <= 0.25:
                 inside += 1
-        #end = time.time()
-        #print('Elapsed time:', end - start)
 
-        yield (str(True), str(inside))
-        yield (str(False), str(num_points - inside))
+        yield (True, inside)
+        yield (False, num_points - inside)
 
     def reduce(self, key, values):
-        values = list(values)
-        yield str(sum(int(x) for x in values))
+        yield sum(values)
 
     def run(self, job):
         points = int(self.opts.num_points)
         tasks = self.opts.num_tasks
-        kvpairs = ((str(i), str(i * points)) for i in range(tasks))
+        kvpairs = ((i, i * points) for i in range(tasks))
         source = job.local_data(kvpairs)
 
         intermediate = job.map_data(source, self.map)
@@ -49,10 +45,10 @@ class SamplePi(mrs.MapReduce):
         job.wait(output)
         output.fetchall()
         for key, value in output.data():
-            if key == 'True':
-                inside = int(value)
+            if key == True:
+                inside = value
             else:
-                outside = int(value)
+                outside = value
 
         pi = 4 * inside / (inside + outside)
         print(pi)

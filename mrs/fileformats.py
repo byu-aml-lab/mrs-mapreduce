@@ -29,13 +29,16 @@ import os
 import struct
 import sys
 
+# Python 2 vs. Python 3 imports.
 try:
     from urllib.parse import urlparse
     from urllib.request import urlopen, URLopener
+    import pickle
 except ImportError:
     from urlparse import urlparse
     from urllib import URLopener
     from urllib2 import urlopen
+    import cPickle as pickle
 
 from . import hdfs
 
@@ -126,9 +129,9 @@ class TextWriter(Writer):
     def writepair(self, kvpair):
         key, value = kvpair
         #print(key, value, file=self.fileobj)
-        self.fileobj.write(key)
+        self.fileobj.write(str(key).encode('utf-8'))
         self.fileobj.write(b' ')
-        self.fileobj.write(value)
+        self.fileobj.write(str(value).encode('utf-8'))
         self.fileobj.write(b'\n')
 
 
@@ -139,8 +142,8 @@ class HexReader(Reader):
         """Iterate over key-value pairs."""
         for line in self.fileobj:
             encoded_key, encoded_value = line.split()
-            key, length = hex_decoder(encoded_key)
-            value, length = hex_decoder(encoded_value)
+            key, length = pickle.loads(hex_decoder(encoded_key))
+            value, length = pickle.loads(hex_decoder(encoded_value))
             yield (key, value)
 
 
@@ -155,8 +158,8 @@ class HexWriter(TextWriter):
     def writepair(self, kvpair):
         """Write a key-value pair to a HexFormat."""
         key, value = kvpair
-        encoded_key, length = hex_encoder(key)
-        encoded_value, length = hex_encoder(value)
+        encoded_key, length = hex_encoder(pickle.dumps(key))
+        encoded_value, length = hex_encoder(pickle.dumps(value))
         print(encoded_key, encoded_value, file=self.fileobj)
 
 
@@ -177,6 +180,8 @@ class BinWriter(TextWriter):
     def writepair(self, kvpair):
         """Write a key-value pair to a HexFormat."""
         key, value = kvpair
+        key = pickle.dumps(key)
+        value = pickle.dumps(value)
 
         binlen = struct.pack('<Q', len(key))
         self.fileobj.write(binlen)
@@ -219,6 +224,8 @@ class BinReader(Reader):
             value = self._read_record()
             if value is None:
                 raise RuntimeError('File ended with a lone key')
+            key = pickle.loads(key)
+            value = pickle.loads(value)
             yield (key, value)
 
     def _fill_buffer(self, size=DEFAULT_BUFFER_SIZE):
