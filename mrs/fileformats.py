@@ -29,12 +29,13 @@ import os
 import struct
 import sys
 
-# Python 2 vs. Python 3 imports.
-try:
+PY3 = sys.version_info[0] == 3
+if PY3:
     from urllib.parse import urlparse
     from urllib.request import urlopen, URLopener
+    import io
     import pickle
-except ImportError:
+else:
     from urlparse import urlparse
     from urllib import URLopener
     from urllib2 import urlopen
@@ -101,9 +102,27 @@ class Reader(object):
 class LineReader(Reader):
     """Reads key-value pairs from a file object.
 
+    In this basic reader, the key-value pair is composed of a line number and
+    line contents (as a string).
+    """
+    def __init__(self, fileobj):
+        if PY3:
+            fileobj = io.TextIOWrapper(fileobj, encoding='utf-8')
+        self.fileobj = fileobj
+
+    def __iter__(self):
+        """Iterate over key-value pairs.
+
+        Inheriting classes will almost certainly override this method.
+        """
+        return enumerate(self.fileobj)
+
+
+class BytesLineReader(Reader):
+    """Reads key-value pairs from a file object.
+
     In this basic reader, the key-value pair is composed of a line number
-    and line contents.  Note that the most valuable method to override in this
-    class is __iter__.
+    and line contents (as a bytes object).
     """
     def __iter__(self):
         """Iterate over key-value pairs.
@@ -125,13 +144,17 @@ class TextWriter(Writer):
     """
     ext = 'mtxt'
 
+    def __init__(self, fileobj):
+        if PY3:
+            fileobj = io.TextIOWrapper(fileobj, encoding='utf-8', newline='\n')
+        self.fileobj = fileobj
+
     def writepair(self, kvpair):
         key, value = kvpair
-        #print(key, value, file=self.fileobj)
-        self.fileobj.write(str(key).encode('utf-8'))
-        self.fileobj.write(b' ')
-        self.fileobj.write(str(value).encode('utf-8'))
-        self.fileobj.write(b'\n')
+        self.fileobj.write(str(key))
+        self.fileobj.write(' ')
+        self.fileobj.write(str(value))
+        self.fileobj.write('\n')
 
 
 class HexReader(Reader):

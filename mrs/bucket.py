@@ -20,6 +20,8 @@
 # Licensing Office, Brigham Young University, 3760 HBLL, Provo, UT 84602,
 # (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
 
+from __future__ import division, print_function
+
 import os
 
 from . import util
@@ -177,7 +179,6 @@ class WriteBucket(ReadBucket):
         """Close the bucket for future writes."""
         if self._writer:
             self._writer.finish()
-            self._writer = None
         # TODO: If the directory is an HDFS URL, upload the file here.
         if self._output_file:
             if do_sync:
@@ -185,6 +186,9 @@ class WriteBucket(ReadBucket):
                 os.fsync(self._output_file.fileno())
             self._output_file.close()
             self._output_file = None
+        # Delete the writer at the end because for some wrappers, this will
+        # close the underlying file.
+        self._writer = None
 
     def addpair(self, kvpair):
         """Collect a single key-value pair."""
