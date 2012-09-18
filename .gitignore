@@ -8,3 +8,4 @@ mrs.job*
 .coverage
 .nfs*
 *.so
+*.class
