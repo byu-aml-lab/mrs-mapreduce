@@ -181,7 +181,7 @@ class HexWriter(Writer):
         self.fileobj = fileobj
 
     def writepair(self, kvpair):
-        """Write a key-value pair to a HexFormat."""
+        """Write a key-value pair."""
         key, value = kvpair
         encoded_key, length = hex_encoder(pickle.dumps(key, 2))
         encoded_value, length = hex_encoder(pickle.dumps(value, 2))
@@ -189,7 +189,7 @@ class HexWriter(Writer):
 
 
 class BinWriter(Writer):
-    """A key-value store using a simple compressed binary record format.
+    """A key-value store using a simple binary record format.
 
     By default, the given file will be closed when the writer is closed,
     but the close argument makes this configurable.  Setting close to False
@@ -203,7 +203,7 @@ class BinWriter(Writer):
         self.fileobj.write(self.magic)
 
     def writepair(self, kvpair):
-        """Write a key-value pair to a HexFormat."""
+        """Write a key-value pair."""
         key, value = kvpair
         key = pickle.dumps(key, 2)
         value = pickle.dumps(value, 2)
@@ -218,13 +218,7 @@ class BinWriter(Writer):
 
 
 class BinReader(Reader):
-    """A key-value store using ASCII hexadecimal encoding
-
-    Initialize with a Mrs Buffer.
-
-    TODO: we might as well base64-encode the value, rather than hex-encoding
-    it, since it doesn't need to be sortable.
-    """
+    """A key-value store using a simple binary record format."""
     magic = b'MrsB'
 
     def __init__(self, fileobj):
@@ -299,13 +293,7 @@ class ZipWriter(BinWriter):
 
 
 class ZipReader(BinReader):
-    """A key-value store using ASCII hexadecimal encoding
-
-    Initialize with a Mrs Buffer.
-
-    TODO: we might as well base64-encode the value, rather than hex-encoding
-    it, since it doesn't need to be sortable.
-    """
+    """A key-value store using a simple compressed binary record format."""
     magic = b'MrsZ'
 
     def __init__(self, fileobj):
@@ -317,6 +305,53 @@ class ZipReader(BinReader):
         # Close the gzip file (which does not close the underlying file).
         self.fileobj.close()
         self.original_file.close()
+
+
+class PickleWriter(Writer):
+    """An EXPERIMENTAL key-value store using the standard pickle format.
+
+    By default, the given file will be closed when the writer is closed,
+    but the close argument makes this configurable.  Setting close to False
+    is useful for StringIO/BytesIO.
+    """
+    ext = 'mrsp'
+
+    def __init__(self, fileobj, close=True):
+        self.fileobj = fileobj
+        #self.pickler = pickle.Pickler(fileobj, 2)
+
+    def writepair(self, kvpair):
+        """Write a key-value pair."""
+        key, value = kvpair
+        #key = self.pickler.dump(key)
+        #value = self.pickler.dump(value)
+        #self.pickler.clear_memo()
+        pickler = pickle.Pickler(self.fileobj, 2)
+        pickler.dump(key)
+        pickler.dump(value)
+
+
+class PickleReader(Reader):
+    """An EXPERIMENTAL key-value store using the standard pickle format."""
+    def __init__(self, fileobj):
+        self.fileobj = fileobj
+        #self.unpickler = pickle.Unpickler(fileobj)
+
+    def __iter__(self):
+        """Iterate over key-value pairs."""
+        unpickler = pickle.Unpickler(self.fileobj)
+        while True:
+            try:
+                #key = self.unpickler.load()
+                key = unpickler.load()
+            except EOFError:
+                return
+            try:
+                #value = self.unpickler.load()
+                value = unpickler.load()
+            except EOFError:
+                raise RuntimeError('File ended with a lone key')
+            yield (key, value)
 
 
 def writerformat(extension):
@@ -365,12 +400,14 @@ def test():
 reader_map = {
         'mrsx': HexReader,
         'mrsb': BinReader,
+        'mrsp': PickleReader,
         'mrsz': ZipReader,
         }
 writer_map = {
         'mtxt': TextWriter,
         'mrsx': HexWriter,
         'mrsb': BinWriter,
+        'mrsp': PickleWriter,
         'mrsz': ZipWriter,
         }
 default_read_format = LineReader
