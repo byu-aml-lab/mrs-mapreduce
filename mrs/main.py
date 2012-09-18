@@ -40,6 +40,7 @@ import sys
 import threading
 import time
 import traceback
+import warnings
 
 from . import master
 from . import param
@@ -75,16 +76,25 @@ logger = logging.getLogger('mrs')
 def main(program_class, update_parser=None, args=None):
     """Run a MapReduce program.
 
-    Requires a program class (which inherits from mrs.MapReduce) and an
-    optional update_parser function.
+    Requires a program class (which may inherit from mrs.MapReduce).  The
+    optional `args` attribute, if specified, is used instead of `sys.argv`.
+    The `update_parser` parameter is deprecated.
 
-    If you want to modify the basic Mrs Parser, provide an update_parser
-    function that takes a parser and either modifies it or returns a new one.
-    Note that no option should ever have the value None.  The optional `args`
-    attribute, if specified, is used instead of `sys.argv`.
+    In its simplest form, a program class must have an `__init__` method
+    taking `opts` and `args` parameters and a `run` method taking a `job`
+    parameter, though `mrs.MapReduce` defines a default higher-level
+    interface.  If you want to modify the default Mrs Parser, provide an
+    update_parser classmethod on the program_class that takes a parser and
+    either modifies it or returns a new one.  Note that no command-line option
+    should ever have the value None because None cannot be serialized and sent
+    over the network.
     """
     parser = option_parser()
+    if hasattr(program_class, 'update_parser'):
+        parser = program_class.update_parser(parser)
     if update_parser:
+        warnings.warn('The update_parser argument is deprecated.',
+                DeprecationWarning)
         parser = update_parser(parser)
     opts, args = parser.parse_args(args)
 

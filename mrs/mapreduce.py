@@ -30,10 +30,21 @@ to create much more complex programs.
 from __future__ import division, print_function
 
 import sys
+
 from . import fileformats
+from .version import __version__
 
 ITERATIVE_QMAX = 10
 RAND_OFFSET_SHIFT = 64
+
+DEFAULT_USAGE = (""
+"""%prog [OPTION]... INPUT_FILE... OUTPUT_DIR
+
+Mrs Version """ + __version__ + """
+
+The default implementation is Serial.  Note that you can give --help
+separately for each implementation."""
+)
 
 
 class MapReduce(object):
@@ -202,6 +213,12 @@ class MapReduce(object):
         """
         import numpy
         return numpy.random.RandomState(offsets)
+
+    @classmethod
+    def update_parser(cls, parser):
+        """Modify (and return) the given OptionParser."""
+        parser.usage = DEFAULT_USAGE
+        return parser
 
 
 class IterativeMR(MapReduce):
