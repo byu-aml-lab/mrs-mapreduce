@@ -307,6 +307,10 @@ class ZipReader(BinReader):
         self.original_file.close()
 
 
+# Note: the PickleWriter uses marginally less space than the BinWriter (and
+# is simpler to read), but the Pickle Reader is some 3 times slower than the
+# BinReader.  My theory that it has something to do with excessive seeks, but
+# I'm not quite sure.  In any case, this format is currently inefficient.
 class PickleWriter(Writer):
     """An EXPERIMENTAL key-value store using the standard pickle format.
 
