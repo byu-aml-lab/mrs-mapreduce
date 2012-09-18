@@ -4,10 +4,6 @@ from __future__ import division, print_function
 
 import sys
 import mrs
-try:
-    import numpy
-except ImportError:
-    import numpypy as numpy
 
 try:
     range = xrange
@@ -18,10 +14,10 @@ class HaltonSequence(object):
 
     def __init__(self, start):
         self.index = start
-        q0 = numpy.zeros(63, dtype='float64')
-        d0 = numpy.zeros(63, dtype='int32')
-        q1 = numpy.zeros(40, dtype='float64')
-        d1 = numpy.zeros(40, dtype='int32')
+        q0 = [0.0] * 63
+        d0 = [0] * 63
+        q1 = [0.0] * 40
+        d1 = [0] * 40
 
         k = start
         x0 = 0.0
@@ -57,7 +53,7 @@ class HaltonSequence(object):
             d0[j] = 0
             x0 -= 1 if j == 0 else q0[j - 1]
 
-        for j in range(63):
+        for j in range(40):
             d1[j] += 1
             x1 += q1[j]
             if d1[j] < 3:
