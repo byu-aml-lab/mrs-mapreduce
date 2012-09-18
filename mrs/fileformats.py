@@ -169,13 +169,16 @@ class HexReader(Reader):
             yield (key, value)
 
 
-class HexWriter(TextWriter):
+class HexWriter(Writer):
     """A key-value store using ASCII hexadecimal encoding
 
     Initialize with a file-like object.  The ASCII hexadecimal encoding of
     keys has the property that sorting the file will preserve the sort order.
     """
     ext = 'mrsx'
+
+    def __init__(self, fileobj):
+        self.fileobj = fileobj
 
     def writepair(self, kvpair):
         """Write a key-value pair to a HexFormat."""
@@ -185,7 +188,7 @@ class HexWriter(TextWriter):
         print(encoded_key, encoded_value, file=self.fileobj)
 
 
-class BinWriter(TextWriter):
+class BinWriter(Writer):
     """A key-value store using a simple compressed binary record format.
 
     By default, the given file will be closed when the writer is closed,
