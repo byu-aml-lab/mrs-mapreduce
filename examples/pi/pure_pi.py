@@ -10,40 +10,31 @@ try:
 except NameError:
     pass
 
-class HaltonSequence(object):
+def halton_inside(index, num_points):
+    q0 = [0.0] * 63
+    d0 = [0] * 63
+    q1 = [0.0] * 40
+    d1 = [0] * 40
 
-    def __init__(self, start):
-        self.index = start
-        q0 = [0.0] * 63
-        d0 = [0] * 63
-        q1 = [0.0] * 40
-        d1 = [0] * 40
+    k = index
+    x0 = 0.0
+    for j in range(63):
+        q0[j] = (1 if j == 0 else q0[j - 1]) / 2
+        d0[j] = int(k % 2)
+        k = (k - d0[j]) // 2
+        x0 += d0[j] * q0[j]
 
-        k = start
-        x0 = 0.0
-        for j in range(63):
-            q0[j] = (1 if j == 0 else q0[j - 1]) / 2
-            d0[j] = int(k % 2)
-            k = (k - d0[j]) // 2
-            x0 += d0[j] * q0[j]
+    k = index
+    x1 = 0.0
+    for j in range(40):
+        q1[j] = (1 if j == 0 else q1[j - 1]) / 3
+        d1[j] = int(k % 3)
+        k = (k - d1[j]) // 3
+        x1 += d1[j] * q1[j]
 
-        k = start
-        x1 = 0.0
-        for j in range(40):
-            q1[j] = (1 if j == 0 else q1[j - 1]) / 3
-            d1[j] = int(k % 3)
-            k = (k - d1[j]) // 3
-            x1 += d1[j] * q1[j]
-
-        self.x0, self.x1 = x0, x1
-        self.d0, self.d1 = d0, d1
-        self.q0, self.q1 = q0, q1
-
-    def next_point(self):
-        self.index += 1
-        x0, x1 = self.x0, self.x1
-        d0, d1 = self.d0, self.d1
-        q0, q1 = self.q0, self.q1
+    inside = 0
+    for _ in range(num_points):
+        index += 1
 
         for j in range(63):
             d0[j] += 1
@@ -61,21 +52,17 @@ class HaltonSequence(object):
             d1[j] = 0
             x1 -= 1 if j == 0 else q1[j - 1]
 
-        self.x0, self.x1 = x0, x1
-        return (x0, x1)
+        x = x0 - .5
+        y = x1 - .5
+        if x * x + y * y <= .25:
+            inside += 1
+    return inside
+
 
 class SamplePi(mrs.MapReduce):
     def map(self, key, value):
-        halton = HaltonSequence(value)
-        inside = 0
-
         num_points = int(self.opts.num_points)
-        for _ in range(num_points):
-            point = halton.next_point()
-            x = point[0] - .5
-            y = point[1] - .5
-            if x * x + y * y <= .25:
-                inside += 1
+        inside = halton_inside(value, num_points)
 
         yield (True, inside)
         yield (False, num_points - inside)
