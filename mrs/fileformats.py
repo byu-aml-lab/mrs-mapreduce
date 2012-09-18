@@ -183,8 +183,8 @@ class HexWriter(Writer):
     def writepair(self, kvpair):
         """Write a key-value pair."""
         key, value = kvpair
-        encoded_key, length = hex_encoder(pickle.dumps(key, 2))
-        encoded_value, length = hex_encoder(pickle.dumps(value, 2))
+        encoded_key, length = hex_encoder(pickle.dumps(key, -1))
+        encoded_value, length = hex_encoder(pickle.dumps(value, -1))
         print(encoded_key, encoded_value, file=self.fileobj)
 
 
@@ -205,8 +205,8 @@ class BinWriter(Writer):
     def writepair(self, kvpair):
         """Write a key-value pair."""
         key, value = kvpair
-        key = pickle.dumps(key, 2)
-        value = pickle.dumps(value, 2)
+        key = pickle.dumps(key, -1)
+        value = pickle.dumps(value, -1)
 
         binlen = struct.pack('<Q', len(key))
         self.fileobj.write(binlen)
@@ -322,7 +322,7 @@ class PickleWriter(Writer):
 
     def __init__(self, fileobj, close=True):
         self.fileobj = fileobj
-        #self.pickler = pickle.Pickler(fileobj, 2)
+        #self.pickler = pickle.Pickler(fileobj, -1)
 
     def writepair(self, kvpair):
         """Write a key-value pair."""
@@ -330,7 +330,7 @@ class PickleWriter(Writer):
         #key = self.pickler.dump(key)
         #value = self.pickler.dump(value)
         #self.pickler.clear_memo()
-        pickler = pickle.Pickler(self.fileobj, 2)
+        pickler = pickle.Pickler(self.fileobj, -1)
         pickler.dump(key)
         pickler.dump(value)
 
