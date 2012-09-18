@@ -18,45 +18,55 @@ class HaltonSequence(object):
 
     def __init__(self, start):
         self.index = start
-        self.q0 = numpy.zeros(63, dtype='float64')
-        self.d0 = numpy.zeros(63, dtype='int32')
-        self.q1 = numpy.zeros(40, dtype='float64')
-        self.d1 = numpy.zeros(40, dtype='int32')
+        q0 = numpy.zeros(63, dtype='float64')
+        d0 = numpy.zeros(63, dtype='int32')
+        q1 = numpy.zeros(40, dtype='float64')
+        d1 = numpy.zeros(40, dtype='int32')
 
         k = start
-        self.x0 = 0.0
+        x0 = 0.0
         for j in range(63):
-            self.q0[j] = (1 if j == 0 else self.q0[j - 1]) / 2
-            self.d0[j] = int(k % 2)
-            k = (k - self.d0[j]) // 2
-            self.x0 += self.d0[j] * self.q0[j]
+            q0[j] = (1 if j == 0 else q0[j - 1]) / 2
+            d0[j] = int(k % 2)
+            k = (k - d0[j]) // 2
+            x0 += d0[j] * q0[j]
 
         k = start
-        self.x1 = 0.0
+        x1 = 0.0
         for j in range(40):
-            self.q1[j] = (1 if j == 0 else self.q1[j - 1]) / 3
-            self.d1[j] = int(k % 3)
-            k = (k - self.d1[j]) // 3
-            self.x1 += self.d1[j] * self.q1[j]
+            q1[j] = (1 if j == 0 else q1[j - 1]) / 3
+            d1[j] = int(k % 3)
+            k = (k - d1[j]) // 3
+            x1 += d1[j] * q1[j]
+
+        self.x0, self.x1 = x0, x1
+        self.d0, self.d1 = d0, d1
+        self.q0, self.q1 = q0, q1
 
     def next_point(self):
         self.index += 1
-        for j in range(63):
-            self.d0[j] += 1
-            self.x0 += self.q0[j]
-            if self.d0[j] < 2:
-                break
-            self.d0[j] = 0
-            self.x0 -= 1 if j == 0 else self.q0[j - 1]
+        x0, x1 = self.x0, self.x1
+        d0, d1 = self.d0, self.d1
+        q0, q1 = self.q0, self.q1
 
         for j in range(63):
-            self.d1[j] += 1
-            self.x1 += self.q1[j]
-            if self.d1[j] < 3:
+            d0[j] += 1
+            x0 += q0[j]
+            if d0[j] < 2:
                 break
-            self.d1[j] = 0
-            self.x1 -= 1 if j == 0 else self.q1[j - 1]
-        return (self.x0, self.x1)
+            d0[j] = 0
+            x0 -= 1 if j == 0 else q0[j - 1]
+
+        for j in range(63):
+            d1[j] += 1
+            x1 += q1[j]
+            if d1[j] < 3:
+                break
+            d1[j] = 0
+            x1 -= 1 if j == 0 else q1[j - 1]
+
+        self.x0, self.x1 = x0, x1
+        return (x0, x1)
 
 class SamplePi(mrs.MapReduce):
     def map(self, key, value):
