@@ -208,11 +208,11 @@ class BinWriter(Writer):
         key = pickle.dumps(key, -1)
         value = pickle.dumps(value, -1)
 
-        binlen = struct.pack('<Q', len(key))
+        binlen = struct.pack('<L', len(key))
         self.fileobj.write(binlen)
         self.fileobj.write(key)
 
-        binlen = struct.pack('<Q', len(value))
+        binlen = struct.pack('<L', len(value))
         self.fileobj.write(binlen)
         self.fileobj.write(value)
 
@@ -251,14 +251,14 @@ class BinReader(Reader):
         self._buffer += self.fileobj.read(size)
 
     def _read_record(self):
-        LENFIELD_SIZE = 8
+        LENFIELD_SIZE = 4
         if len(self._buffer) < LENFIELD_SIZE:
             self._fill_buffer()
         if not self._buffer:
             return None
 
         lenfield = self._buffer[:LENFIELD_SIZE]
-        length, = struct.unpack('<Q', lenfield)
+        length, = struct.unpack('<L', lenfield)
 
         end = LENFIELD_SIZE + length
         if end > len(self._buffer):
