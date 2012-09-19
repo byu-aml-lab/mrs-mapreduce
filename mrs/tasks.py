@@ -25,10 +25,13 @@
 A Task represents a unit of work and the mechanism for carrying it out.
 """
 
+from __future__ import division, print_function
+
 from operator import itemgetter
 
 from . import datasets
 from . import fileformats
+from .serializers import Serializers
 from . import util
 
 
@@ -40,7 +43,7 @@ class Task(object):
     this Task.
     """
     def __init__(self, op, input_ds, dataset_id, task_index, splits, storage,
-            ext):
+            ext, serializers):
         self.op = op
         self.input_ds = input_ds
         self.dataset_id = dataset_id
@@ -48,6 +51,7 @@ class Task(object):
         self.splits = splits
         self.storage = storage if (storage is not None) else ''
         self.ext = ext
+        self.serializers = serializers
 
         self.outdir = None
         self.output = None
@@ -61,7 +65,7 @@ class Task(object):
 
     @staticmethod
     def from_args(op_args, urls, dataset_id, task_index, splits, storage,
-            ext):
+            ext, input_ser_names, ser_names, program):
         """Converts from a simple tuple to a Task.
 
         The elements of the tuple correspond to the arguments of the
@@ -69,9 +73,14 @@ class Task(object):
         is an Operation args tuple, and the second is a list of urls.
         """
         op = Operation.from_args(*op_args)
-        input_ds = datasets.FileData(urls, splits=1, first_split=task_index)
+
+        input_serializers = Serializers.from_names(input_ser_names, program)
+        serializers = Serializers.from_names(ser_names, program)
+
+        input_ds = datasets.FileData(urls, program, splits=1,
+                first_split=task_index, serializers=input_serializers)
         return Task.from_op(op, input_ds, dataset_id, task_index, splits,
-                storage, ext)
+                storage, ext, serializers)
 
     def to_args(self):
         """Converts the Task to a simple tuple.
@@ -84,8 +93,40 @@ class Task(object):
         """
         op_args = self.op.to_args()
         urls = [b.url for b in self.input_ds[:, self.task_index] if b.url]
-        return (op_args, urls, self.dataset_id, self.task_index,
-                self.splits, self.storage, self.ext)
+
+        input_serializers = self.input_ds.serializers
+        if input_serializers:
+            input_ser_names = input_serializers.names()
+        else:
+            input_ser_names = ''
+        if self.serializers:
+            ser_names = self.serializers.names()
+        else:
+            ser_names = ''
+
+        return (op_args, urls, self.dataset_id, self.task_index, self.splits,
+                self.storage, self.ext, input_ser_names, ser_names)
+
+    def _get_all_input(self, serial):
+        """Fetches all data from the input data set and returns an iterator."""
+        self.input_ds.fetchall()
+        if serial:
+            all_input = self.input_ds.data()
+        else:
+            all_input = self.input_ds.splitdata(self.task_index)
+        return all_input
+
+    def _outdata_kwds(self, program, permanent):
+        """Returns arguments for the output dataset (common to all task types).
+        """
+        kwds = {'source': self.task_index,
+                'parter': self.op.parter(program),
+                'dir': self.outdir,
+                'format': self.format(),
+                'serializers': self.serializers,
+                'splits': self.splits,
+                }
+        return kwds
 
     def make_outdir(self, default_dir):
         """Makes an output directory if necessary.
@@ -120,70 +161,43 @@ class MapTask(Task):
     def run(self, program, default_dir, serial=False):
         assert isinstance(self.op, MapOperation)
 
-        # SETUP INPUT
-        self.input_ds.fetchall()
-        if serial:
-            all_input = self.input_ds.data()
-        else:
-            all_input = self.input_ds.splitdata(self.task_index)
-
-        # SETUP OUTPUT
+        all_input = self._get_all_input(serial)
         permanent = self.make_outdir(default_dir)
-
-        # MAP PHASE
+        kwds = self._outdata_kwds(program, permanent)
         map_itr = self.op.map(program, all_input)
-        self.output = datasets.LocalData(map_itr, self.splits,
-                source=self.task_index, parter=self.op.parter(program),
-                dir=self.outdir, format=self.format(), permanent=permanent)
+        self.output = datasets.LocalData(map_itr, permanent=permanent, **kwds)
 
 
 class ReduceTask(Task):
     def run(self, program, default_dir, serial=False):
         assert isinstance(self.op, ReduceOperation)
 
-        # SETUP INPUT
-        self.input_ds.fetchall()
-        if serial:
-            all_input = self.input_ds.data()
-        else:
-            all_input = self.input_ds.splitdata(self.task_index)
-
         # SORT PHASE
+        all_input = self._get_all_input(serial)
         sorted_input = sorted(all_input, key=itemgetter(0))
 
-        # SETUP OUTPUT
-        permanent = self.make_outdir(default_dir)
-
         # REDUCE PHASE
+        permanent = self.make_outdir(default_dir)
+        kwds = self._outdata_kwds(program, permanent)
         reduce_itr = self.op.reduce(program, sorted_input)
-        self.output = datasets.LocalData(reduce_itr, self.splits,
-                source=self.task_index, parter=self.op.parter(program),
-                dir=self.outdir, format=self.format(), permanent=permanent)
+        self.output = datasets.LocalData(reduce_itr, permanent=permanent,
+                **kwds)
 
 
 class ReduceMapTask(Task):
     def run(self, program, default_dir, serial=False):
         assert isinstance(self.op, ReduceMapOperation)
 
-        # SETUP INPUT
-        self.input_ds.fetchall()
-        if serial:
-            all_input = self.input_ds.data()
-        else:
-            all_input = self.input_ds.splitdata(self.task_index)
-
         # SORT PHASE
+        all_input = self._get_all_input(serial)
         sorted_input = sorted(all_input, key=itemgetter(0))
 
-        # SETUP OUTPUT
-        permanent = self.make_outdir(default_dir)
-
         # REDUCEMAP PHASE
+        permanent = self.make_outdir(default_dir)
+        kwds = self._outdata_kwds(program, permanent)
         reduce_itr = self.op.reduce(program, sorted_input)
         map_itr = self.op.map(program, reduce_itr)
-        self.output = datasets.LocalData(map_itr, self.splits,
-                source=self.task_index, parter=self.op.parter(program),
-                dir=self.outdir, format=self.format(), permanent=permanent)
+        self.output = datasets.LocalData(map_itr, permanent=permanent, **kwds)
 
 
 class Operation(object):

@@ -63,7 +63,7 @@ class WorkerTaskRequest(object):
     """Request the to worker to run a task."""
 
     def __init__(self, *args):
-        _, _, self.dataset_id, self.task_index, _, _, _ = args
+        _, _, self.dataset_id, self.task_index, _, _, _, _, _ = args
         self.args = args
 
     def id(self):
@@ -149,7 +149,7 @@ class Worker(object):
                 assert self.program is not None
                 logger.info('Running task: %s, %s' %
                         (request.dataset_id, request.task_index))
-                t = tasks.Task.from_args(*request.args)
+                t = tasks.Task.from_args(*request.args, program=self.program)
                 t.run(self.program, self.default_dir)
                 response = WorkerSuccess(request.dataset_id,
                         request.task_index, t.outdir, t.outurls(),

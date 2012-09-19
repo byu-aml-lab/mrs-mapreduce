@@ -35,6 +35,7 @@ from . import computed_data
 from . import datasets
 from . import http
 from . import registry
+from .serializers import Serializers
 from . import tasks
 from . import util
 
@@ -48,14 +49,16 @@ class Job(object):
     When run as a thread, call the user-specified run function, which will
     submit datasets to be computed.
     """
-    def __init__(self, manager, registry, opts, default_partition,
-            default_dir=None, url_converter=None):
+    def __init__(self, manager, program, opts, default_dir=None,
+            url_converter=None):
         self._manager = manager
-        self._registry = registry
+        self._program = program
         self._default_dir = default_dir
         self._url_converter = url_converter
+
+        self._registry = registry.Registry(program)
         self._keep_jobdir = getattr(opts, 'mrs__keep_jobdir', False)
-        self.default_partition = default_partition
+        self.default_partition = program.partition
         self.default_reduce_tasks = getattr(opts, 'mrs__reduce_tasks', 1)
         self.default_reduce_splits = 1
 
@@ -128,6 +131,7 @@ class Job(object):
             parter = self.default_partition
 
         map_name = self._registry[mapper]
+        self._set_serializers(mapper, kwds)
         if combiner:
             combine_name = self._registry[combiner]
         else:
@@ -163,6 +167,7 @@ class Job(object):
             parter = self.default_partition
 
         reduce_name = self._registry[reducer]
+        self._set_serializers(reducer, kwds)
         part_name = self._registry[parter]
 
         op = tasks.ReduceOperation(reduce_name, part_name)
@@ -192,6 +197,7 @@ class Job(object):
 
         reduce_name = self._registry[reducer]
         map_name = self._registry[mapper]
+        self._set_serializers(mapper, kwds)
         if combiner:
             combine_name = self._registry[combiner]
         else:
@@ -209,6 +215,28 @@ class Job(object):
     def progress(self, dataset):
         """Reports the progress (fraction complete) of the given dataset."""
         return self._manager.progress(dataset)
+
+    def _set_serializers(self, f, kwds):
+        """Add any serializers specified on the given function to kwds."""
+        if 'key_serializer' in kwds:
+            key_s_name = kwds['key_serializer']
+            del kwds['key_serializer']
+        elif hasattr(f, 'key_serializer'):
+            key_s_name = f.key_serializer
+        else:
+            key_s_name = None
+
+        if 'value_serializer' in kwds:
+            value_s_name = kwds['value_serializer']
+            del kwds['value_serializer']
+        elif hasattr(f, 'value_serializer'):
+            value_s_name = f.value_serializer
+        else:
+            value_s_name = None
+
+        names = key_s_name, value_s_name
+        serializers = Serializers.from_names(names, self._program)
+        kwds['serializers'] = serializers
 
 
 def job_process(program_class, opts, args, default_dir, pipe,
@@ -252,8 +280,7 @@ def run_user_thread(program_class, opts, args, default_dir, manager,
         manager.done(1)
         return
 
-    reg = registry.Registry(program)
-    job = Job(manager, reg, opts, program.partition, default_dir, url_converter)
+    job = Job(manager, program, opts, default_dir, url_converter)
 
     try:
         if opts.mrs__profile:

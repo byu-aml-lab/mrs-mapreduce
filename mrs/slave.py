@@ -264,7 +264,7 @@ class SlaveInterface(object):
 
     @http.uses_host
     def xmlrpc_start_task(self, op_args, urls, dataset_id, task_index, splits,
-            storage, ext, cookie, host=None):
+            storage, ext, input_ser_names, ser_names, cookie, host=None):
         self.slave.check_cookie(cookie)
         self.slave.update_timestamp()
         op_name = op_args[0]
@@ -276,7 +276,7 @@ class SlaveInterface(object):
             urls = [convert_url(url, host) for url in urls]
 
         request = worker.WorkerTaskRequest(op_args, urls, dataset_id,
-                task_index, splits, storage, ext)
+                task_index, splits, storage, ext, input_ser_names, ser_names)
         return self.slave.submit_request(request)
 
     def xmlrpc_remove(self, dataset_id, source, delete, cookie):

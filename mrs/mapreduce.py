@@ -32,10 +32,13 @@ from __future__ import division, print_function
 import sys
 
 from . import fileformats
+from . import serializers
 from .version import __version__
 
 ITERATIVE_QMAX = 10
 RAND_OFFSET_SHIFT = 64
+SERIALIZERS = {'int': serializers.int_serializer,
+        'str': serializers.str_serializer}
 
 DEFAULT_USAGE = (""
 """%prog [OPTION]... INPUT_FILE... OUTPUT_DIR
@@ -219,6 +222,10 @@ class MapReduce(object):
         """Modify (and return) the given OptionParser."""
         parser.usage = DEFAULT_USAGE
         return parser
+
+    def serializer(self, key):
+        """Returns the Serializer associated with the given key."""
+        return SERIALIZERS[key]
 
 
 class IterativeMR(MapReduce):

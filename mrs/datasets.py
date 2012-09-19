@@ -51,14 +51,18 @@ class BaseDataset(object):
     Attributes:
         splits: number of outputs per source; to get all data for a particular
             split from all sources, use splitdata()
+        serializers: a Serializers instance that keeps track of serializers
+            and their associated names.
     """
     def __init__(self, splits=0, dir=None, format=None, permanent=True,
-            **kwds):
-        self.id = util.random_string(DATASET_ID_LENGTH)
+            serializers=None):
         self.splits = splits
         self.dir = dir
         self.format = format
         self.permanent = permanent
+        self.serializers = serializers
+
+        self.id = util.random_string(DATASET_ID_LENGTH)
         self.closed = False
         self._close_callback = None
         self._extended_sources = 0
@@ -229,7 +233,8 @@ class LocalData(BaseDataset):
     [(7, 'to_3')]
     >>>
     """
-    def __init__(self, itr, splits, source=0, parter=None, **kwds):
+    def __init__(self, itr, splits=None, source=0, parter=None,
+            **kwds):
         if parter is not None and splits is None:
             raise RuntimeError('The splits parameter is required when parter'
                     ' is specified.')
@@ -247,7 +252,8 @@ class LocalData(BaseDataset):
     def _make_bucket(self, source, split):
         assert not self.collected
         assert source == self.fixed_source
-        return bucket.WriteBucket(source, split, self.dir, self.format)
+        return bucket.WriteBucket(source, split, self.dir, self.format,
+                serializers=self.serializers)
 
     def _collect(self, itr, parter):
         """Collect all of the key-value pairs from the given iterator."""
@@ -291,7 +297,7 @@ class RemoteData(BaseDataset):
         self._fetched = False
 
     def _make_bucket(self, source, split):
-        return bucket.ReadBucket(source, split)
+        return bucket.ReadBucket(source, split, serializers=self.serializers)
 
     def __getstate__(self):
         """Pickle without getting certain forbidden/unnecessary elements."""
@@ -320,10 +326,14 @@ class RemoteData(BaseDataset):
         assert self._urls_known, (
                 'Invalid fetchall on a dataset with unknown urls.')
 
+        kwds = {}
+        if self.serializers:
+            kwds['serializers'] = self.serializers
+
         for bucket in self[:, :]:
             url = bucket.url
             if url:
-                with fileformats.open_url(url) as reader:
+                with fileformats.open_url(url, **kwds) as reader:
                     bucket.collect(reader)
 
         self._fetched = True
@@ -354,8 +364,8 @@ class FileData(RemoteData):
     True
     >>>
     """
-    def __init__(self, urls, sources=None, splits=None, first_source=0,
-            first_split=0, **kwds):
+    def __init__(self, urls, sources=None, splits=None,
+            first_source=0, first_split=0, **kwds):
         n = len(urls)
 
         if splits is None:

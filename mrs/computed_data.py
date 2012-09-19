@@ -57,6 +57,7 @@ class ComputedData(datasets.RemoteData):
             blocking_percent=1, backlink=None, async_start=False, **kwds):
         # Create exactly one task for each split in the input.
         self.ntasks = input.splits
+
         super(ComputedData, self).__init__(**kwds)
 
         self.op = operation
@@ -93,7 +94,7 @@ class ComputedData(datasets.RemoteData):
         else:
             ext = ''
         task = Task.from_op(self.op, input_data, self.id, 0, self.splits,
-                self.dir, ext)
+                self.dir, ext, self.serializers)
 
         task.run(program, None, serial=True)
         self._use_output(task.output)
@@ -116,7 +117,7 @@ class ComputedData(datasets.RemoteData):
         else:
             ext = ''
         return Task.from_op(self.op, input_data, self.id, task_index,
-                self.splits, self.dir, ext)
+                self.splits, self.dir, ext, self.serializers)
 
     def fetchall(self):
         assert not self.computing, (
