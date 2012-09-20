@@ -703,7 +703,7 @@ class RemoteSlave(object):
             self._rpc = None
 
         if write_pipe is not None:
-            os.write(write_pipe, '\0')
+            os.write(write_pipe, b'\0')
 
     def __repr__(self):
         return ('RemoteSlave(%s, %s, %s, %s, %s)' % (self.id, self.host,
@@ -730,7 +730,7 @@ class Slaves(object):
 
     def trigger_sched(self):
         """Wakes up the runner for scheduling by sending it a byte."""
-        os.write(self._sched_pipe, ' ')
+        os.write(self._sched_pipe, b'\0')
 
     def get_slave(self, slave_id, cookie):
         """Find the slave associated with the given slave_id."""

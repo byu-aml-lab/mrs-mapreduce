@@ -102,7 +102,7 @@ class ChoreQueue(object):
 
                 if (self._earliest is None) or (when < self._earliest):
                     self._earliest = when
-                    os.write(self._new_earliest_fd, '\0')
+                    os.write(self._new_earliest_fd, b'\0')
         else:
             self._put(item)
 

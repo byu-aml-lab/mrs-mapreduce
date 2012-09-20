@@ -54,8 +54,12 @@ except ImportError:
 
 try:
     import urlparse
+    from urllib import quote
+    from urllib import urlencode
 except ImportError:
     import urllib.parse as urlparse
+    from urllib.parse import quote
+    from urllib.parse import urlencode
 
 
 DEFAULT_PORT = 50070
@@ -286,13 +290,13 @@ def _request_uri(server, username, path, op, args=None):
     parts of the resulting request URI are properly quoted.
     """
     assert path.startswith('/')
-    quoted_path = urllib.quote('/webhdfs/v1' + path)
+    quoted_path = quote('/webhdfs/v1' + path)
 
     query = {'op': op,
             'user.name': username}
     if args:
         query.update(args)
-    quoted_query = urllib.urlencode(query)
+    quoted_query = urlencode(query)
 
     request_uri = '%s?%s' % (quoted_path, quoted_query)
     return request_uri
