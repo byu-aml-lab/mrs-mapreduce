@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-from __future__ import with_statement
-
 import re
 import sys
 
@@ -20,8 +18,9 @@ def get_version(filename):
 
 setup(name="mrs-mapreduce",
     version=get_version('mrs/version.py'),
-    description="Mrs: A simplified MapReduce implimentation in Python",
-    long_description="See README",
+    description="A lightweight MapReduce implementation for computationally"
+        " intensive programs",
+    #long_description="See README",
     license="GNU GPL",
     author="BYU AML Lab",
     author_email="mrs-mapreduce@googlegroups.com",

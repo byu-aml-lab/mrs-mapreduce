@@ -1,4 +1,4 @@
-# Copyright 2008-2011 Brigham Young University
+# Copyright 2008-2012 Brigham Young University
 #
 # This file is part of Mrs.
 #
@@ -19,4 +19,4 @@
 # Licensing Office, Brigham Young University, 3760 HBLL, Provo, UT 84602,
 # (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
 
-__version__ = '0.6'
+__version__ = '0.8'
