@@ -21,6 +21,8 @@
 # Licensing Office, Brigham Young University, 3760 HBLL, Provo, UT 84602,
 # (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
 
+from __future__ import print_function
+
 import string
 import mrs
 
@@ -53,7 +55,7 @@ class WordCount2(mrs.MapReduce):
 
     def input_data(self, job):
         if len(self.args) < 2:
-            print >>sys.stderr, "Requires input(s) and an output."
+            print("Requires input(s) and an output.", file=sys.stderr)
             return None
         inputs = []
         for filename in self.args[:-1]:
