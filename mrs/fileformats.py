@@ -152,19 +152,31 @@ class LineReader(Reader):
     """Reads key-value pairs from a file object.
 
     In this basic reader, the key-value pair is composed of a line number and
-    line contents (as a string).
+    line contents (as a string).  The input file is assumed to be encoded in
+    UTF-8, and the error mode is 'replace' (invalid characters are replaced
+    with u'\ufffd').
     """
     def __init__(self, fileobj, *args, **kwds):
         if PY3:
-            fileobj = io.TextIOWrapper(fileobj, encoding='utf-8')
+            fileobj = io.TextIOWrapper(fileobj, encoding='utf-8',
+                    errors='replace')
         super(LineReader, self).__init__(fileobj, *args, **kwds)
 
-    def __iter__(self):
-        """Iterate over key-value pairs.
+    if PY3:
+        def __iter__(self):
+            """Iterate over key-value pairs.
 
-        Inheriting classes will almost certainly override this method.
-        """
-        return enumerate(self.fileobj)
+            Inheriting classes will almost certainly override this method.
+            """
+            return enumerate(self.fileobj)
+    else:
+        def __iter__(self):
+            """Iterate over key-value pairs.
+
+            Inheriting classes will almost certainly override this method.
+            """
+            for i, s in enumerate(self.fileobj):
+                yield i, s.decode('utf-8', errors='replace')
 
 
 class BytesLineReader(Reader):
@@ -186,10 +198,10 @@ class BytesLineReader(Reader):
 # key, value = line.split(None, 1)
 
 class TextWriter(Writer):
-    """A basic line-oriented format, primarily for user interaction
+    """A basic line-oriented format, primarily for user interaction.
 
-    For writing, the key and value are separated by spaces, with one entry per
-    line.
+    The key and value are first converted to unicode and encoded with UTF-8
+    and then written to the file separated by spaces, with one entry per line.
     """
     ext = 'mtxt'
 
@@ -198,12 +210,20 @@ class TextWriter(Writer):
             fileobj = io.TextIOWrapper(fileobj, encoding='utf-8', newline='\n')
         super(TextWriter, self).__init__(fileobj, *args, **kwds)
 
-    def writepair(self, kvpair):
-        key, value = kvpair
-        self.fileobj.write(str(key))
-        self.fileobj.write(' ')
-        self.fileobj.write(str(value))
-        self.fileobj.write('\n')
+    if PY3:
+        def writepair(self, kvpair):
+            key, value = kvpair
+            self.fileobj.write(str(key))
+            self.fileobj.write(' ')
+            self.fileobj.write(str(value))
+            self.fileobj.write('\n')
+    else:
+        def writepair(self, kvpair):
+            key, value = kvpair
+            self.fileobj.write(unicode(key).encode('utf-8'))
+            self.fileobj.write(' ')
+            self.fileobj.write(unicode(value).encode('utf-8'))
+            self.fileobj.write('\n')
 
 
 class HexReader(Reader):

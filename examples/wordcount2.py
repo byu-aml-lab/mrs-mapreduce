@@ -38,6 +38,8 @@ class WordCount2(mrs.MapReduce):
     2. It is smart about punctuation, case, etc.
 
     3. It uses the reduce function as a combiner.
+
+    4. It uses custom serializers instead of pickle.
     """
 
     @mrs.key_serializer('str')
