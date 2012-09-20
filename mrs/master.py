@@ -937,6 +937,9 @@ class IdleSlaves(object):
     def __nonzero__(self):
         return self._max_count > 0
 
+    def __bool__(self):
+        return self._max_count > 0
+
     def __contains__(self, slave):
         return slave in self._all_slaves
 
