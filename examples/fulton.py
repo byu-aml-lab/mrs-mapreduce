@@ -162,11 +162,11 @@ def submit_job(name, script_vars, jobdir, resources, attrs=''):
         INTERFACES="%(interfaces)s"
         OUTPUT="%(output)s"
 
-        HOST_FILE="$JOBDIR/host.$PBS_JOBID"
-        PORT_FILE="$JOBDIR/port.$PBS_JOBID"
-        STDERR_FILE="$JOBDIR/master-stderr.$PBS_JOBID"
-
         if [[ -z $MASTER_JOBID ]]; then
+            HOST_FILE="$JOBDIR/host.$PBS_JOBID"
+            PORT_FILE="$JOBDIR/port.$PBS_JOBID"
+            STDERR_FILE="$JOBDIR/master-stderr.$PBS_JOBID"
+
             # Run /sbin/ip and extract everything between "inet " and "/"
             # (i.e.  the IP address but not the netmask).  Note that we use a
             # semi-colon instead of / in the sed expression to make it easier
@@ -188,6 +188,9 @@ def submit_job(name, script_vars, jobdir, resources, attrs=''):
             mkdir -p $(dirname "$OUTPUT")
             $PYTHON $MRS_PROGRAM --mrs=Master --mrs-runfile="$PORT_FILE" \
                     ${ARGS[@]} >$OUTPUT 2>$STDERR_FILE &
+        else
+            HOST_FILE="$JOBDIR/host.$PBS_MASTER_JOBID"
+            PORT_FILE="$JOBDIR/port.$PBS_MASTER_JOBID"
         fi
 
         # Find the port used by the master.
