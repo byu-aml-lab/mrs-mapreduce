@@ -27,6 +27,7 @@ A Task represents a unit of work and the mechanism for carrying it out.
 
 from __future__ import division, print_function
 
+import copy
 from operator import itemgetter
 
 from . import datasets
@@ -112,6 +113,11 @@ class Task(object):
         self.input_ds.fetchall()
         if serial:
             all_input = self.input_ds.data()
+            # Avoid subtle race conditions in serial MapReduce when objects
+            # are mutable by recklessly copying everything.  In the future, we
+            # might make this disableable, but performance in serial MapReduce
+            # is not a high priority.
+            all_input = (copy.deepcopy(x) for x in all_input)
         else:
             all_input = self.input_ds.splitdata(self.task_index)
         return all_input
