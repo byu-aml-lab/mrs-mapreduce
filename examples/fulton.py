@@ -114,6 +114,7 @@ def main():
             'jobdir': jobdir,
             'current_dir': current_dir,
             'output': opts.output,
+            'stderr': opts.stderr,
             'master_jobid': '',
             }
 
@@ -161,11 +162,11 @@ def submit_job(name, script_vars, jobdir, resources, attrs=''):
         MASTER_JOBID="%(master_jobid)s"
         INTERFACES="%(interfaces)s"
         OUTPUT="%(output)s"
+        STDERR="%(stderr)s"
 
         if [[ -z $MASTER_JOBID ]]; then
             HOST_FILE="$JOBDIR/host.$PBS_JOBID"
             PORT_FILE="$JOBDIR/port.$PBS_JOBID"
-            STDERR_FILE="$JOBDIR/master-stderr.$PBS_JOBID"
 
             # Run /sbin/ip and extract everything between "inet " and "/"
             # (i.e.  the IP address but not the netmask).  Note that we use a
@@ -186,8 +187,13 @@ def submit_job(name, script_vars, jobdir, resources, attrs=''):
 
             # Start the master.
             mkdir -p $(dirname "$OUTPUT")
+            if [[ -n $STDERR ]]; then
+                mkdir -p $(dirname "$STDERR")
+            else
+                STDERR="$JOBDIR/master-stderr.$PBS_JOBID"
+            fi
             $PYTHON $MRS_PROGRAM --mrs=Master --mrs-runfile="$PORT_FILE" \
-                    ${ARGS[@]} >$OUTPUT 2>$STDERR_FILE &
+                    ${ARGS[@]} >$OUTPUT 2>$STDERR &
         else
             HOST_FILE="$JOBDIR/host.$PBS_MASTER_JOBID"
             PORT_FILE="$JOBDIR/port.$PBS_MASTER_JOBID"
@@ -265,7 +271,10 @@ def create_parser():
     parser.add_option('-n', dest='nslaves', type='int',
             help='Number of slaves')
     parser.add_option('-N', '--name', dest='name', help='Name of job')
-    parser.add_option('-o', '--output', dest='output', help='Output file')
+    parser.add_option('-o', '--output', dest='output',
+            help='Output (stdout) file')
+    parser.add_option('-e', '--stderr', dest='stderr', default='',
+            help='Output (stderr) file')
     parser.add_option('-t', '--time', dest='time', type='float',
             help='Wallclock time (in hours)')
     parser.add_option('-m', '--memory', dest='memory', type='int',
