@@ -20,7 +20,7 @@
 # Licensing Office, Brigham Young University, 3760 HBLL, Provo, UT 84602,
 # (801) 422-9339 or 422-3821, e-mail copyright@byu.edu.
 
-from __future__ import division
+from __future__ import division, print_function
 
 import multiprocessing
 import os
@@ -99,6 +99,7 @@ class Job(object):
         if outdir:
             util.try_makedirs(outdir)
 
+        self._set_serializers(None, kwds)
         ds = datasets.LocalData(itr, splits, dir=outdir, parter=parter,
                 permanent=permanent, **kwds)
         if self._url_converter:
