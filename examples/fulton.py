@@ -95,7 +95,8 @@ def main():
     time = walltime(opts.time)
     # TODO: when each slave is able to use multiple processors (with multiple
     # worker subprocesses), change `ppn` accordingly.
-    nodespec = 'nodes=%s:ppn=1'
+    #nodespec = 'nodes=%s:ppn=1'
+    nodespec = 'procs=%s'
     if opts.nodespec:
         nodespec = '%s:%s' % (nodespec, opts.nodespec)
     resources = '%s,walltime=%s,pmem=%smb' % (nodespec, time, opts.memory)
