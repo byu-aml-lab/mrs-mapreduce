@@ -943,4 +943,7 @@ class IdleSlaves(object):
     def __contains__(self, slave):
         return slave in self._all_slaves
 
+    def __len__(self):
+        return len(self._all_slaves)
+
 # vim: et sw=4 sts=4

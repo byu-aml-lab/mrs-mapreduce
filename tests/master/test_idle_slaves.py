@@ -45,8 +45,10 @@ def test_nonzero():
 
     # test __nonzero__
     assert bool(slaves) == False
+    assert len(slaves) == 0
     slaves.add(slave1)
     assert bool(slaves) == True
+    assert len(slaves) == 1
 
 def test_contains():
     host1 = 'host1'
@@ -59,6 +61,7 @@ def test_contains():
     slaves.add(slave1)
     assert slave1 in slaves
     assert slave2 not in slaves
+    assert len(slaves) == 1
 
 def test_add_twice():
     host1 = 'host1'
@@ -67,14 +70,19 @@ def test_add_twice():
 
     # Create a new slaves list.
     slaves = IdleSlaves()
+    assert len(slaves) == 0
 
     # Add some slaves.
     slaves.add(slave1)
     assert slaves._max_count == 1
+    assert len(slaves) == 1
     slaves.add(slave2)
     assert slaves._max_count == 2
+    assert len(slaves) == 2
+    # Add the same slave a second time.
     slaves.add(slave2)
     assert slaves._max_count == 2
+    assert len(slaves) == 2
 
 def test_two_hosts():
     host1 = 'host1'
