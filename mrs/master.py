@@ -927,11 +927,19 @@ class IdleSlaves(object):
         if host_size > self._max_count:
             self._max_count = host_size
 
+    def _consistency_check(self):
+        assert self._max_count >= 0
+        max_count = 0
+        for count in self._counter.keys():
+            if self._counter[count] and count > max_count:
+                max_count = count
+        assert self._max_count == max_count
+
     def _remove_from_counter(self, host, host_size):
         if host_size != 0:
             counter_set = self._counter[host_size]
             counter_set.remove(host)
-            if not counter_set:
+            if self._max_count == host_size and not counter_set:
                 self._max_count -= 1
 
     def __nonzero__(self):
