@@ -100,7 +100,7 @@ def main():
         nodespec = '%s:%s' % (nodespec, opts.nodespec)
     resources = '%s,walltime=%s,pmem=%smb' % (nodespec, time, opts.memory)
     if opts.resource_list:
-        resources += ',%s' % (resources, opts.resource_list)
+        resources += ',%s' % opts.resource_list
 
     # Variables for the job script:
     current_dir = os.getcwd()
