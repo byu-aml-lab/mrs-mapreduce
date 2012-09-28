@@ -25,8 +25,9 @@
 RPC mechanisms and HTTP servers built on Python's standard library.
 """
 
-# Socket backlog (argument to socket.listen)
-BACKLOG = 100
+# Socket backlog (argument to socket.listen).
+# The maximum is defined by /proc/sys/net/core/somaxconn (128 by default).
+BACKLOG = 1024
 
 import os
 import posixpath
