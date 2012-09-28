@@ -28,7 +28,11 @@ RPC mechanisms and HTTP servers built on Python's standard library.
 # Socket backlog (argument to socket.listen).
 # The maximum is defined by /proc/sys/net/core/somaxconn (128 by default).
 BACKLOG = 1024
+# Maximum number of retries for HTTP clients (since the server gives a
+# Connection Refused if its backlog is full).
+RETRIES = 10
 
+import errno
 import os
 import posixpath
 import socket
@@ -59,13 +63,31 @@ del logging
 import codecs
 codecs.lookup('ascii')
 
+# Python 3 compatibility
+PY3 = sys.version_info[0] == 3
+if not PY3:
+    range = xrange
+
 # TODO: switch parent class to xmlrpclib.SafeTransport
 # TODO: consider using the Transport's enable_threshold setting for gzip
 class TimeoutTransport(Transport):
-    """XMLRPC Transport monkeypatched to accept a timeout parameter."""
+    """An RPC transport that supports timeouts and retries."""
     def __init__(self, timeout):
         Transport.__init__(self)
         self.timeout = timeout
+
+    def request(self, *args, **kwds):
+        # Note that if the server's backlog gets filled, then it refuses
+        # connections.
+        for i in range(RETRIES):
+            try:
+                return Transport.request(self, *args, **kwds)
+            except socket.error as e:
+                if e.errno == errno.ECONNREFUSED:
+                    continue
+                else:
+                    raise
+        raise RuntimeError('Connection refused too many times.')
 
     # Variant of the basic make_connection that adds a timeout param to
     # HTTPConnection.
@@ -107,6 +129,7 @@ class NoDelayHTTPConnection(HTTPConnection):
 
 
 class TimeoutServerProxy(ServerProxy):
+    """An RPC client that supports timeouts and retries."""
     def __init__(self, uri, timeout):
         transport = TimeoutTransport(timeout)
         uri = rpc_url(uri)
