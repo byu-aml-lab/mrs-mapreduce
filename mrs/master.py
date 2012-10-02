@@ -522,6 +522,7 @@ class RemoteSlave(object):
             except http.ConnectionRefused as e:
                 logger.error('Connection refused too many times to slave'
                     ' %s (%s)' % (self.id, e.addr))
+                success = False
             except socket.timeout:
                 logger.error('Timeout in RPC call to slave %s' % self.id)
                 success = False
@@ -563,6 +564,7 @@ class RemoteSlave(object):
             except http.ConnectionRefused as e:
                 logger.error('Connection refused too many times to slave'
                     ' %s (%s)' % (self.id, e.addr))
+                success = False
             except socket.timeout:
                 logger.error('Timeout in remove call to slave %s' % self.id)
                 success = False
@@ -658,6 +660,7 @@ class RemoteSlave(object):
         except http.ConnectionRefused as e:
             logger.error('Connection refused too many times to slave %s (%s)'
                     % (self.id, e.addr))
+            success = False
         except socket.timeout:
             logger.error('Timeout in ping to slave %s' % self.id)
             success = False
