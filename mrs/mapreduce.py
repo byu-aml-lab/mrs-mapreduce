@@ -37,7 +37,8 @@ from .version import __version__
 
 ITERATIVE_QMAX = 10
 RAND_OFFSET_SHIFT = 64
-SERIALIZERS = {'int': serializers.int_serializer,
+SERIALIZERS = {'raw': serializers.raw_serializer,
+        'int': serializers.int_serializer,
         'str': serializers.str_serializer}
 
 DEFAULT_USAGE = (""

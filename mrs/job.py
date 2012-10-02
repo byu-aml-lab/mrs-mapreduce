@@ -168,7 +168,11 @@ class Job(object):
             parter = self.default_partition
 
         reduce_name = self._registry[reducer]
-        self._set_serializers(reducer, kwds)
+        if input.serializers is not None:
+            fallback_s_names = input.serializers.names()
+        else:
+            fallback_s_names = None
+        self._set_serializers(reducer, kwds, fallback_s_names)
         part_name = self._registry[parter]
 
         op = tasks.ReduceOperation(reduce_name, part_name)
@@ -217,13 +221,15 @@ class Job(object):
         """Reports the progress (fraction complete) of the given dataset."""
         return self._manager.progress(dataset)
 
-    def _set_serializers(self, f, kwds):
+    def _set_serializers(self, f, kwds, fallback_s_names=None):
         """Add any serializers specified on the given function to kwds."""
         if 'key_serializer' in kwds:
             key_s_name = kwds['key_serializer']
             del kwds['key_serializer']
         elif hasattr(f, 'key_serializer'):
             key_s_name = f.key_serializer
+        elif fallback_s_names is not None:
+            key_s_name = fallback_s_names[0]
         else:
             key_s_name = None
 
@@ -232,6 +238,8 @@ class Job(object):
             del kwds['value_serializer']
         elif hasattr(f, 'value_serializer'):
             value_s_name = f.value_serializer
+        elif fallback_s_names is not None:
+            value_s_name = fallback_s_names[1]
         else:
             value_s_name = None
 

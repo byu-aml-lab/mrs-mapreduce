@@ -82,6 +82,15 @@ class Serializers(object):
             value_s = None
         return cls(key_s, key_s_name, value_s, value_s_name)
 
+    def __repr__(self):
+        return 'Serializers(%r, %r, %r, %r)' % (self.key_s,
+                self.key_s_name, self.value_s, self.value_s_name)
+
+
+###############################################################################
+# bytes <-> bytes (no-op)
+
+raw_serializer = Serializer(None, None)
 
 ###############################################################################
 # str <-> bytes
