@@ -142,6 +142,16 @@ class RPCRequestHandler(SimpleXMLRPCRequestHandler):
     # Tell BaseHTTPRequestHandler to support HTTP keepalive
     protocol_version = 'HTTP/1.1'
 
+    # Disabling Nagle's Algorithm happens for XMLRPC by default in Python
+    # version 2.7 and 3.2.
+    disable_nagle_algorithm = True
+    if not hasattr(SimpleHTTPRequestHandler, 'disable_nagle_algorithm'):
+        def setup(self):
+            SimpleHTTPRequestHandler.setup(self)
+            if self.disable_nagle_algorithm:
+                self.connection.setsockopt(socket.IPPROTO_TCP,
+                        socket.TCP_NODELAY, True)
+
     # The sequence of calls is a bit counter-intuitive.  The do_POST method in
     # SimpleXMLRPCRequestHandler calls the server's _marshaled_dispatch
     # method, passing it a reference to its own _dispatch method.  This
@@ -169,8 +179,6 @@ class RPCServer(SimpleXMLRPCServer):
     def __init__(self, addr, instance):
         SimpleXMLRPCServer.__init__(self, addr,
                 requestHandler=RPCRequestHandler, logRequests=False)
-        # Disable Nagle's algorithm to avoid [hypothetical] high latency.
-        self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         self.instance = instance
 
     def _dispatch(self, method, params, host):
@@ -234,6 +242,20 @@ def rpc_url(urlstring):
 
 class BucketRequestHandler(SimpleHTTPRequestHandler):
     """HTTP request handler for serving buckets from local datasets."""
+
+    #protocol_version = 'HTTP/1.1'
+
+    # Fully buffer responses.
+    wbufsize = -1
+    # Disable Nagle's Algorithm (Python 2.7/3.2 and later).
+    disable_nagle_algorithm = True
+
+    if not hasattr(SimpleHTTPRequestHandler, 'disable_nagle_algorithm'):
+        def setup(self):
+            SimpleHTTPRequestHandler.setup(self)
+            if self.disable_nagle_algorithm:
+                self.connection.setsockopt(socket.IPPROTO_TCP,
+                        socket.TCP_NODELAY, True)
 
     def list_directory(self, path):
         self.send_error(403, "Directory listing is forbidden")
