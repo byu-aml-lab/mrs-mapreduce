@@ -42,7 +42,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Mrs-MapReduce'
-copyright = u'2011, AML Lab'
+copyright = u'2012, AML Lab'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

@@ -35,35 +35,40 @@ It is included just as a helpful example.
 
 from __future__ import division
 
+import math
+import os
+from subprocess import Popen, PIPE
+import sys
+
 DEFAULT_INTERPRETER = "/usr/bin/python"
 INTERFACES = "ib0 eth1 eth0"
 RUN_DIRECTORY = "$HOME/compute/run"
 
 QSUB_NAME_DEFAULT = "mrs_fulton"
 QSUB_NAME_MAXLEN = 15
-QSUB_NAME_MASTER = "_M"
-QSUB_NAME_SLAVE = "_S"
 
-import sys, os
-from subprocess import Popen, PIPE
 
 def main():
     parser = create_parser()
-    options, args = parser.parse_args()
+    opts, args = parser.parse_args()
 
-    suffix_len = max(len(QSUB_NAME_MASTER), len(QSUB_NAME_SLAVE))
-    if len(options.name) + suffix_len <= QSUB_NAME_MAXLEN:
-        name = options.name
+    if opts.slaves_per_job > 0:
+        total_jobs = math.ceil((1 + opts.nslaves) / opts.slaves_per_job)
+        suffix_len = len('_') + int(1 + math.log10(total_jobs))
+    else:
+        suffix_len = len('_') + 1
+    if len(opts.name) + suffix_len <= QSUB_NAME_MAXLEN:
+        name = opts.name
     else:
         parser.error('NAME is too long.')
 
-    if options.output is None:
+    if opts.output is None:
         parser.error('OUTPUT file must be specified')
 
-    if options.time is None:
+    if opts.time is None:
         parser.error('TIME must be specified')
 
-    if options.memory is None:
+    if opts.memory is None:
         parser.error('MEMORY must be specified')
 
     # Extract Mrs program and its command-line arguments/options
@@ -73,8 +78,8 @@ def main():
     else:
         parser.error('MRS_PROGRAM not specified.')
 
-    if not options.force and os.path.exists(options.output):
-        print >>sys.stderr, "Output file already exists:", options.output
+    if not opts.force and os.path.exists(opts.output):
+        print >>sys.stderr, "Output file already exists:", opts.output
         sys.exit(-1)
 
     # Set up the job directory for output, etc.
@@ -87,52 +92,61 @@ def main():
         pass
 
     # Common command line arguments to qsub:
-    time = walltime(options.time)
-    nodespec = 'nodes=1:ppn=1'
-    if options.nodespec:
-        nodespec = '%s:%s' % (nodespec, options.nodespec)
-    resources = '%s,walltime=%s,pmem=%sgb' % (nodespec, time, options.memory)
-    if options.resource_list:
-        resources = '%s,%s' % (resources, options.resource_list)
-    singleproc_cmdline = ['qsub', '-l', resources]
-    # TODO: set 'synccount' on the master and set some slaves to 'syncwith'
-    # the master.
+    time = walltime(opts.time)
     # TODO: when each slave is able to use multiple processors (with multiple
     # worker subprocesses), change `ppn` accordingly.
-    nodespec = 'nodes=%s:ppn=1' % options.slaves_per_job
-    if options.nodespec:
-        nodespec = '%s:%s' % (nodespec, options.nodespec)
-    resources = '%s,walltime=%s,pmem=%sgb' % (nodespec, time, options.memory)
-    if options.resource_list:
-        resources = '%s,%s' % (resources, options.resource_list)
-    multiproc_cmdline = ['qsub', '-l', resources]
+    #nodespec = 'nodes=%s:ppn=1'
+    nodespec = 'procs=%s'
+    if opts.nodespec:
+        nodespec = '%s:%s' % (nodespec, opts.nodespec)
+    resources = '%s,walltime=%s,pmem=%smb' % (nodespec, time, opts.memory)
+    if opts.resource_list:
+        resources += ',%s' % opts.resource_list
 
     # Variables for the job script:
     current_dir = os.getcwd()
     quoted_args = ['"%s"' % arg.replace('"', r'\"') for arg in mrs_args]
     arg_array = "(%s)" % " ".join(quoted_args)
-    script_vars = dict(python=options.interpreter, program=mrs_program,
-            arg_array=arg_array, interfaces=INTERFACES, jobdir=jobdir,
-            current_dir=current_dir, output=options.output)
+    script_vars = {
+            'python': opts.interpreter,
+            'program': mrs_program,
+            'arg_array': arg_array,
+            'interfaces': INTERFACES,
+            'jobdir': jobdir,
+            'current_dir': current_dir,
+            'output': opts.output,
+            'stderr': opts.stderr,
+            'master_jobid': '',
+            }
 
+    if opts.slaves_per_job > 0:
+        nodes = min(1 + opts.nslaves, opts.slaves_per_job)
+    else:
+        nodes = 1 + opts.nslaves
     print "Submitting master job...",
-    jobid = submit_master(name, script_vars, singleproc_cmdline, jobdir)
+    jobid = submit_job('%s_0' % name, script_vars, jobdir, resources % nodes)
     print " done."
-    print "Master jobid:", jobid
+    nodes_left = 1 + opts.nslaves - nodes
 
+    print "Master jobid:", jobid
     script_vars['master_jobid'] = jobid
+    attrs = 'depend=after:%s' % jobid
 
     print "Submitting slave jobs...",
-    for i in xrange(options.nslaves // options.slaves_per_job):
-        submit_slavejob(i, name, script_vars, multiproc_cmdline, jobdir, jobid)
-    for i in xrange(options.nslaves % options.slaves_per_job):
-        submit_slavejob(i, name, script_vars, singleproc_cmdline, jobdir, jobid)
+    i = 1
+    while nodes_left > 0:
+        nodes = min(nodes_left, opts.slaves_per_job)
+        submit_job('%s_%s' % (name, i), script_vars, jobdir,
+                resources % nodes, attrs)
+        nodes_left -= nodes
+        i += 1
 
 
-def submit_master(name, script_vars, cmdline, jobdir):
-    """Submit the master to PBS using qsub.
+def submit_job(name, script_vars, jobdir, resources, attrs=''):
+    """Submit a single job to PBS using qsub.
 
-    Returns the jobid of the newly created job.
+    Returns the jobid of the newly created job.  If `master_jobid` (in the
+    `script_vars`) is an empty string, then the new job will include a master.
     """
     script = r'''#!/bin/bash
         . $HOME/.bashrc
@@ -146,69 +160,47 @@ def submit_master(name, script_vars, cmdline, jobdir):
         PYTHON="%(python)s"
         MRS_PROGRAM="%(program)s"
         ARGS=%(arg_array)s
+        MASTER_JOBID="%(master_jobid)s"
         INTERFACES="%(interfaces)s"
         OUTPUT="%(output)s"
+        STDERR="%(stderr)s"
 
-        HOST_FILE="$JOBDIR/host.$PBS_JOBID"
-        PORT_FILE="$JOBDIR/port.$PBS_JOBID"
-        STDERR_FILE="$JOBDIR/master-stderr.$PBS_JOBID"
+        if [[ -z $MASTER_JOBID ]]; then
+            HOST_FILE="$JOBDIR/host.$PBS_JOBID"
+            PORT_FILE="$JOBDIR/port.$PBS_JOBID"
 
-        # Run /sbin/ip and extract everything between "inet " and "/" (i.e.
-        # the IP address but not the netmask).  Note that we use a semi-colon
-        # instead of / in the sed expression to make it easier on the eyes.
-        for iface in $INTERFACES; do
-            if /sbin/ip -o -4 addr list |grep -q "$iface\$"; then
-                IP_ADDRESS=$(/sbin/ip -o -4 addr list "$iface" \
-                        |sed -e 's;^.*inet \(.*\)/.*$;\1;')
-                echo $IP_ADDRESS >$HOST_FILE
-                break
+            # Run /sbin/ip and extract everything between "inet " and "/"
+            # (i.e.  the IP address but not the netmask).  Note that we use a
+            # semi-colon instead of / in the sed expression to make it easier
+            # on the eyes.
+            for iface in $INTERFACES; do
+                if /sbin/ip -o -4 addr list |grep -q "$iface\$"; then
+                    IP_ADDRESS=$(/sbin/ip -o -4 addr list "$iface" \
+                            |sed -e 's;^.*inet \(.*\)/.*$;\1;')
+                    echo $IP_ADDRESS >$HOST_FILE
+                    break
+                fi
+            done
+            if [[ -z $IP_ADDRESS ]]; then
+                echo "No valid IP address found!"
+                exit 1
             fi
-        done
-        if [[ -z $IP_ADDRESS ]]; then
-            echo "No valid IP address found!"
-            exit 1
+
+            # Start the master.
+            mkdir -p $(dirname "$OUTPUT")
+            if [[ -n $STDERR ]]; then
+                mkdir -p $(dirname "$STDERR")
+            else
+                STDERR="$JOBDIR/master-stderr.$PBS_JOBID"
+            fi
+            $PYTHON $MRS_PROGRAM --mrs=Master --mrs-runfile="$PORT_FILE" \
+                    ${ARGS[@]} >$OUTPUT 2>$STDERR &
+        else
+            HOST_FILE="$JOBDIR/host.$PBS_MASTER_JOBID"
+            PORT_FILE="$JOBDIR/port.$PBS_MASTER_JOBID"
         fi
 
-        # Master
-        mkdir -p $(dirname "$OUTPUT")
-        $PYTHON $MRS_PROGRAM --mrs=Master --mrs-runfile="$PORT_FILE" \
-                ${ARGS[@]} >$OUTPUT 2>$STDERR_FILE
-        ''' % script_vars
-
-    cmdline = list(cmdline)
-    cmdline += ['-N', name + QSUB_NAME_MASTER]
-    outfile = os.path.join(jobdir, 'pbs_master_stdout')
-    errfile = os.path.join(jobdir, 'pbs_master_stderr')
-    cmdline += ['-o', outfile, '-e', errfile]
-
-    # Submit
-    qsub_proc = Popen(cmdline, stdin=PIPE, stdout=PIPE)
-
-    stdout, stderr = qsub_proc.communicate(script)
-    if qsub_proc.returncode != 0:
-        print >>sys.stderr, "Couldn't submit master job to queue!"
-        sys.exit(-1)
-    jobid = stdout.strip()
-    return jobid
-
-
-def submit_slavejob(i, name, script_vars, cmdline, jobdir, master_jobid):
-    """Submit a single slave job to PBS using qsub."""
-
-    script = r'''#!/bin/bash
-        . $HOME/.bashrc
-
-        cd "%(current_dir)s"
-
-        JOBDIR="%(jobdir)s"
-        PYTHON="%(python)s"
-        MRS_PROGRAM="%(program)s"
-        MASTER_JOBID="%(master_jobid)s"
-
-        HOST_FILE="$JOBDIR/host.$MASTER_JOBID"
-        PORT_FILE="$JOBDIR/port.$MASTER_JOBID"
-
-        # Slave
+        # Find the port used by the master.
         while true; do
             if [[ -e $PORT_FILE ]]; then
                 PORT=$(cat $PORT_FILE)
@@ -222,33 +214,36 @@ def submit_slavejob(i, name, script_vars, cmdline, jobdir, master_jobid):
             sleep 0.05;
         done
         HOST=$(cat $HOST_FILE)
-
         echo "Connecting to master on '$HOST:$PORT'"
 
-        pbsdsh bash -i \
-            -c "$PYTHON $MRS_PROGRAM --mrs=Slave --mrs-master='$HOST:$PORT'"
+        # Start the slaves.
+        SLAVE_CMD="$PYTHON $MRS_PROGRAM --mrs=Slave --mrs-master='$HOST:$PORT'"
+        if [[ -z $MASTER_JOBID ]]; then
+            # Don't start a slave on the master's node.
+            SLAVE_CMD="[[ \$PBS_VNODENUM != 0 ]] && $SLAVE_CMD"
+        fi
+        pbsdsh bash -i -c "$SLAVE_CMD"
+
+        # Wait for the master (backgrounded) to complete.
+        wait
         ''' % script_vars
 
-    # Don't print jobid to stdout
-    cmdline = list(cmdline)
-    cmdline += ['-z']
-    # Set the job name
-    cmdline += ['-N', name + QSUB_NAME_SLAVE]
-    # Start after the master starts:
-    #dependency = 'after:%s' % master_jobid
-    #cmdline += ['-W', 'depend=%s' % dependency]
-    # Set stdout and stderr:
-    outfile = os.path.join(jobdir, 'slave-job-%s.out' % i)
-    errfile = os.path.join(jobdir, 'slave-job-%s.err' % i)
+    cmdline = ['qsub', '-l', resources, '-N', name]
+    if attrs:
+        cmdline += ['-W', attrs]
+    outfile = os.path.join(jobdir, '%s.out' % name)
+    errfile = os.path.join(jobdir, '%s.err' % name)
     cmdline += ['-o', outfile, '-e', errfile]
 
     # Submit
     qsub_proc = Popen(cmdline, stdin=PIPE, stdout=PIPE)
 
     stdout, stderr = qsub_proc.communicate(script)
-    if qsub_proc.wait() != 0:
-        print >>sys.stderr, "Couldn't submit slave job to queue!"
+    if qsub_proc.returncode != 0:
+        print >>sys.stderr, "Couldn't submit master job to queue!"
         sys.exit(-1)
+    jobid = stdout.strip()
+    return jobid
 
 
 def walltime(time):
@@ -277,13 +272,16 @@ def create_parser():
     parser.add_option('-n', dest='nslaves', type='int',
             help='Number of slaves')
     parser.add_option('-N', '--name', dest='name', help='Name of job')
-    parser.add_option('-o', '--output', dest='output', help='Output directory')
+    parser.add_option('-o', '--output', dest='output',
+            help='Output (stdout) file')
+    parser.add_option('-e', '--stderr', dest='stderr', default='',
+            help='Output (stderr) file')
     parser.add_option('-t', '--time', dest='time', type='float',
             help='Wallclock time (in hours)')
     parser.add_option('-m', '--memory', dest='memory', type='int',
-            help='Amount of memory per node (in GB)')
+            help='Amount of memory per node (in MB)')
     parser.add_option('-s', dest='slaves_per_job', type='int',
-            help='Number of slaves in each PBS job', default=10)
+            help='Number of slaves in each PBS job', default=0)
     parser.add_option('--interpreter', dest='interpreter', action='store',
             help='Python interpreter to run', default=DEFAULT_INTERPRETER)
     parser.add_option('-f', dest='force', action='store_true',
