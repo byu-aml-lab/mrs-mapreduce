@@ -76,18 +76,18 @@ class TimeoutTransport(Transport):
         Transport.__init__(self)
         self.timeout = timeout
 
-    def request(self, *args, **kwds):
+    def request(self, host, *args, **kwds):
         # Note that if the server's backlog gets filled, then it refuses
         # connections.
         for i in range(RETRIES):
             try:
-                return Transport.request(self, *args, **kwds)
+                return Transport.request(self, host, *args, **kwds)
             except socket.error as e:
                 if e.errno == errno.ECONNREFUSED:
                     continue
                 else:
                     raise
-        raise RuntimeError('Connection refused too many times.')
+        raise ConnectionRefused(host)
 
     # Variant of the basic make_connection that adds a timeout param to
     # HTTPConnection.
@@ -297,5 +297,14 @@ class BucketServer(socketserver.TCPServer):
 class ThreadingBucketServer(socketserver.ThreadingMixIn, BucketServer):
     daemon_threads = True
 
+
+class ConnectionRefused(Exception):
+    """Exception raised if a connection is refused too many times."""
+
+    def __init__(self, addr):
+        self.addr = addr
+
+    def __str__(self):
+        return 'Connection to %s refused too many times' % self.addr
 
 # vim: et sw=4 sts=4

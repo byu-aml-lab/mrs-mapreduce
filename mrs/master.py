@@ -519,6 +519,9 @@ class RemoteSlave(object):
                 logger.error('Protocol error in RPC call to slave %s: %s'
                         % (self.id, e.errmsg))
                 success = False
+            except http.ConnectionRefused as e:
+                logger.error('Connection refused too many times to slave'
+                    ' %s (%s)' % (self.id, e.addr))
             except socket.timeout:
                 logger.error('Timeout in RPC call to slave %s' % self.id)
                 success = False
@@ -557,6 +560,9 @@ class RemoteSlave(object):
                 logger.error('Protocol error in remove call to slave %s: %s'
                         % (self.id, e.errmsg))
                 success = False
+            except http.ConnectionRefused as e:
+                logger.error('Connection refused too many times to slave'
+                    ' %s (%s)' % (self.id, e.addr))
             except socket.timeout:
                 logger.error('Timeout in remove call to slave %s' % self.id)
                 success = False
@@ -649,6 +655,9 @@ class RemoteSlave(object):
             logger.error('Protocol error in ping to slave %s: %s'
                     % (self.id, e.errmsg))
             success = False
+        except http.ConnectionRefused as e:
+            logger.error('Connection refused too many times to slave %s (%s)'
+                    % (self.id, e.addr))
         except socket.timeout:
             logger.error('Timeout in ping to slave %s' % self.id)
             success = False
@@ -694,6 +703,9 @@ class RemoteSlave(object):
             except ProtocolError as e:
                 logger.error('Protocol error in exit to slave %s: %s'
                         % (self.id, e.errmsg))
+            except http.ConnectionRefused as e:
+                logger.error('Connection refused too many times to slave'
+                    ' %s (%s)' % (self.id, e.addr))
             except socket.timeout:
                 logger.error('Timeout in exit to slave %s' % self.id)
             except socket.error as e:
