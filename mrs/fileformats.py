@@ -91,7 +91,8 @@ class Writer(object):
         raise NotImplementedError
 
     def finish(self):
-        pass
+        """Flush the file object, which may be a buffering wrapper."""
+        self.fileobj.flush()
 
     def __enter__(self):
         return self
