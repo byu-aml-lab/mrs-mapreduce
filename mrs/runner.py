@@ -460,7 +460,7 @@ class TaskRunner(BaseRunner):
             fraction_complete = 1
 
         if fraction_complete < 1:
-            if fraction_complete < ds.blocking_percent:
+            if fraction_complete < ds.blocking_ratio:
                 return
             if self.available_tasks() >= self.available_workers():
                 return

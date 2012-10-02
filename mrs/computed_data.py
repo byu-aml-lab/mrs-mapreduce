@@ -43,7 +43,7 @@ class ComputedData(datasets.RemoteData):
             programs)
         async_start: whether to allow the dataset to start asynchronously
             (while some tasks in the parent are still running)
-        blocking_percent: dependent datasets may start being computed when
+        blocking_ratio: dependent datasets may start being computed when
             the given percent of tasks are completed
         backlink: any uncompleted tasks from the given dataset will be
             "pulled forward" into place in the current dataset
@@ -54,7 +54,7 @@ class ComputedData(datasets.RemoteData):
         backlink_id: string id of the dataset backlinked to
     """
     def __init__(self, operation, input, splits, affinity=False,
-            blocking_percent=1, backlink=None, async_start=False, **kwds):
+            blocking_ratio=1, backlink=None, async_start=False, **kwds):
         # Create exactly one task for each split in the input.
         self.ntasks = input.splits
 
@@ -71,7 +71,7 @@ class ComputedData(datasets.RemoteData):
 
         # Options
         self.affinity = affinity
-        self.blocking_percent = blocking_percent
+        self.blocking_ratio = blocking_ratio
         self.async_start = async_start
         if backlink is None:
             self.backlink_id = None
