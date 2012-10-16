@@ -1,22 +1,24 @@
 .. _writing_your_own:
 
-****************************
-Writing a Mrs Implementation
-****************************
+*********************
+Writing a Mrs Program
+*********************
 
 .. _writing-your-own:
 
-The basic Mrs implementation
-============================
+Basic Mrs Programs
+==================
 
-The wordcount program that we have been working with throught the
+The wordcount program that we have been working with through the
 previous three tutorials shows a Mrs program in it's most simple form. In this
-tutorial, we will try to explain the Basic format for a Mrs MapReduce program
+tutorial, we will try to explain the basic format for a Mrs MapReduce program
 and some of the options for a more complex program.
 
-The Basic format for a Mrs MapReduce program looks something like this ::
+The basic format for a Mrs MapReduce program looks something like this ::
 
-    class Mrs-Program(mrs.MapReduce):
+    import mrs
+
+    class MrsProgram(mrs.MapReduce):
 
         def map(key, value):
             yield newkey, newvalue
@@ -25,7 +27,6 @@ The Basic format for a Mrs MapReduce program looks something like this ::
             yield newvalue
 
     if __name__ == '__main__':
-        import mrs
         mrs.main(Mrs-Program)
 
 Here we create a class that extends the MapReduce class in the `MRS_HOME/mrs/
