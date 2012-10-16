@@ -1,12 +1,12 @@
 .. _writing_your_own:
 
 ****************************
-Writing a Mrs Implimentation
+Writing a Mrs Implementation
 ****************************
 
 .. _writing-your-own:
 
-The basic Mrs implimentation
+The basic Mrs implementation
 ============================
 
 The wordcount program that we have been working with throught the
@@ -63,7 +63,7 @@ a line of the input file, and it will read them all in.
 
 In the examples folder we have included a file called `mapreduce-parse.py <http:
 //code.google.com/p/mrs-mapreduce/source/browse/examples/mapreduce_parse.py>`_ 
-as an example of a much more complex implimentation where there was a need to 
+as an example of a much more complex implementation where there was a need to 
 extend several of the functions.
 
 Defining more complex map functions

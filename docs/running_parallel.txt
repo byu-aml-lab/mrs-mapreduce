@@ -1,8 +1,8 @@
 .. _running_parallel:
 
-***********
-Running Mrs
-***********
+***********************
+Running Mrs in Parallel
+***********************
 
 .. _running-manually:
 

@@ -9,7 +9,7 @@ Welcome to the Mrs-MapReduce Documentation page!
 Mrs (pronounced "missus") is a lightweight implementation of MapReduce.  The
 name derives from the practice of referring to MapReduce programs by the title
 "mister" (e.g., "Mr. Wordcount").  The name "Mrs" is a natural variation on
-"Mr" and much more memorable and pronounceable than an arbitrary acronym.
+"Mr" and more memorable than an arbitrary acronym.
 
 Mrs is a MapReduce implementation that aims to be easy to use and reasonably
 efficient.  It is written in Python and where possible builds on existing
@@ -38,8 +38,8 @@ About Mrs:
 
    about_mrs.txt
 
-Installation and use:
-+++++++++++++++++++++
+User Documentation:
++++++++++++++++++++
 .. toctree::
    :maxdepth: 2
 
@@ -47,13 +47,12 @@ Installation and use:
    running_parallel.txt
    writing_your_own.txt
 
-Development docs:
-+++++++++++++++++
+Internal Development docs:
+++++++++++++++++++++++++++
 
 .. toctree::
    :maxdepth: 2
 
-   changelog.txt
    release_checklist.txt
 
 Indices and tables

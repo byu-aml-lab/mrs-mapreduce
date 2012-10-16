@@ -7,80 +7,92 @@ Installation
 
 .. _installing_mrs:
 
-
-Three minute, three step, installation instructions
-===================================================
-
 If you are familiar with Python and the Linux environment, you should have no
 difficulty installing Mrs and running it with the example wordcount program in
 three minutes or less.
 
-Things to consider before Installing Mrs
-----------------------------------------
 
-    1. Mrs is written in Python, so you will need to have it installed before
-       trying to install Mrs.
+Prerequisites
+=============
 
-    2. Although, not necessary to have before installing Mrs, the following
-       utilities can be very helpful when running Mrs in parallel:
+Mrs is supported on Linux and Mac OS.  It is not currently supported
+on Windows, although this may change in the future.
 
-            -`pssh <http://code.google.com/p/parallel-ssh/>`_
-            
-            -screen *(most Linux distros already have this installed)*
+The only mandatory prerequisite for Mrs is `Python <http://python.org/>`_,
+which is already installed on most Linux and Mac OS systems.  Mrs does not
+rely on any libraries outside the Python Standard Library.  However, the
+following optional utilities can be very helpful when running Mrs in parallel:
+
+- `pssh <http://code.google.com/p/parallel-ssh/>`_
+
+- `screen <http://www.gnu.org/software/screen/>`_ (most Linux distributions
+  already have this installed)
+
 
 Installation
-------------
+============
 
-    1. Using Git, clone the repository from the `Google code <http://code.google
-       .com/p/mrs-mapreduce/>`_ page, or if you prefer, download and unpack the
-       tar file also available from the Google page. ::
+Step 1: Download
+----------------
 
-       > git clone https://code.google.com/p/mrs-mapreduce/
+Download and unpack the tar file from the
+`Mrs Downloads <http://code.google.com/p/mrs-mapreduce/downloads/list>`_
+page or use `Git <http://git-scm.com/>`_ to clone the repository::
 
-    2. Navigate to the MRS_HOME folder and run setup.py as root (see notes below
-       if you don't have root access, or you have problems running setup.py). ::
+    > git clone https://code.google.com/p/mrs-mapreduce/
 
-       > sudo python setup.py install
+The path to the resulting ``mrs-mapreduce`` directory is referred to as
+``$MRS_HOME`` throughout the documentation, although it is not actually
+necessary to create a ``MRS_HOME`` environment variable.
 
-    3. Verify correct instalation by running the provided wordcount program
-       from the MRS_HOME/examples directory, passing it an input text file and
-       an output directory name. ::
+Step 2: Install
+---------------
 
-       > python wordcount.py myTextFile.txt myOutputDir
+The ``mrs`` module must be on the Python path.  There are two options for
+how to do this:
+
+1. Navigate to the ``$MRS_HOME`` folder and run setup.py as root (see notes
+below if you don't have root access, or you have problems running setup.py).
+::
+
+    > sudo python setup.py install
+
+2. Manually add ``MRS_HOME`` to your Python path.  To make this automatically
+take effect at login, set the ``PYTHONPATH`` environment variable in your
+``.bashrc`` file (or the equivalent if you're using some other shell).
+For example, if you are using Bash and have an empty Python path, add the
+following to ``.bashrc``::
+
+    > export PYTHONPATH="$MRS_HOME"
+
+Step 3: Run WordCount to Verify the Installation
+------------------------------------------------
+
+Verify correct installation by running the example WordCount program
+from the ``$MRS_HOME/examples`` directory, passing it an input text file and
+an output directory name. ::
+
+    > python wordcount.py myTextFile.txt myOutputDir
 
 If all went well you should have a file called source_something_something.mtxt
 in your output directory containing a list of all the words in the text file
 with their respective counts.
 
 
-What to do if you don't have root access
-========================================
+Troubleshooting
+===============
 
-If you don't have root access, or for whatever reason don't want to run the
-install, it's not a big problem, you just have to add the MRS_HOME directory
-to your python path variable. For example, to add MRS_HOME to your python path
-variable, you could use the 'export' command as follows: ::
+Errors running setup.py
+-----------------------
 
-    > export PYTHONPATH=$PYTHONPATH:~/path_from_home_dir_to_MRS_HOME/
-
-You can do this each time you log in and run Mrs, or you can modify your
-terminal configuration file to automatically do it for you. So, if you're
-using bash, for example, you would just add the example line to your .bashrc
-file.
-
-
-
-If you have problems running setup.py
-=====================================
-
-You probably don't have setuptools installed. Run the following commands: ::
+If you have problems running setup.py, you probably don't have setuptools
+installed. To install it, run the following commands: ::
 
     > wget 'http://peak.telecommunity.com/dist/ez_setup.py'
     > sudo python ez_setup.py
 
-And then return to step 2. Or, follow the instructions for what to do if you
-don't have root access and skip step 2.
+Other Problems
+--------------
 
-
-
-
+With any other installation problems, please post a question to the
+`Mrs Mailing List <http://groups.google.com/group/mrs-mapreduce>`_.

@@ -49,7 +49,7 @@ copyright = u'2012, AML Lab'
 # built documents.
 #
 # The short X.Y version.
-version = version.VERSION
+version = version.__version__
 # The full version, including alpha/beta/rc tags.
 release = "v" + version
 

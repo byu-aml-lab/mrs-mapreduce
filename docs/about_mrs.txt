@@ -1,19 +1,21 @@
 .. _about_mrs:
 
+=========
+About Mrs
+=========
 
-************
-Mrs Objectives
-************
 
-Mrs is not the only open source MapReduce implementation. In fact, Hadoop is a
-far more mature system. As pointed out on its web page, Hadoop is scalable,
-economical, efficient, and reliable. However, and without any intended
-disrespect to Hadoop, I have not found it to be particularly simple. While
-Hadoop is certainly a more appropriate tool for large-scale data processing,
+Design Principles
+=================
+
+Mrs is not the only open source MapReduce implementation.
+As pointed out on its web page, Hadoop is scalable
+and reliable. However, and without any intended
+disrespect to Hadoop, it is not particularly simple. While
+Hadoop is certainly an appropriate tool for large-scale data processing,
 Mrs intends to be more convenient for research and education.
 
-I created Mrs because I recognized that Hadoop's objectives were not always in
-line with what I needed in my research environment. Here are a few of the
+Here are a few of the
 principles that guide the development of Mrs (which may be subconsciously
 inspired by the Zen of Python):
 
@@ -21,18 +23,13 @@ inspired by the Zen of Python):
 
     One of the great things about the MapReduce model is that it simplifies
     parallel computation. Mrs tries to be Pythonic rather than Javariffic.
-
-* **Be Creative** 
-
-    Although Mrs tries to guarantee the same semantics as presented in Google's
-    MapReduce paper, I have tried to be creative. I think Mrs has an interesting
-    approach to multi-stage MapReduce problems.
+    The Mrs API requires as little mandatory complexity as possible.
 
 * **Don't Repeat Yourself**
 
     The world has many fine job schedulers and filesystems. If Mrs were married
     to a particular environment, it would not be as flexible. A Mrs program is
-    just a program, not a daemon. 
+    just a program, not a daemon.
 
 .. _word_count:
 
@@ -41,9 +38,8 @@ WordCount
 
 The original MapReduce paper presented WordCount as a "Hello, world" example.
 WordCount simply counts the number of occurrences of each word in the input.
-I encourage the reader to compare and contrast the following WordCount examples
-from Hadoop and Mrs. I reiterate that Hadoop is a more mature implementation but
-assert that it often makes problems unnecessarily complicated.
+The following barebones WordCount examples demonstrate some differences
+between Hadoop and Mrs.
 
 Mrs WordCount
 +++++++++++++
@@ -52,15 +48,16 @@ Mrs WordCount
 
     import mrs
 
-    def mapper(key, value):
-        for word in value.split():
-            yield (word, str(1))
+    class WordCount(mrs.MapReduce):
+        def mapper(self, key, value):
+            for word in value.split():
+                yield (word, 1)
 
-    def reducer(key, value_iter):
-        yield str(sum(int(x) for x in value_iter))
+        def reducer(self, key, values):
+            yield sum(values)
 
     if __name__ == '__main__':
-        mrs.main(mrs.Registry(globals()))
+        mrs.main(WordCount)
 
 
 Hadoop WordCount
