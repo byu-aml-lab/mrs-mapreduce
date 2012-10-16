@@ -3,8 +3,8 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to the Mrs-MapReduce Documentation page!
-================================================
+Mrs MapReduce Documentation
+===========================
 
 Mrs (pronounced "missus") is a lightweight implementation of MapReduce.  The
 name derives from the practice of referring to MapReduce programs by the title
