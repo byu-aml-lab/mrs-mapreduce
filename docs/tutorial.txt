@@ -1,12 +1,12 @@
-.. _running_parallel:
+.. _tutorial:
 
-***********************
-Running Mrs in Parallel
-***********************
+********
+Tutorial
+********
 
-.. _running-manually:
+.. _tutorial:
 
-Running in parallel manually
+Running in Parallel Manually
 ================================
 
 This tutorial will walk you through the basic configurations and options of
@@ -49,9 +49,10 @@ which you can specify with the -M HOST:PORT option. ::
 
 And once again, if all went well, you should have the results in your outDir.
 
+
 .. _using-run-script:
 
-Using a run-script
+Using a Run Script
 ==================
 
 Now that you have run Mrs manually and are familiar with the Mrs interface you
@@ -99,3 +100,58 @@ name with the - -jobname option, or if you don't specify, Mrs will default to
 The examples directory also includes a run-script called fulton.py that
 submits a job to a PBS scheduler.  If you use a supercomputer with a batch
 scheduler, this example script should be a good starting point.
+
+
+Writing a MapReduce Program
+===========================
+
+The WordCount program shows a Mrs program in it's most simple form. In this
+tutorial, we will try to explain the basic format for a Mrs MapReduce program
+and some of the options for a more complex program.
+
+The basic format for a Mrs MapReduce program looks something like this ::
+
+    import mrs
+
+    class MrsProgram(mrs.MapReduce):
+        def map(key, value):
+            yield newkey, newvalue
+
+        def reduce(key, values):
+            yield newvalue
+
+    if __name__ == '__main__':
+        mrs.main(MrsProgram)
+
+Here we create a class that extends the MapReduce class in the `MRS_HOME/mrs/
+mapreduce.py <http://code.google.com/p/mrs-mapreduce/source/browse/mrs/map
+reduce.py>`_ file, and overrides only the required map and reduce functions.
+The last section of code (the "if __name__ == '__main__':" section) just passes
+the program to Mrs to run.
+
+For example, in the map function in the wordcount program, we take in a chunk of
+text as the starting value, break it up into words and yield each word as a new
+key with a value of one (found one instance of that word). Then the reduce
+function sums all values associated with a particular key (word), and yields
+the result.
+
+But what if, instead to reading in just one textfile and counting the words as
+we've been doing, you had thousands of files that you neededto process? This is
+a little more complicated, so you would probably want to override the
+*input_data()* function from mapreduce.py, by adding something like the
+following to your the wordcount program. (See `wordcount2.py <http://code.google
+.com/p/mrs-mapreduce/source/browse/examples/wordcount2.py>`_ in the examples
+folder.) ::
+
+    def input_data(self, job):
+        if len(self.args) < 2:
+            print >>sys.stderr, "Requires input(s) and an output."
+            return None
+        inputs = []
+        f = open(self.args[0])
+        for line in f:
+            inputs.append(line[:-1])
+        return job.file_data(inputs)
+
+Now, you can just pass in a single file containing the path to each text file on
+a line of the input file, and it will read them all in.

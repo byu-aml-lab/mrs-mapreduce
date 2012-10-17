@@ -1,0 +1,112 @@
+.. _user_manual:
+
+**********
+User Guide
+**********
+
+.. _user_manual:
+
+
+Structure of a Mrs Program
+==========================
+
+A Mrs program is a user-specified class that is passed to ``mrs.main``.  There
+are two ways to create a Mrs program.  For the sake of simplicity, most Mrs
+programs inherit from the ``mrs.MapReduce`` class which implements some common
+functionality, but such inheritance is not necessary.  Alternatively, any
+class that specifies ``__init__`` and ``run`` methods with the appropriate
+signatures can be used.  Both of these approaches are discussed.
+
+
+Creating a Program Class From Scratch
+=====================================
+
+Mrs does not require programs to inherit from the ``MapReduce`` class.  Any
+class that implements a few simple methods is a valid Mrs program.  These
+methods, along with their signatures, are:
+
+- ``__init__(self, opts, args)`` (mandatory)
+
+    The ``__init__`` method is called with an ``opts`` object (created by
+    ``optparse``) and an ``args`` list.  These arguments are created on the
+    master, but the ``__init__`` method is called once on each slave (with
+    identical arguments).
+
+- ``run(self, job)`` (mandatory)
+
+    The role of the ``run`` method is to submit datasets for evaluation and
+    process their results.  It is called with a ``job`` object, an instance of
+    ``mrs.job.Job``, which provides methods such as ``local_data``,
+    ``file_data``, ``map_data``, and ``reduce_data`` for creating dataset
+    objects and submitting them for asynchronous evaluation.  The job also
+    provides ``wait`` and ``progress`` methods for determining whether
+    datasets are complete.
+
+- ``update_parser(cls, parser)`` (optional, class method)
+
+    The optional ``update_parser`` method, which must be a class method if
+    specified, adds custom command-line arguments to the given option parser
+    (``optparse.OptionParser``).
+
+- ``partition(self, x, n)`` (optional)
+
+    If specified, the ``partition`` method serves as the default partition
+    function for map and reduce datasets.
+
+- ``bypass(self)`` (optional)
+
+    If the ``Bypass`` implementation is specified on the command line, then
+    Mrs invokes the `bypass` method instead of the ``run`` method.  This
+    provides a convenient mechanism for including serial and parallel
+    implementations of a program side by side.
+
+- ``serializer(self, key)`` (optional)
+
+    If any map or reduce function specifies a custom serializer, then the
+    ``serializer`` method is called to translate the serializer's name (which
+    is transmitted over the network) to the corresponding ``Serializer``
+    object (which serializes and deserializes data).
+
+
+The Default MapReduce Class
+===========================
+
+The ``MapReduce`` class in the file ``mrs/mapreduce.py`` provides simple
+default implementations for each of the methods used by Mrs.  It serves both
+as a reasonable default and also as an example.
+
+
+The IterativeMR Class
+=====================
+
+The ``IterativeMR`` class implements a ``run`` method that gives a
+producer-consumer interface for creating iterative MapReduce programs.  In
+this model, datasets are pipelined.  The ``producer`` method is called when
+the number of runnable datasets is low, and the ``consumer`` method is called
+when each dataset completes.  This model reduces complexity particularly for
+programs where processing on the master occurs concurrently with map and
+reduce tasks (for example, programs with convergence checks).
+
+
+Examples
+========
+
+The ``examples`` directory includes several examples of MapReduce
+programs of varying levels of complexity:
+
+- `wordcount2.py <http://code.google.com/p/mrs-mapreduce/source/browse/examples/wordcount2.py>`_:
+  a more full-featured version of WordCount that uses a combiner and
+  explicitly sets a serializer (instead of automatically using pickle).
+
+- `pi/pure_pi.py <http://code.google.com/p/mrs-mapreduce/source/browse/examples/pi/pure_pi.py>`_:
+  a sample program that estimates pi by sampling a large number of values
+  from a `Halton sequence <http://en.wikipedia.org/wiki/Halton_sequence>`_
+  (comparable to Hadoop's ``PiEstimator`` example).  This program includes an
+  example of a custom ``run`` method.
+
+- `pi/c_pi.py <http://code.google.com/p/mrs-mapreduce/source/browse/examples/pi/c_pi.py>`_:
+  a fast implementation of the Pi estimator that uses ``ctypes`` to call a
+  function written in C.
+
+- `dependency_parse.py <http://code.google.com/p/mrs-mapreduce/source/browse/examples/dependency_parse.py>`_:
+  a real-life problem which unfortunately relies on some external modules.

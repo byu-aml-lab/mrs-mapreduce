@@ -44,8 +44,8 @@ User Documentation:
    :maxdepth: 2
 
    installation.txt
-   running_parallel.txt
-   writing_your_own.txt
+   tutorial.txt
+   user_guide.txt
 
 Internal Development docs:
 ++++++++++++++++++++++++++
