@@ -82,5 +82,5 @@ programs of varying levels of complexity:
   a fast implementation of the Pi estimator that uses ``ctypes`` to call a
   function written in C.
 
-- `mapreduce-parse.py <http://code.google.com/p/mrs-mapreduce/source/browse/examples/mapreduce_parse.py>`_:
+- `dependency_parse.py <http://code.google.com/p/mrs-mapreduce/source/browse/examples/dependency_parse.py>`_:
   a real-life problem which unfortunately relies on some external modules.

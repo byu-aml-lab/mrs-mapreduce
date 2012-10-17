@@ -95,18 +95,19 @@ class SamplePi(mrs.MapReduce):
 
         return 0
 
-def update_parser(parser):
-    parser.add_option('-p', '--points',
-                      dest='num_points',
-                      help='Number of points for each map task',
-                      default=1000)
+    @classmethod
+    def update_parser(cls, parser):
+        parser.add_option('-p', '--points',
+                        dest='num_points',
+                        help='Number of points for each map task',
+                        default=1000)
 
-    parser.add_option('-t', '--tasks',
-                      dest='num_tasks', type='int',
-                      help='Number of map tasks to use',
-                      default=40)
+        parser.add_option('-t', '--tasks',
+                        dest='num_tasks', type='int',
+                        help='Number of map tasks to use',
+                        default=40)
 
-    return parser
+        return parser
 
 if __name__ == '__main__':
-    mrs.main(SamplePi, update_parser)
+    mrs.main(SamplePi)

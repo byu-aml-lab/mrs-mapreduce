@@ -57,7 +57,7 @@ from subprocess import Popen, PIPE
 from topic_modeling.visualize.models import Dataset
 
 class DependencyParse(mrs.MapReduce):
-    
+
     def __init__(self, opts, args):
         super(DependencyParse, self).__init__(opts, args)
 
@@ -90,7 +90,7 @@ class DependencyParse(mrs.MapReduce):
         # This is the initial data (in (key, value) format) that is sent to
         # the map.  In our case, we just need to give an index to the map task,
         # and each mapper will look up the document it needs from that index.
-        documents = [(str(i), str(i)) for i in range(num_docs)]
+        documents = [(i, i) for i in range(num_docs)]
         # This is how you create the initial data to pass to the mappers (we
         # use a mod partition because we have numerical data that is guaranteed
         # to be sequential - see the note in mapreduce.py about that).
@@ -108,12 +108,6 @@ class DependencyParse(mrs.MapReduce):
                 format=mrs.io.textformat.TextWriter, splits=num_topics,
                 parter=self.mod_partition)
 
-        # After one map and one reduce, we are done.  If we had needed more
-        # complicated processing, like more maps and/or reduces, we would have
-        # called job.map_data or job.reduce_data with more intermediates.  But
-        # we don't here, so we just end the job.
-        job.end()
-
         # This is where the magic happens; when the job is finished, ready will
         # no longer be an empty list, and the program will terminate.
         ready = []
@@ -128,7 +122,7 @@ class DependencyParse(mrs.MapReduce):
     def map(self, key, value):
         # This is really simple.  Just get the document we're assigned from the
         # the database.
-        document = self.dataset.document_set.all()[int(value)]
+        document = self.dataset.document_set.all()[value]
         filename = self.dataset.data_root + '/' + document.filename
         markup_file = self.dataset.data_root + '/' + document.markup_file
         topic_info = defaultdict(TopicInfo)
@@ -139,40 +133,34 @@ class DependencyParse(mrs.MapReduce):
         # outputs that information.  The reduce combines information about each
         # topic found in all of the documents.
         for topic in topic_info:
-            s = StringIO()
-            pickle.dump(topic_info[topic], s)
-            yield (str(topic), s.getvalue())
+            yield (topic, topic_info[topic])
 
     def reduce(self, key, values):
         # All we do is aggregate all of the information we've seen
         topic_info = TopicInfo()
         for value in values:
-            s = StringIO(value)
-            info = pickle.load(s)
-            topic_info.aggregate(info)
-        s = StringIO()
-        pickle.dump(topic_info, s)
+            topic_info.aggregate(value)
         # Then output it in as a pickle, for easy analysis later.
-        yield s.getvalue()
+        yield topic_info
 
-
-def update_parser(parser):
-    parser.add_option('-d', '--dataset',
-            dest='dataset',
-            help='Database name of the dataset to use',
-            )
-    parser.add_option('-a', '--analysis',
-            dest='analysis',
-            help='Database name of the analysis to use',
-            )
-    parser.add_option('-o', '--outdir',
-            dest='outdir',
-            help='Directory to store the output',
-            )
-    return parser
+    @classmethod
+    def update_parser(cls, parser):
+        parser.add_option('-d', '--dataset',
+                dest='dataset',
+                help='Database name of the dataset to use',
+                )
+        parser.add_option('-a', '--analysis',
+                dest='analysis',
+                help='Database name of the analysis to use',
+                )
+        parser.add_option('-o', '--outdir',
+                dest='outdir',
+                help='Directory to store the output',
+                )
+        return parser
 
 
 if __name__ == '__main__':
-    mrs.main(DependencyParse, update_parser)
+    mrs.main(DependencyParse)
 
 # vim: et sw=4 sts=4
