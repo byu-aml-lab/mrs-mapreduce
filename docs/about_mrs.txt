@@ -25,6 +25,14 @@ inspired by the Zen of Python):
     parallel computation. Mrs tries to be Pythonic rather than Javariffic.
     The Mrs API requires as little mandatory complexity as possible.
 
+* **Reduce Burden**
+
+    Many MapReduce frameworks are difficult to deply and use.
+    Mrs aims to make it easy to deploy in a variety of enviornments.
+    In particular, we want Mrs to be easy to use even in super-computing
+    or private cluster environments, as opposed to dedicated MapReduce
+    enviorments that other tools require.
+
 * **Don't Repeat Yourself**
 
     The world has many fine job schedulers and filesystems. If Mrs were married

@@ -69,10 +69,11 @@ Step 3: Run WordCount to Verify the Installation
 ------------------------------------------------
 
 Verify correct installation by running the example WordCount program
-from the ``$MRS_HOME/examples`` directory, passing it an input text file and
-an output directory name. ::
+from the ``$MRS_HOME`` directory, passing it an input text file and
+an output directory name. For example, if you wanted to run WordCount on this
+tutorial, you would run ::
 
-    > python wordcount.py myTextFile.txt myOutputDir
+    > python examples/wordcount.py /docs/installation.txt tutorial_outdir
 
 If all went well you should have a file called source_something_something.mtxt
 in your output directory containing a list of all the words in the text file
