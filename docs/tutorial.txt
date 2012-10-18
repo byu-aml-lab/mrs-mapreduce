@@ -98,7 +98,9 @@ name with the - -jobname option, or if you don't specify, Mrs will default to
 'newjob.'
 
 The examples directory also includes a run-script called fulton.py that
-submits a job to a PBS scheduler.  If you use a supercomputer with a batch
+submits a job to a PBS scheduler.  This script is customized for the
+Fulton Supercomputing Lab at BYU, so it will need to be modified for your
+particular use case. However, if you use a supercomputer with a batch
 scheduler, this example script should be a good starting point.
 
 
