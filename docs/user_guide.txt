@@ -126,6 +126,86 @@ provided by the ``mrs.MapReduce`` class:
 Of course, any of these methods may be overridden to customize behavior.
 
 
+The Job and Datasets
+====================
+
+A dataset represents a set of key-value pairs distributed across a set of
+files.  Datasets may be associated with a list of URLs, locally-produced data,
+or the output of map and reduce tasks executed in parallel.  The ``run``
+method of a MapReduce program submits datasets to the job for asynchronous
+evaluation.  It may also download and process the results of completed
+datasets.  The job provides a set of methods that create and submit datasets:
+
+- ``file_data(filenames)``
+
+    Creates a ``FileData`` dataset associated with a set of URLs.
+
+- ``local_data(itr)``
+
+    Creates a dataset from a locally-computed iterator, making the data
+    available for parallel processing.
+
+- ``map_data(input, mapper)``
+
+    Performs a map operation on an input dataset using the given map function,
+    which is required to be a method of the MapReduce program.
+
+- ``reduce_data(input, reducer)``
+
+    Performs a reduce operation on an input dataset using the given reduce
+    function, which is required to be a method of the MapReduce program.
+
+- ``reducemap_data(input, reducer, mapper)``
+
+    Performs a consolidated reduce-map operation on an input dataset using the
+    given reduce and map functions, which are required to be methods of the
+    MapReduce program.
+
+Most types of datasets accept a variety of optional keyword arguments:
+
+- ``splits``
+
+    An integer indicating the number of output splits.  For example, if a
+    local data is used as the input for a map operation, then the number of
+    splits of the local data will dictate the number of map tasks in the
+    subsequent map operation.  Likewise, the number of splits of a map
+    operation will determine the number of subsequent reduce tasks.
+
+- ``outdir``
+
+    A string specifying a directory where output data will be stored.
+
+- ``parter``
+
+    A method of the MapReduce program that is used to partition data to
+    subsequent tasks.  See the MapReduce paper for more information.
+
+- ``combiner`` (for map and reducemap datasets)
+
+    A method of the MapReduce program that serves as a pre-reducer within a
+    map task.  See the MapReduce paper for more information.
+
+The job's ``progress`` method reports the fraction of the given dataset that
+is complete, and its ``wait`` method returns when any of the given datasets
+have completed evaluation (or if the optional timeout has expired).
+
+The following methods of ``DataSet`` objects are useful for processing the
+results of completed datasets:
+
+- ``close()``
+
+    Closes the dataset to future use and allows any associated temporary files
+    to be deleted as soon as other datasets no longer depend on them.
+
+- ``fetchall()``
+
+    Downloads all of the key-value pairs associated with the dataset.
+
+- ``data()``
+
+    Iterates over all of the key-value pairs in the dataset.
+
+
 The IterativeMR Class
 =====================
 
@@ -136,6 +216,60 @@ the number of runnable datasets is low, and the ``consumer`` method is called
 when each dataset completes.  This model reduces complexity particularly for
 programs where processing on the master occurs concurrently with map and
 reduce tasks (for example, programs with convergence checks).
+
+
+Advanced Features
+=================
+
+Pseudorandom Number Generation
+------------------------------
+
+Nondeterministic results fundamentally make debugging difficult and testing
+impossible.
+Setting a random seed is a simple way to make stochastic algorithms
+deterministic.
+However, in a MapReduce program, setting a fixed random seed at the beginning
+of each map or reduce task would make all tasks use the same sequence of
+random numbers.
+The ``mrs.MapReduce`` class provides a ``random`` method that returns
+a random number generator.
+The method takes a variable number of integer arguments and ensures that the
+random number generator is unique for any particular combination of inputs.
+Because of the large size of the internal state of the Mersenne Twister, the
+``random`` method can accept around 300 arguments that are each 64-bit
+integers.
+This makes it easy to generate a unique random number generator in each task
+or even to create identical random number generators in different tasks that
+need to duplicate specific calculations.
+
+
+Custom Serializers
+------------------
+
+By default, inputs and outputs for map and reduce functions are serialized
+using Python's `Pickle Module <http://docs.python.org/library/pickle.html>`_.
+In most cases, this is convenient, but in some cases, performance may be
+improved by using custom serializers and deserializers, or even no serializers
+at all.  For many applications, custom serializers may have no noticeable
+effect on performance, so this is an optional advanced feature.
+
+Each dataset accepts ``key_serializer`` and ``value_serializer`` keyword
+arguments that specify serializers to be used for outputting each key and
+value.  Alternatively, the serializers can be specified directly on a map or
+reduce function using the ``mrs.key_serializer`` and ``mrs.value_serializer``
+decorators.  In each case, the argument is a string that is translated to a
+``mrs.Serializer`` object by the ``serializer`` method which in the default
+``mrs.MapReduce`` class understands serializers such as ``'raw'`` (bytes),
+``'int'``, and ``'str'``.  Deserializers are not explicitly given because they
+are specified in the parent dataset.
+
+The map function in the ``wordcount2.py`` example uses the str serializer for
+the output key and the int serializer for the output value::
+
+    @mrs.key_serializer('str')
+    @mrs.value_serializer('int')
+    def map(self, key, value):
+        ...
 
 
 Examples

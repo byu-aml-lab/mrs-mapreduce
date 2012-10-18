@@ -17,6 +17,8 @@
 
 Your Mrs MapReduce program might look something like this:
 
+import mrs
+
 class Mrs_Program(mrs.MapReduce):
     def map(key, value):
         yield newkey, newvalue
@@ -25,7 +27,6 @@ class Mrs_Program(mrs.MapReduce):
         yield newvalue
 
 if __name__ == '__main__':
-    import mrs
     mrs.main(Mrs_Program)
 """
 
