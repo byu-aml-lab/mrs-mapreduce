@@ -4,6 +4,21 @@
 About Mrs
 =========
 
+Mrs (pronounced "missus") is an implementation of MapReduce.
+While there are many existing MapReduce frameworks,
+we knew of no system which met our needs.
+We needed a framework which was lightweight and easy to deploy,
+particularly in the super-computing context which precludes a
+dedicated MapReduce enviorment.
+Most MapReduce frameworks are geared towards processing large
+amounts of data, but we needed a framework which is optimized for
+computationally intense MapReduce programs.
+In particular, most existing MapReduce frameworks exhibit poor
+performance when it comes to iterative MapReduce.
+Mrs arose out of these needs, and continues to serve our purpose
+in other scientific research applications.
+Mrs is easy to use and allows researchs to quickly
+develop, test, and deploy new ideas.
 
 Design Principles
 =================
@@ -139,7 +154,7 @@ Hadoop WordCount
       /**
        * The main driver for word count map/reduce program.
        * Invoke this method to submit the map/reduce job.
-       * @throws IOException When there is communication problems with the 
+       * @throws IOException When there is communication problems with the
        *                     job tracker.
        */
       public static void main(String[] args) throws IOException {
