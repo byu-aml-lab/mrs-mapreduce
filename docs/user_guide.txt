@@ -10,20 +10,12 @@ User Guide
 Structure of a Mrs Program
 ==========================
 
-A Mrs program is a user-specified class that is passed to ``mrs.main``.  There
-are two ways to create a Mrs program.  For the sake of simplicity, most Mrs
-programs inherit from the ``mrs.MapReduce`` class which implements some common
-functionality, but such inheritance is not necessary.  Alternatively, any
-class that specifies ``__init__`` and ``run`` methods with the appropriate
-signatures can be used.  Both of these approaches are discussed.
-
-
-Creating a Program Class From Scratch
-=====================================
-
-Mrs does not require programs to inherit from the ``MapReduce`` class.  Any
-class that implements a few simple methods is a valid Mrs program.  These
-methods, along with their signatures, are:
+A Mrs program is a user-specified class that is passed to ``mrs.main``.
+Although the ``mrs.MapReduce`` class implements some common functionality, a
+MapReduce program is not required to inherit from this class.  Any class that
+specifies ``__init__`` and ``run`` methods with the appropriate signatures is
+a valid Mrs program.  These two required methods, as well as a number of
+optional methods, are:
 
 - ``__init__(self, opts, args)`` (mandatory)
 
@@ -71,9 +63,66 @@ methods, along with their signatures, are:
 The Default MapReduce Class
 ===========================
 
-The ``MapReduce`` class in the file ``mrs/mapreduce.py`` provides simple
+The ``mrs.MapReduce`` class in the file ``mrs/mapreduce.py`` provides simple
 default implementations for each of the methods used by Mrs.  It serves both
-as a reasonable default and also as an example.
+as a reasonable default and also as an example.  Programs can optionally
+inherit from this class and override any functions as needed.
+
+In its basic form, the ``mrs.MapReduce`` class assumes that a MapReduce
+program consists of a single map phase followed by a single reduce phase.  One
+or more filenames specified on the command-line are used to read text files to
+input to the map function, and a path provided on the command-line indicates
+the directory for output using a human-readable file format.
+
+The following additional methods can be overridden in a minimal MapReduce
+program that uses the ``mrs.MapReduce`` class:
+
+- ``map(self, key, value)``
+
+    A generator which takes a key and a value and yields one or more key-value
+    pairs.  See the MapReduce paper for more information about the role of a
+    map function.
+
+- ``reduce(self, key, values)``
+
+    A generator which takes a key and a value iterator and yields one or more
+    values associated with the key.  See the MapReduce paper for more
+    information about the role of a reduce function.
+
+- ``input_data(self, job)``
+
+    Returns a dataset object that is used as the input to the map dataset.  By
+    default, it uses filenames specified on the command-line (all of the
+    positional arguments except the last).
+
+- ``output_dir(self)``
+
+    Returns a path that is used for the output directory of the reduce
+    dataset.  By default, it uses a path specified on the command-line (the
+    last positional arguments).
+
+The following list details the default behavior for some of the methods
+provided by the ``mrs.MapReduce`` class:
+
+- ``update_parser(cls, parser)`` (class method)
+
+    Modifies and returns the given option parser (from the ``optparse``
+    module).  By default, it adds a simple usage statement.  Many programs add
+    command-line options or change the usage statement.
+
+- ``run(self, job)``
+
+    Submits datasets to the ``mrs.job.Job`` and optionally waits for and
+    processes the completed datasets.  By default, it assumes that there is a
+    single map dataset using the ``map`` method and a single reduce dataset
+    using the ``reduce`` method.  The input to the map dataset is given by
+    ``input_data``, and the output from the reduce dataset is written using
+    the human-readable ``TextWriter`` file format to the directory specified
+    by ``output_dir``.  A program that is more complex than a simple text
+    processor can override the ``run`` method to add any sequence of map and
+    reduce datasets.
+
+Of course, any of these methods may be overridden to customize behavior.
 
 
 The IterativeMR Class
