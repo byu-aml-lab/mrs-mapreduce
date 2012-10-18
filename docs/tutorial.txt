@@ -10,8 +10,8 @@ Running in Parallel Manually
 ================================
 
 This tutorial will walk you through the basic configurations and options of
-running Mrs in parallel.  If you followed the installation instructions provided
-in Mrs tutorial #1, then you have probably already run the example wordcount
+running Mrs in parallel.  If you followed the installation instructions,
+then you should have already run the example WordCount
 program in serial mode and so have varified that Mrs is installed and running
 correctly on your system. Otherwise, you may want to do that before proceeding.
 
@@ -32,7 +32,7 @@ implimentations you will need to specify which, as in: ::
 
     > python wordcount.py -I Master -h
 
-Now, let's run our friendly wordcount program in the most simple configuration
+Now, let's run our friendly WordCount program in the most simple configuration
 and afterwords explain some of the other options that you might want to use. To
 begin, start the Master. You will need to specify a port number and of course
 the input file and an output directory. Note that if you don't specify a port
@@ -126,20 +126,22 @@ The basic format for a Mrs MapReduce program looks something like this ::
 Here we create a class that extends the MapReduce class in the `MRS_HOME/mrs/
 mapreduce.py <http://code.google.com/p/mrs-mapreduce/source/browse/mrs/map
 reduce.py>`_ file, and overrides only the required map and reduce functions.
+Note that the ``mrs.MapReduce`` class provides a convenient way to write a
+program, but MapReduce programs are not required to inherit from it.
 The last section of code (the "if __name__ == '__main__':" section) just passes
 the program to Mrs to run.
 
-For example, in the map function in the wordcount program, we take in a chunk of
+In the map function in the WordCount program, we take in a chunk of
 text as the starting value, break it up into words and yield each word as a new
 key with a value of one (found one instance of that word). Then the reduce
 function sums all values associated with a particular key (word), and yields
 the result.
 
 But what if, instead to reading in just one textfile and counting the words as
-we've been doing, you had thousands of files that you neededto process? This is
+we've been doing, you had thousands of files that you needed to process? This is
 a little more complicated, so you would probably want to override the
 *input_data()* function from mapreduce.py, by adding something like the
-following to your the wordcount program. (See `wordcount2.py <http://code.google
+following to your the WordCount program. (See `wordcount2.py <http://code.google
 .com/p/mrs-mapreduce/source/browse/examples/wordcount2.py>`_ in the examples
 folder.) ::
 
