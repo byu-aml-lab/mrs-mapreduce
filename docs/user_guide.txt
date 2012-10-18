@@ -14,8 +14,7 @@ A Mrs program is a user-specified class that is passed to ``mrs.main``.
 Although the ``mrs.MapReduce`` class implements some common functionality, a
 MapReduce program is not required to inherit from this class.  Any class that
 specifies ``__init__`` and ``run`` methods with the appropriate signatures is
-a valid Mrs program.  These two required methods, as well as a number of
-optional methods, are:
+a valid Mrs program.  These two required methods are:
 
 - ``__init__(self, opts, args)`` (mandatory)
 
@@ -34,25 +33,27 @@ optional methods, are:
     provides ``wait`` and ``progress`` methods for determining whether
     datasets are complete.
 
-- ``update_parser(cls, parser)`` (optional, class method)
+Additional optional methods are:
+
+- ``update_parser(cls, parser)`` (class method)
 
     The optional ``update_parser`` method, which must be a class method if
     specified, adds custom command-line arguments to the given option parser
     (``optparse.OptionParser``).
 
-- ``partition(self, x, n)`` (optional)
+- ``partition(self, x, n)``
 
     If specified, the ``partition`` method serves as the default partition
     function for map and reduce datasets.
 
-- ``bypass(self)`` (optional)
+- ``bypass(self)``
 
     If the ``Bypass`` implementation is specified on the command line, then
     Mrs invokes the `bypass` method instead of the ``run`` method.  This
     provides a convenient mechanism for including serial and parallel
     implementations of a program side by side.
 
-- ``serializer(self, key)`` (optional)
+- ``serializer(self, key)``
 
     If any map or reduce function specifies a custom serializer, then the
     ``serializer`` method is called to translate the serializer's name (which
