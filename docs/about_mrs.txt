@@ -5,20 +5,19 @@ About Mrs
 =========
 
 Mrs (pronounced "missus") is an implementation of MapReduce.
-While there are many existing MapReduce frameworks,
-we knew of no system which met our needs.
-We needed a framework which was lightweight and easy to deploy,
-particularly in the super-computing context which precludes a
-dedicated MapReduce enviorment.
-Most MapReduce frameworks are geared towards processing large
-amounts of data, but we needed a framework which is optimized for
-computationally intense MapReduce programs.
-In particular, most existing MapReduce frameworks exhibit poor
-performance when it comes to iterative MapReduce.
-Mrs arose out of these needs, and continues to serve our purpose
-in other scientific research applications.
-Mrs is easy to use and allows researchs to quickly
-develop, test, and deploy new ideas.
+Mrs arose out of the need for a MapReduce framework which
+is lightweight and easy to deploy, and efficient for
+computationally intense programs.
+Most MapReduce frameworks geared towards processing large
+amounts of data, on dedicated clusters.
+On the other hand, Mrs is easy to deploy on non-dedicated
+hardware such as supercomputers or private clusters.
+Mrs is also well suited for scientific computation.
+In particular, Mrs has many novel features which boost
+performance for iterative MapReduce programs.
+Finally, Mrs is designed to be a flexible and simple system,
+allowing researchers to quickly develop, test and deploy new ideas,
+without sacrificing performance.
 
 Design Principles
 =================
@@ -42,11 +41,11 @@ inspired by the Zen of Python):
 
 * **Reduce Burden**
 
-    Many MapReduce frameworks are difficult to deply and use.
-    Mrs aims to make it easy to deploy in a variety of enviornments.
+    Many MapReduce frameworks are difficult to deploy and use.
+    Mrs aims to make it easy to deploy in a variety of environments.
     In particular, we want Mrs to be easy to use even in super-computing
     or private cluster environments, as opposed to dedicated MapReduce
-    enviorments that other tools require.
+    environments that other tools require.
 
 * **Don't Repeat Yourself**
 
