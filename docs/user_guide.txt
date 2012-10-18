@@ -206,8 +206,45 @@ results of completed datasets:
     Iterates over all of the key-value pairs in the dataset.
 
 
+The IterativeMR Class
+=====================
+
+The ``IterativeMR`` class implements a ``run`` method that gives a
+producer-consumer interface for creating iterative MapReduce programs.  In
+this model, datasets are pipelined.  The ``producer`` method is called when
+the number of runnable datasets is low, and the ``consumer`` method is called
+when each dataset completes.  This model reduces complexity particularly for
+programs where processing on the master occurs concurrently with map and
+reduce tasks (for example, programs with convergence checks).
+
+
+Advanced Features
+=================
+
+Pseudorandom Number Generation
+------------------------------
+
+Nondeterministic results fundamentally make debugging difficult and testing
+impossible.
+Setting a random seed is a simple way to make stochastic algorithms
+deterministic.
+However, in a MapReduce program, setting a fixed random seed at the beginning
+of each map or reduce task would make all tasks use the same sequence of
+random numbers.
+The ``mrs.MapReduce`` class provides a ``random`` method that returns
+a random number generator.
+The method takes a variable number of integer arguments and ensures that the
+random number generator is unique for any particular combination of inputs.
+Because of the large size of the internal state of the Mersenne Twister, the
+``random`` method can accept around 300 arguments that are each 64-bit
+integers.
+This makes it easy to generate a unique random number generator in each task
+or even to create identical random number generators in different tasks that
+need to duplicate specific calculations.
+
+
 Custom Serializers
-==================
+------------------
 
 By default, inputs and outputs for map and reduce functions are serialized
 using Python's `Pickle Module <http://docs.python.org/library/pickle.html>`_.
@@ -233,18 +270,6 @@ the output key and the int serializer for the output value::
     @mrs.value_serializer('int')
     def map(self, key, value):
         ...
-
-
-The IterativeMR Class
-=====================
-
-The ``IterativeMR`` class implements a ``run`` method that gives a
-producer-consumer interface for creating iterative MapReduce programs.  In
-this model, datasets are pipelined.  The ``producer`` method is called when
-the number of runnable datasets is low, and the ``consumer`` method is called
-when each dataset completes.  This model reduces complexity particularly for
-programs where processing on the master occurs concurrently with map and
-reduce tasks (for example, programs with convergence checks).
 
 
 Examples
