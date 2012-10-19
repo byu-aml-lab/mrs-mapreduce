@@ -233,7 +233,6 @@ class TaskRunner(BaseRunner):
         pending_datasets: set of datasets that are not yet runnable
         runnable_datasets: deque of datasets that are ready to run but have
             not yet been split into tasks
-        ready_tasks: list of (dataset, source) pairs
         tasklists: map from a dataset id to the corresponding TaskList
         forward_links: map from a dataset id to a set of ids representing
             the transitive closure of datasets that backlink to it
@@ -389,15 +388,21 @@ class TaskRunner(BaseRunner):
     def task_done(self, dataset_id, task_index, outurls, backlinked=False):
         """Report that the given source of the given dataset is computed.
 
+        Returns False if the task has already been reported as done (duplicate
+        work).
+
         Arguments:
             dataset_id: string
             task_index: integer id of the task that produced the data
             outurls: list of (number, string) pairs representing the split and
                 url of the outputs.
         """
+        tasklist = self.tasklists[dataset_id]
+        if tasklist.is_task_done(task_index):
+            return False
+
         if not backlinked:
             self.task_counter += 1
-        tasklist = self.tasklists[dataset_id]
         tasklist.task_done(task_index)
 
         dataset = self.datasets[dataset_id]
@@ -429,6 +434,7 @@ class TaskRunner(BaseRunner):
                             backlinked=True)
 
         self._wakeup_dependents(dataset_id)
+        return True
 
     def task_lost(self, dataset_id, task_index):
         """Report that a task was lost (e.g., to a dead slave)."""
@@ -623,7 +629,7 @@ class TaskList(object):
 
         Called if, for example, a Task is aborted.
         """
-        self._ready_tasks.appendleft(task_index)
+        self._ready_tasks.append(task_index)
 
     def __iter__(self):
         """Iterate over tasks ((dataset_id, task_index) pairs)."""

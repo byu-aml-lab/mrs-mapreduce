@@ -68,7 +68,6 @@ class MasterRunner(runner.TaskRunner):
         self.slaves = None
         self.idle_slaves = IdleSlaves()
         self.dead_slaves = set()
-        self.current_assignments = set()
         self.result_maps = {}
 
         self.rpc_interface = None
@@ -162,13 +161,11 @@ class MasterRunner(runner.TaskRunner):
                 # Dataset already deleted, so this source should be removed.
                 self.remove_sources(dataset_id, (slave, source), delete=True)
 
-            if (dataset_id, source) in self.current_assignments:
-                # Note: if this is the last task in the dataset, this will wake
-                # up datasets.  Thus this happens _after_ slaves are added to
-                # the idle_slaves set.
-                self.task_done(dataset_id, source, urls)
-                self.current_assignments.remove((dataset_id, source))
-            else:
+            # Note: if this is the last task in the dataset, this will wake
+            # up datasets.  Thus this happens _after_ slaves are added to
+            # the idle_slaves set.
+            success = self.task_done(dataset_id, source, urls)
+            if not success:
                 logger.info('Ignoring a redundant result (%s, %s).' %
                         (dataset_id, source))
 
@@ -219,7 +216,6 @@ class MasterRunner(runner.TaskRunner):
             slave.prepare_assignment(next, self.datasets)
             chore_item = slave.send_assignment, ()
             chore_list.append(chore_item)
-            self.current_assignments.add(next)
         self.chore_queue.do_many(chore_list)
 
     def available_workers(self):
@@ -261,8 +257,6 @@ class MasterRunner(runner.TaskRunner):
 
     def debug_status(self):
         super(MasterRunner, self).debug_status()
-        print('Current assignments:', (', '.join('(%s, %s)' % a
-                for a in self.current_assignments)), file=sys.stderr)
         print('Idle slaves:', (', '.join(str(slave.id)
                 for slave in self.idle_slaves)), file=sys.stderr)
         print('Dead slaves:', (', '.join(str(slave.id)
