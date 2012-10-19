@@ -21,4 +21,4 @@ Release Checklist
    ``python setup.py upload_docs``.
 7. Upload the tarball to Google Code.
 8. Send announcement email to the mrs-mapreduce@googlegroups.com mailing list.
-9. Announce on Freshcode.
+9. Announce on `Freecode <http://freecode.com>`_..

@@ -11,6 +11,10 @@ If you are familiar with Python and the Linux environment, you should have no
 difficulty installing Mrs and running it with the example wordcount program in
 three minutes or less.
 
+If you encounter any problems not addressed in this guide, please post a
+question to the
+`Mrs Mailing List <http://groups.google.com/group/mrs-mapreduce>`_.
+
 
 Prerequisites
 =============
@@ -32,10 +36,13 @@ following optional utilities can be very helpful when running Mrs in parallel:
 Option 1: Install Automatically
 ===============================
 
+Many users may find it easiest to use pip or easy_install to install Mrs.
+
 With pip
 --------
 
-If you have pip `(homepage) <http://www.pip-installer.org/en/latest/>`_::
+If you have `pip <http://www.pip-installer.org/en/latest/>`_, you can use it
+to install Mrs automatically::
 
     $ pip install mrs --user
 
@@ -45,29 +52,25 @@ If you want pip and don't have it check out `their installation page
 With easy_install
 -----------------
 
-If you have easy_install `(setuptools homepage)
-<http://pypi.python.org/pypi/setuptools>`_::
+If you don't have pip, you can use `easy_install
+<http://pypi.python.org/pypi/setuptools>`_ to install Mrs automatically::
 
     $ easy_install mrs
 
-**Awesome!** Now you can check out the :doc:`tutorial`
-
-Next Steps
-----------
-
-- Check out the :doc:`tutorial`
-- Read the :doc:`user_guide`
-- Loot at some examples :doc:`user_guide/examples`
 
 Option 2: Install Manually
 ==========================
 
+If you don't want to use an automatic tool, you can install Mrs manually.
+
 Step 1: Download
 ----------------
 
-Download and unpack the tar file from the
-`Mrs Downloads <http://code.google.com/p/mrs-mapreduce/downloads/list>`_
-page or use `Git <http://git-scm.com/>`_ to clone the repository::
+You may either download a tar file or clone with Git.  To use the tar file,
+download and unpack it from the `Mrs Downloads
+<http://code.google.com/p/mrs-mapreduce/downloads/list>`_ page.
+Alternatively, you may use `Git <http://git-scm.com/>`_ to clone the
+repository::
 
     $ git clone https://code.google.com/p/mrs-mapreduce/ && cd mrs-mapreduce
 
@@ -76,28 +79,26 @@ page or use `Git <http://git-scm.com/>`_ to clone the repository::
 Step 2: Install
 ---------------
 
-The ``mrs`` module must be on the Python path to be usable.  There are two
-options for how to do this:
+The ``mrs`` module must be on the Python path to be usable.  You may either
+install Mrs system-wide or use it in place without installing.
 
-Method 1: Install as a python module (recommended)
-++++++++++++++++++++++++++++++++++++++++++++++++++
-
-::
+If you choose to install Mrs system-wide, run the following command as root::
 
     $ sudo python setup.py install
 
-Method 2: Put it manually on your path (if you want to hack on mrs)
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+If you choose not to install Mrs system-wide with setup.py, then you must add
+the ``mrs-mapreduce`` directory to your Python path to ensure that Python can
+find the ``mrs`` module.  Set and export the ``PYTHONPATH`` environment
+variable in your ``.bashrc`` file (or the equivalent for other shells).  It's
+best to make sure you understand how the `.bashrc file
+<http://infohost.nmt.edu/tcc/help/pubs/dotfiles/bashrc.html>`_ works, but you
+might get away with running the following command ``echo export
+PYTHONPATH=$PYTHONPATH`pwd`>>~/.bashrc`` and then ``. ~/.bashrc`` to reload
+your bash config.
 
-If you don't know what this is, you should probably `read up about it
-<https://www.google.com/search?q=modify+pythonpath+bashrc>`_. If you don't
-want to, you might get away with running the following command
-``echo export PYTHONPATH=$PYTHONPATH`pwd`>>~/.bashrc`` and then ``.
-~/.bashrc`` to reload your bash config. But it's really a good idea to get to
-know your config files, so you should just read up on it.
 
-Step 3: Run WordCount to Verify the Installation
-------------------------------------------------
+Next Steps
+==========
 
 Verify correct installation by running the example WordCount program, passing
 it an input text file and an output directory name. For example, if you wanted
@@ -109,19 +110,8 @@ If all went well you should have a file called source_something_something.mtxt
 in your output directory containing a list of all the words in the text file
 with their respective counts, sorted alphabetically.
 
-Troubleshooting
-===============
+You may find the following resources helpful:
 
-Errors running setup.py
------------------------
+- Check out the :doc:`tutorial`.
+- Read the :doc:`user_guide`.
 
-If you have problems running setup.py, you probably don't have setuptools
-installed. To install it, run the following line: ::
-
-    $ wget 'http://peak.telecommunity.com/dist/ez_setup.py' && sudo python ez_setup.py
-
-Other Problems
---------------
-
-With any other installation problems, please post a question to the
-`Mrs Mailing List <http://groups.google.com/group/mrs-mapreduce>`_.
