@@ -29,8 +29,38 @@ following optional utilities can be very helpful when running Mrs in parallel:
   already have this installed)
 
 
-Installation
-============
+Option 1: Install Automatically
+===============================
+
+With pip
+--------
+
+If you have pip `(homepage) <http://www.pip-installer.org/en/latest/>`_::
+
+    $ pip install mrs --user
+
+If you want pip and don't have it check out `their installation page
+<http://www.pip-installer.org/en/latest/installing.html>`_.
+
+With easy_install
+-----------------
+
+If you have easy_install `(setuptools homepage)
+<http://pypi.python.org/pypi/setuptools>`_::
+
+    $ easy_install mrs
+
+**Awesome!** Now you can check out the :doc:`tutorial`
+
+Next Steps
+----------
+
+- Check out the :doc:`tutorial`
+- Read the :doc:`user_guide`
+- Loot at some examples :doc:`user_guide/examples`
+
+Option 2: Install Manually
+==========================
 
 Step 1: Download
 ----------------
@@ -39,46 +69,45 @@ Download and unpack the tar file from the
 `Mrs Downloads <http://code.google.com/p/mrs-mapreduce/downloads/list>`_
 page or use `Git <http://git-scm.com/>`_ to clone the repository::
 
-    > git clone https://code.google.com/p/mrs-mapreduce/
+    $ git clone https://code.google.com/p/mrs-mapreduce/ && cd mrs-mapreduce
 
-The path to the resulting ``mrs-mapreduce`` directory is referred to as
-``$MRS_HOME`` throughout the documentation, although it is not actually
-necessary to create a ``MRS_HOME`` environment variable.
+.. FIX: is there a way to link to the latest zipball?
 
 Step 2: Install
 ---------------
 
-The ``mrs`` module must be on the Python path.  There are two options for
-how to do this:
+The ``mrs`` module must be on the Python path to be usable.  There are two
+options for how to do this:
 
-1. Navigate to the ``$MRS_HOME`` folder and run setup.py as root (see notes
-below if you don't have root access, or you have problems running setup.py).
+Method 1: Install as a python module (recommended)
+++++++++++++++++++++++++++++++++++++++++++++++++++
+
 ::
 
-    > sudo python setup.py install
+    $ sudo python setup.py install
 
-2. Manually add ``MRS_HOME`` to your Python path.  To make this automatically
-take effect at login, set the ``PYTHONPATH`` environment variable in your
-``.bashrc`` file (or the equivalent if you're using some other shell).
-For example, if you are using Bash and have an empty Python path, add the
-following to ``.bashrc``::
+Method 2: Put it manually on your path (if you want to hack on mrs)
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-    > export PYTHONPATH="$MRS_HOME"
+If you don't know what this is, you should probably `read up about it
+<https://www.google.com/search?q=modify+pythonpath+bashrc>`_. If you don't
+want to, you might get away with running the following command
+``echo export PYTHONPATH=$PYTHONPATH`pwd`>>~/.bashrc`` and then ``.
+~/.bashrc`` to reload your bash config. But it's really a good idea to get to
+know your config files, so you should just read up on it.
 
 Step 3: Run WordCount to Verify the Installation
 ------------------------------------------------
 
-Verify correct installation by running the example WordCount program
-from the ``$MRS_HOME`` directory, passing it an input text file and
-an output directory name. For example, if you wanted to run WordCount on this
-tutorial, you would run ::
+Verify correct installation by running the example WordCount program, passing
+it an input text file and an output directory name. For example, if you wanted
+to run WordCount on this tutorial, you would run ::
 
-    > python examples/wordcount.py /docs/installation.txt tutorial_outdir
+    $ python examples/wordcount.py ./docs/installation.txt tutorial_outdir
 
 If all went well you should have a file called source_something_something.mtxt
 in your output directory containing a list of all the words in the text file
-with their respective counts.
-
+with their respective counts, sorted alphabetically.
 
 Troubleshooting
 ===============
@@ -87,10 +116,9 @@ Errors running setup.py
 -----------------------
 
 If you have problems running setup.py, you probably don't have setuptools
-installed. To install it, run the following commands: ::
+installed. To install it, run the following line: ::
 
-    > wget 'http://peak.telecommunity.com/dist/ez_setup.py'
-    > sudo python ez_setup.py
+    $ wget 'http://peak.telecommunity.com/dist/ez_setup.py' && sudo python ez_setup.py
 
 Other Problems
 --------------
