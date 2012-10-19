@@ -19,6 +19,8 @@ Finally, Mrs is designed to be a flexible and simple system,
 allowing researchers to quickly develop, test and deploy new ideas,
 without sacrificing performance.
 
+.. FIX: ^ sounds clumsy; connections between sentences
+
 Design Principles
 =================
 
@@ -28,6 +30,12 @@ and reliable. However, and without any intended
 disrespect to Hadoop, it is not particularly simple. While
 Hadoop is certainly an appropriate tool for large-scale data processing,
 Mrs intends to be more convenient for research and education.
+
+.. FIX: without any indended disrespect...sounds patronizing
+
+.. FIX: we imply that serious people with real problems should use hadoop?
+    Perhaps: "While Hadoop is a proven tool for large-scale...Mrs is already
+    tons better w/ .... any is improving rapidly?"
 
 Here are a few of the
 principles that guide the development of Mrs (which may be subconsciously
