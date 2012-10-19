@@ -13,7 +13,7 @@ name derives from the practice of referring to MapReduce programs by the title
 
 Mrs is a MapReduce implementation that aims to be easy to use and reasonably
 efficient.  It is written in Python and where possible builds on existing
-solutions to remain lightweight.  Python 2 (>=2.5) and Python 3 are supported.
+solutions to remain lightweight.  Python 2 (>=2.6) and Python 3 are supported.
 Mrs is licensed under the GNU GPL.
 
 The `MapReduce paper <http://research.google.com/archive/mapreduce.html>`_ provides
