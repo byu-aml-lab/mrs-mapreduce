@@ -276,21 +276,62 @@ Examples
 ========
 
 The ``examples`` directory includes several examples of MapReduce
-programs of varying levels of complexity:
+programs of varying levels of complexity.
 
+
+WordCount
+---------
+
+Mrs includes two versions of WordCount:
+
+- `wordcount.py <http://code.google.com/p/mrs-mapreduce/source/browse/examples/wordcount.py>`_:
 - `wordcount2.py <http://code.google.com/p/mrs-mapreduce/source/browse/examples/wordcount2.py>`_:
-  a more full-featured version of WordCount that uses a combiner and
-  explicitly sets a serializer (instead of automatically using pickle).
 
-- `pi/pure_pi.py <http://code.google.com/p/mrs-mapreduce/source/browse/examples/pi/pure_pi.py>`_:
-  a sample program that estimates pi by sampling a large number of values
-  from a `Halton sequence <http://en.wikipedia.org/wiki/Halton_sequence>`_
-  (comparable to Hadoop's ``PiEstimator`` example).  This program includes an
-  example of a custom ``run`` method.
+The ``wordcount.py`` example demonstrates the simplest possible program in
+Mrs.  The ``wordcount2.py`` example is a more full-featured version of
+WordCount that uses a combiner and explicitly sets a serializer (instead of
+automatically using pickle).
 
-- `pi/c_pi.py <http://code.google.com/p/mrs-mapreduce/source/browse/examples/pi/c_pi.py>`_:
-  a fast implementation of the Pi estimator that uses ``ctypes`` to call a
-  function written in C.
 
-- `dependency_parse.py <http://code.google.com/p/mrs-mapreduce/source/browse/examples/dependency_parse.py>`_:
-  a real-life problem which unfortunately relies on some external modules.
+Pi Estimator
+------------
+
+Hadoop includes a ``PiEstimator`` example program that estimates the value of
+pi by evaluating samples from a 2D
+`Halton sequence <http://en.wikipedia.org/wiki/Halton_sequence>`_
+and counting the proportion
+that fall within the unit circle.  Mrs includes two versions of this program:
+
+- `pi/pure_pi.py <http://code.google.com/p/mrs-mapreduce/source/browse/examples/pi/pure_pi.py>`_
+
+- `pi/c_pi.py <http://code.google.com/p/mrs-mapreduce/source/browse/examples/pi/c_pi.py>`_
+  with
+  `pi/halton.c <http://code.google.com/p/mrs-mapreduce/source/browse/examples/pi/halton.c>`_
+
+The ``pure_pi.py`` example is a simple Mrs program with a custom ``run``
+method that demonstrates how a program can process data computed in a parallel
+dataset.
+
+The ``c_pi.py`` demonstrates how a function rewritten in C can remove the
+inherent performance penalty incurred by using a high-level programming
+language like Python.  This fast implementation of the pi estimator uses
+``ctypes`` to load a function from the ``halton.so`` file, which was compiled
+from ``halton.c`` using the included
+`Makefile <http://code.google.com/p/mrs-mapreduce/source/browse/examples/pi/Makefile>`_.
+
+Note that ``c_pi.py`` in Mrs using Python and C is much faster than the
+equivalent optimized
+`Pi.java <http://code.google.com/p/mrs-mapreduce/source/browse/examples/pi/Pi.java>`_
+program in Hadoop using Java.
+
+
+Other Contributed Examples
+--------------------------
+
+The ``examples/contrib`` directory includes a few examples that may not be
+runnable without specific libraries or data but which show how Mrs is used in
+real-life problems.
+
+- `create_matrix.py <http://code.google.com/p/mrs-mapreduce/source/browse/examples/contrib/create_matrix.py>`_
+
+- `dependency_parse.py <http://code.google.com/p/mrs-mapreduce/source/browse/examples/contrib/dependency_parse.py>`_
