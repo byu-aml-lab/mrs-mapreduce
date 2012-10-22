@@ -63,6 +63,8 @@ if not PY3:
 
 # TODO: switch parent class to xmlrpclib.SafeTransport
 # TODO: consider using the Transport's enable_threshold setting for gzip
+# TODO: make sure there aren't any situations where retrying after a timeout
+#       could be disastrous.
 class TimeoutTransport(Transport):
     """An RPC transport that supports timeouts and retries."""
     def __init__(self, timeout):
@@ -75,12 +77,19 @@ class TimeoutTransport(Transport):
         for i in range(RETRIES):
             try:
                 return Transport.request(self, host, *args, **kwds)
+            except socket.timeout:
+                logger.error("RPC to %s failed: timed out." % host)
+                continue
             except socket.error as e:
                 if e.errno == errno.ECONNREFUSED:
+                    logger.error("RPC to %s failed: connection refused."
+                            % host)
                     continue
                 else:
-                    raise
-        raise ConnectionRefused(host)
+                    logger.error("RPC to %s failed: %s" %
+                            (host, str(e)))
+                    break
+        raise ConnectionFailed(host)
 
     # Variant of the basic make_connection that adds a timeout param to
     # HTTPConnection.
@@ -291,8 +300,8 @@ class ThreadingBucketServer(socketserver.ThreadingMixIn, BucketServer):
     daemon_threads = True
 
 
-class ConnectionRefused(Exception):
-    """Exception raised if a connection is refused too many times."""
+class ConnectionFailed(Exception):
+    """Exception for when an RPC request fails too many times."""
 
     def __init__(self, addr):
         self.addr = addr

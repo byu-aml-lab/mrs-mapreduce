@@ -454,14 +454,33 @@ class RemoteSlave(object):
         """
         return self._assignment
 
-    def set_assignment(self, old_assignment, new_assignment):
-        """Sets the assignment to new_assignment if the old_assignment matches.
+    def set_assignment(self, new_assignment):
+        """Sets the assignment to new_assignment.
+
+        Assumes that the assignment is currently None.  Returns True if the
+        operation succeeds.
         """
         with self._assignment_lock:
-            if self._assignment == old_assignment:
+            if self._assignment is None:
                 self._assignment = new_assignment
                 return True
             else:
+                return False
+
+    def clear_assignment(self, old_assignment):
+        """Sets the assignment to None.
+
+        Assumes that the assignment is currently `old_assignment` or `None`.
+        Returns True if the old assignment was set or False if it was None.
+        """
+        with self._assignment_lock:
+            if self._assignment == old_assignment:
+                self._assignment = None
+                return True
+            elif self._assignment is None:
+                return False
+            else:
+                logger.error("clear_assignment called with an invalid argument")
                 return False
 
     def prepare_assignment(self, assignment, datasets):
@@ -471,7 +490,7 @@ class RemoteSlave(object):
         happen until `send_assignment` is subsequently called.  This is the
         responsibility of the caller.
         """
-        success = self.set_assignment(None, assignment)
+        success = self.set_assignment(assignment)
         assert success
         dataset_id, task_index = assignment
 
@@ -499,23 +518,15 @@ class RemoteSlave(object):
             try:
                 success = self._rpc_func(*self._rpc_args)
             except Fault as f:
-                logger.error('Fault in RPC call to slave %s: %s'
-                        % (self.id, f.faultString))
+                logger.error('Fault in RPC to slave %s: %s' %
+                        (self.id, f.faultString))
                 success = False
             except ProtocolError as e:
-                logger.error('Protocol error in RPC call to slave %s: %s'
-                        % (self.id, e.errmsg))
+                logger.error('Protocol error in RPC to slave %s: %s' %
+                        (self.id, e.errmsg))
                 success = False
-            except http.ConnectionRefused as e:
-                logger.error('Connection refused too many times to slave'
-                    ' %s (%s)' % (self.id, e.addr))
-                success = False
-            except socket.timeout:
-                logger.error('Timeout in RPC call to slave %s' % self.id)
-                success = False
-            except socket.error as e:
-                logger.error('Socket error in RPC call to slave %s: %s'
-                        % (self.id, e.args[1]))
+            except http.ConnectionFailed:
+                logger.error('Connection failed in RPC to slave %s' % self.id)
                 success = False
 
             if success:
@@ -548,16 +559,9 @@ class RemoteSlave(object):
                 logger.error('Protocol error in remove call to slave %s: %s'
                         % (self.id, e.errmsg))
                 success = False
-            except http.ConnectionRefused as e:
-                logger.error('Connection refused too many times to slave'
-                    ' %s (%s)' % (self.id, e.addr))
-                success = False
-            except socket.timeout:
-                logger.error('Timeout in remove call to slave %s' % self.id)
-                success = False
-            except socket.error as e:
-                logger.error('Socket error in remove call to slave %s: %s'
-                        % (self.id, e.args[1]))
+            except http.ConnectionFailed:
+                logger.error('Connection failed in remove call to slave %s' %
+                        self.id)
                 success = False
 
             if success:
@@ -644,16 +648,8 @@ class RemoteSlave(object):
             logger.error('Protocol error in ping to slave %s: %s'
                     % (self.id, e.errmsg))
             success = False
-        except http.ConnectionRefused as e:
-            logger.error('Connection refused too many times to slave %s (%s)'
-                    % (self.id, e.addr))
-            success = False
-        except socket.timeout:
-            logger.error('Timeout in ping to slave %s' % self.id)
-            success = False
-        except socket.error as e:
-            logger.error('Socket error in ping to slave %s: %s'
-                    % (self.id, e.args[1]))
+        except http.ConnectionFailed:
+            logger.error('Connection failed in ping to slave %s' % self.id)
             success = False
         finally:
             self._rpc_lock.release()
@@ -693,14 +689,8 @@ class RemoteSlave(object):
             except ProtocolError as e:
                 logger.error('Protocol error in exit to slave %s: %s'
                         % (self.id, e.errmsg))
-            except http.ConnectionRefused as e:
-                logger.error('Connection refused too many times to slave'
-                    ' %s (%s)' % (self.id, e.addr))
-            except socket.timeout:
-                logger.error('Timeout in exit to slave %s' % self.id)
-            except socket.error as e:
-                logger.error('Socket error in exit to slave %s: %s'
-                        % (self.id, e.args[1]))
+            except http.ConnectionFailed:
+                logger.error('Connection failed in exit to slave %s' % self.id)
             self._state = 'exited'
             self._rpc = None
 
@@ -772,19 +762,33 @@ class Slaves(object):
 
         self.trigger_sched()
 
-    def slave_result(self, slave, dataset_id, source, urls):
-        success = slave.set_assignment((dataset_id, source), None)
-        assert success
-        self._results.append((slave, dataset_id, source, urls))
-        self._changed_slaves.append(slave)
-        self.trigger_sched()
+    def slave_result(self, slave, dataset_id, task_index, urls):
+        """Called when a slave reports a successfully completed assignment.
+
+        Note that in the case of retried timeouts, this may be called multiple
+        times.
+        """
+        success = slave.clear_assignment((dataset_id, task_index))
+        if success:
+            self._results.append((slave, dataset_id, task_index, urls))
+            self._changed_slaves.append(slave)
+            self.trigger_sched()
+        else:
+            logger.error("Ignoring a possibly duplicate slave_result call.")
 
     def slave_failed(self, slave, dataset_id, task_index):
-        success = slave.set_assignment((dataset_id, task_index), None)
-        assert success
-        self._failed_tasks.append((dataset_id, task_index))
-        self._changed_slaves.append(slave)
-        self.trigger_sched()
+        """Called when a slave reports a failed assignment.
+
+        Note that in the case of retried timeouts, this may be called multiple
+        times.
+        """
+        success = slave.clear_assignment((dataset_id, task_index))
+        if success:
+            self._failed_tasks.append((dataset_id, task_index))
+            self._changed_slaves.append(slave)
+            self.trigger_sched()
+        else:
+            logger.error("Ignoring a possibly duplicate slave_failed call.")
 
     def slave_dead(self, slave):
         self._changed_slaves.append(slave)
