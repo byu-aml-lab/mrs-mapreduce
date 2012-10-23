@@ -8,8 +8,14 @@ from collections import defaultdict
 from StringIO import StringIO
 from subprocess import Popen, PIPE
 
+NUM_TASKS = 500
+MAX_INPUT_SIZE = 20000000
+
 # Use the mrs logger, so we have the same log level
 logger = logging.getLogger('mrs')
+
+walk_struct = struct.Struct('>IHI')
+walk_struct_size = walk_struct.size
 
 class RandomWalkAnalyzer(mrs.MapReduce):
     def run(self, job):
@@ -19,26 +25,39 @@ class RandomWalkAnalyzer(mrs.MapReduce):
 
         # This is the main part of the program, that gets run on the master.
 
-        #num_tasks = 1000
-        num_tasks = 500
-
         # This is the initial data (in (key, value) format) that is sent to
         # the map.  In our case, we just need to give an index to the map task,
         # and each mapper will look up the document it needs from that index.
-        documents = enumerate(self.args[:-1])
+        kv_pairs = []
+        for filename in self.args[:-1]:
+            size = os.stat(filename).st_size
+            assert size % walk_struct_size == 0
+            total_records = size / walk_struct_size
+            chunks = (size - 1) // MAX_INPUT_SIZE + 1
+
+            offset = 0
+            for i in xrange(chunks):
+                chunk_records = total_records // chunks
+                # Spread out the remainder among the first few chunks.
+                if i < total_records % chunks:
+                    chunk_records += 1
+                key = filename
+                value = (offset, chunk_records)
+                kv_pairs.append((key, value))
+                offset += chunk_records
 
         # This is how you create the initial data to pass to the mappers (we
         # use a mod partition because we have numerical data that is guaranteed
         # to be sequential - see the note in mapreduce.py about that).
-        source = job.local_data(documents)
+        source = job.local_data(kv_pairs)
 
         # We pass the initial data into the map tasks
         walk_ids = job.map_data(source, self.map_walk_files,
-                parter=self.mod_partition, splits=num_tasks)
+                parter=self.mod_partition, splits=NUM_TASKS)
         source.close()
 
         node_pairs = job.reducemap_data(walk_ids, self.collapse_reduce,
-                self.map_walk_ids, splits=num_tasks)
+                self.map_walk_ids, splits=NUM_TASKS)
         walk_ids.close()
 
         output = job.reduce_data(node_pairs, self.count_reduce, outdir=outdir,
@@ -56,17 +75,15 @@ class RandomWalkAnalyzer(mrs.MapReduce):
         return 0
 
     def map_walk_files(self, key, value):
-        logger.info('Got walk file ' + value)
-        walk_file = open(value, 'rb')
-        walk_file.seek(0, 2)
-        file_size = walk_file.tell()
-        logger.debug('File size: ' + str(file_size))
-        walk_file.seek(0, 0)
-        walk_struct = struct.Struct('>IHI')
-        struct_size = walk_struct.size
+        filename = key
+        offset, count = value
+        logger.info('Got walk file %s (offset %s, count %s)' %
+                (filename, offset, count))
+        walk_file = open(filename, 'rb')
+        walk_file.seek(offset * walk_struct_size)
 
-        for i in xrange(file_size / struct_size):
-            walk_buf = walk_file.read(struct_size)
+        for i in xrange(count):
+            walk_buf = walk_file.read(walk_struct_size)
             walk_id, hop, node = walk_struct.unpack(walk_buf)
             yield (walk_id, (hop, node))
 
