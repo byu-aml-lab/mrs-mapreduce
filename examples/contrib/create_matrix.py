@@ -61,17 +61,16 @@ class RandomWalkAnalyzer(mrs.MapReduce):
         walk_file.seek(0, 2)
         file_size = walk_file.tell()
         logger.debug('File size: ' + str(file_size))
-        out_rate = file_size / 100
         walk_file.seek(0, 0)
-        while file_size - walk_file.tell() > 0:
-            if walk_file.tell() % out_rate == 0:
-                logger.debug('At position: ' + str(walk_file.tell()))
-            walk_struct = walk_file.read(10)
-            walk_id, hop, node = struct.unpack('>IHI', walk_struct)
+        walk_struct = struct.Struct('>IHI')
+        struct_size = walk_struct.size
+
+        for i in xrange(file_size / struct_size):
+            walk_buf = walk_file.read(struct_size)
+            walk_id, hop, node = walk_struct.unpack(walk_buf)
             yield (walk_id, (hop, node))
 
     def map_walk_ids(self, key, value):
-        #logger.debug('Processing walk id ' + str(key))
         for i, (beg_hop, beg_node) in enumerate(value):
             prev_node = beg_node
             path = str(beg_node)
