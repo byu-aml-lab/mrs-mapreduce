@@ -8,8 +8,9 @@ from collections import defaultdict
 from StringIO import StringIO
 from subprocess import Popen, PIPE
 
-NUM_TASKS = 500
+NUM_TASKS = 400
 MAX_INPUT_SIZE = 20000000
+MIN_COUNT = 2
 
 # Use the mrs logger, so we have the same log level
 logger = logging.getLogger('mrs')
@@ -93,8 +94,7 @@ class RandomWalkAnalyzer(mrs.MapReduce):
             path = str(beg_node)
             for (end_hop, end_node) in value[i+1:]:
                 # TODO: look up edge type between prev_node and end_node
-                edge_type = 'edge'
-                path += '-' + edge_type + '-' + str(end_node)
+                path += '-' + str(end_node)
                 yield ('%d-%d' % (beg_node, end_node), path)
 
     def collapse_reduce(self, key, values):
@@ -107,7 +107,12 @@ class RandomWalkAnalyzer(mrs.MapReduce):
         counts = defaultdict(int)
         for v in values:
             counts[v] += 1
-        yield counts
+        outdict = {}
+        for path, count in counts.iteritems():
+            if count >= MIN_COUNT:
+                outdict[path] = count
+        if outdict:
+            yield str(outdict)
 
 
 if __name__ == '__main__':
