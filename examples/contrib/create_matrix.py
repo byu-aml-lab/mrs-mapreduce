@@ -8,8 +8,9 @@ from collections import defaultdict
 from StringIO import StringIO
 from subprocess import Popen, PIPE
 
-NUM_TASKS = 400
-MAX_INPUT_SIZE = 20000000
+NUM_PAIR_TASKS = 450
+NUM_COUNT_TASKS = 350
+MAX_INPUT_SIZE = 10000000
 MIN_COUNT = 2
 
 # Use the mrs logger, so we have the same log level
@@ -54,11 +55,11 @@ class RandomWalkAnalyzer(mrs.MapReduce):
 
         # We pass the initial data into the map tasks
         walk_ids = job.map_data(source, self.map_walk_files,
-                parter=self.mod_partition, splits=NUM_TASKS)
+                parter=self.mod_partition, splits=NUM_PAIR_TASKS)
         source.close()
 
         node_pairs = job.reducemap_data(walk_ids, self.collapse_reduce,
-                self.map_walk_ids, splits=NUM_TASKS)
+                self.map_walk_ids, splits=NUM_COUNT_TASKS)
         walk_ids.close()
 
         output = job.reduce_data(node_pairs, self.count_reduce, outdir=outdir,
