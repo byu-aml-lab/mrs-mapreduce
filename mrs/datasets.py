@@ -19,6 +19,7 @@
 
 import collections
 from itertools import chain
+import random
 
 from . import bucket
 from . import fileformats
@@ -323,11 +324,13 @@ class RemoteData(BaseDataset):
         if self.serializers:
             kwds['serializers'] = self.serializers
 
-        for bucket in self[:, :]:
-            url = bucket.url
-            if url:
-                with fileformats.open_url(url, **kwds) as reader:
-                    bucket.collect(reader)
+        # Collect the buckets in shuffled order to reduce the cost of many
+        # tasks hitting the same machines at the same time.
+        buckets = [bucket for bucket in self[:, :] if bucket.url]
+        random.shuffle(buckets)
+        for bucket in buckets:
+            with fileformats.open_url(bucket.url, **kwds) as reader:
+                bucket.collect(reader)
 
         self._fetched = True
 
