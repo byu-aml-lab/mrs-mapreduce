@@ -11,7 +11,7 @@
 # relationships between nodes in the graph.  For instance, say you want to
 # predict what country Pittsburgh is in.  Pittsburgh is a node in the graph,
 # and "city in country" is an edge type.  You want to pick node t as follows:
-
+#
 # argmax_t \sum_path p(t | "Pittsburgh", path) * weight(path)
 #
 # where you have some number of training examples so you can pick paths that
@@ -97,10 +97,6 @@ class RandomWalkAnalyzer(mrs.MapReduce):
                 kv_pairs.append((key, value))
                 offset += chunk_records
 
-        # This is how you create the initial data to pass to the mappers (we
-        # use a mod partition because we have numerical data that is guaranteed
-        # to be sequential - see the note in mapreduce.py about that).
-        # TODO: Andrew, is this still true?
         source = job.local_data(kv_pairs)
 
         # We pass the initial data into the map tasks
@@ -159,11 +155,10 @@ class RandomWalkAnalyzer(mrs.MapReduce):
 
     def collapse_reduce(self, key, values):
         v = list(values)
+        # GraphChi shouldn't ever let this happen, but sometimes there is a
+        # single walk_id with a pathologically long list of hops that really
+        # breaks things in map_walk_ids.  So we catch that case here.
         if len(v) < 100:
-            # GraphChi shouldn't ever let this happen, but sometimes there is a
-            # single walk_id with a pathologically long list of hops that
-            # really breaks things in map_walk_ids.  So we catch that case
-            # here.
             v.sort()
             yield v
 
