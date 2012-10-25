@@ -181,7 +181,6 @@ class Slave(worker.WorkerManager):
         """
         assert self.current_task is None
 
-        # TODO: make this try a few times if there's a timeout
         try:
             self.master_rpc.ready(self.id, self.cookie)
         except socket.error as e:
@@ -203,7 +202,6 @@ class Slave(worker.WorkerManager):
 
     def worker_failure(self, r):
         """Called when a worker sends a WorkerFailure."""
-        # TODO: make this try a few times if there's a timeout
         try:
             self.master_rpc.failed(self.id, r.dataset_id, r.task_index,
                     self.cookie)
