@@ -107,7 +107,8 @@ class Job(object):
         """Define a set of data computed with a map operation.
 
         Specify the input dataset and a mapper function.  The mapper must be
-        in the program instance.
+        the name of an attribute of the program instance, or the actual
+        function itself.
 
         Called from the user-specified run function.
         """
@@ -144,7 +145,8 @@ class Job(object):
         """Define a set of data computed with a reducer operation.
 
         Specify the input dataset and a reducer function.  The reducer must be
-        in the program instance.
+        the name of an attribute of the program instance, or the actual
+        function itself.
 
         Called from the user-specified run function.
         """
