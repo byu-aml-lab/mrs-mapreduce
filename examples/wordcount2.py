@@ -35,8 +35,8 @@ class WordCount2(mrs.MapReduce):
     4. It uses custom serializers instead of pickle.
     """
 
-    @mrs.key_serializer('str')
-    @mrs.value_serializer('int')
+    @mrs.key_serializer(mrs.MapReduce.str_serializer)
+    @mrs.value_serializer(mrs.MapReduce.int_serializer)
     def map(self, key, value):
         for word in value.split():
             word = word.strip(string.punctuation).lower()

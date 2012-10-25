@@ -161,11 +161,7 @@ class Job(object):
             parter = self.default_partition
 
         reduce_name = self._registry[reducer]
-        if input.serializers is not None:
-            fallback_s_names = input.serializers.names()
-        else:
-            fallback_s_names = None
-        self._set_serializers(reducer, kwds, fallback_s_names)
+        self._set_serializers(reducer, kwds, input.serializers)
         part_name = self._registry[parter]
 
         op = tasks.ReduceOperation(reduce_name, part_name)
@@ -214,30 +210,40 @@ class Job(object):
         """Reports the progress (fraction complete) of the given dataset."""
         return self._manager.progress(dataset)
 
-    def _set_serializers(self, f, kwds, fallback_s_names=None):
+    def _set_serializers(self, f, kwds, fallback_serializers=None):
         """Add any serializers specified on the given function to kwds."""
+
         if 'key_serializer' in kwds:
-            key_s_name = kwds['key_serializer']
+            key_s = kwds['key_serializer']
             del kwds['key_serializer']
         elif hasattr(f, 'key_serializer'):
-            key_s_name = f.key_serializer
-        elif fallback_s_names is not None:
-            key_s_name = fallback_s_names[0]
+            key_s = f.key_serializer
+        elif fallback_serializers is not None:
+            key_s = fallback_serializers.key_s
         else:
-            key_s_name = None
+            key_s = None
+
+        if key_s is None:
+            key_s_name = ''
+        else:
+            key_s_name = self._registry[key_s]
 
         if 'value_serializer' in kwds:
-            value_s_name = kwds['value_serializer']
+            value_s = kwds['value_serializer']
             del kwds['value_serializer']
         elif hasattr(f, 'value_serializer'):
-            value_s_name = f.value_serializer
-        elif fallback_s_names is not None:
-            value_s_name = fallback_s_names[1]
+            value_s = f.value_serializer
+        elif fallback_serializers is not None:
+            value_s = fallback_serializers.value_s
         else:
-            value_s_name = None
+            value_s = None
 
-        names = key_s_name, value_s_name
-        serializers = Serializers.from_names(names, self._program)
+        if value_s is None:
+            value_s_name = ''
+        else:
+            value_s_name = self._registry[value_s]
+
+        serializers = Serializers(key_s, key_s_name, value_s, value_s_name)
         kwds['serializers'] = serializers
 
 

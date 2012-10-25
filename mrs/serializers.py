@@ -45,6 +45,7 @@ def value_serializer(serializer):
 
 class Serializers(object):
     """Keeps track of a pair of serializers and their names."""
+
     def __init__(self, key_s, key_s_name, value_s,
             value_s_name):
         self.key_s = key_s
@@ -52,27 +53,33 @@ class Serializers(object):
         self.value_s = value_s
         self.value_s_name = value_s_name
 
-    def names(self):
-        """Returns a pair of serializer names."""
-        key_s_name = self.key_s_name if self.key_s_name else ''
-        value_s_name = self.value_s_name if self.value_s_name else ''
-        return key_s_name, value_s_name
-
     @classmethod
     def from_names(cls, names, program):
         """Creates a Serializers from a pair of names and a MapReduce program.
         """
+
         if not names:
             return None
         key_s_name, value_s_name = names
-        if key_s_name and hasattr(program, 'serializer'):
-            key_s = program.serializer(key_s_name)
+
+        if key_s_name:
+            try:
+                key_s = getattr(program, key_s_name)
+            except AttributeError:
+                msg = 'Key serializer not an attribute of the program'
+                raise RuntimeError(msg)
         else:
             key_s = None
-        if value_s_name and hasattr(program, 'serializer'):
-            value_s = program.serializer(value_s_name)
+
+        if value_s_name:
+            try:
+                value_s = getattr(program, value_s_name)
+            except AttributeError:
+                msg = 'Value serializer not an attribute of the program'
+                raise RuntimeError(msg)
         else:
             value_s = None
+
         return cls(key_s, key_s_name, value_s, value_s_name)
 
     def __repr__(self):

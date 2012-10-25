@@ -30,9 +30,6 @@ from .version import __version__
 
 ITERATIVE_QMAX = 10
 RAND_OFFSET_SHIFT = 64
-SERIALIZERS = {'raw': serializers.raw_serializer,
-        'int': serializers.int_serializer,
-        'str': serializers.str_serializer}
 
 DEFAULT_USAGE = (""
 """%prog [OPTION]... INPUT_FILE... OUTPUT_DIR
@@ -217,9 +214,9 @@ class MapReduce(object):
         parser.usage = DEFAULT_USAGE
         return parser
 
-    def serializer(self, key):
-        """Returns the Serializer associated with the given key."""
-        return SERIALIZERS[key]
+    raw_serializer = serializers.raw_serializer
+    int_serializer = serializers.int_serializer
+    str_serializer = serializers.str_serializer
 
 
 class IterativeMR(MapReduce):
