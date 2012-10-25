@@ -131,7 +131,10 @@ class Registry(object):
                     pass
 
     def __getitem__(self, attr):
-        return self.attrs[attr]
+        try:
+            return self.attrs[attr]
+        except KeyError:
+            raise KeyError('Value is not an attribute of the user program')
 
 
 if __name__ == "__main__":

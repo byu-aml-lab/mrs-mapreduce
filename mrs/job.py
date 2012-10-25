@@ -121,16 +121,16 @@ class Job(object):
         else:
             permanent = False
 
-        if not parter:
+        if parter is None:
             parter = self.default_partition
+        part_name, _ = self._named_attr(parter)
 
-        map_name = self._registry[mapper]
+        map_name, mapper = self._named_attr(mapper)
         self._set_serializers(mapper, kwds)
-        if combiner:
-            combine_name = self._registry[combiner]
+        if combiner is not None:
+            combine_name, _ = self._named_attr(combiner)
         else:
             combine_name = ''
-        part_name = self._registry[parter]
 
         op = tasks.MapOperation(map_name, combine_name, part_name)
         ds = computed_data.ComputedData(op, input, splits=splits, dir=outdir,
@@ -157,12 +157,12 @@ class Job(object):
         else:
             permanent = False
 
-        if not parter:
+        if parter is None:
             parter = self.default_partition
+        part_name, _ = self._named_attr(parter)
 
-        reduce_name = self._registry[reducer]
+        reduce_name, reducer = self._named_attr(reducer)
         self._set_serializers(reducer, kwds, input.serializers)
-        part_name = self._registry[parter]
 
         op = tasks.ReduceOperation(reduce_name, part_name)
         ds = computed_data.ComputedData(op, input, splits=splits, dir=outdir,
@@ -189,14 +189,14 @@ class Job(object):
         if not parter:
             parter = self.default_partition
 
-        reduce_name = self._registry[reducer]
-        map_name = self._registry[mapper]
+        reduce_name, reducer = self._named_attr(reducer)
+        map_name, mapper = self._named_attr(mapper)
         self._set_serializers(mapper, kwds)
-        if combiner:
-            combine_name = self._registry[combiner]
+        if combiner is not None:
+            combine_name, _ = self._named_attr(combiner)
         else:
             combine_name = ''
-        part_name = self._registry[parter]
+        part_name, _ = self._named_attr(parter)
 
         op = tasks.ReduceMapOperation(reduce_name, map_name, combine_name,
                 part_name)
@@ -223,7 +223,10 @@ class Job(object):
         else:
             key_s = None
 
-        if key_s is None:
+        if isinstance(key_s, str):
+            key_s_name = key_s
+            key_s = getattr(self._program, key_s)
+        elif key_s is None:
             key_s_name = ''
         else:
             key_s_name = self._registry[key_s]
@@ -238,13 +241,23 @@ class Job(object):
         else:
             value_s = None
 
-        if value_s is None:
+        if isinstance(value_s, str):
+            value_s_name = value_s
+            value_s = getattr(self._program, value_s)
+        elif value_s is None:
             value_s_name = ''
         else:
             value_s_name = self._registry[value_s]
 
         serializers = Serializers(key_s, key_s_name, value_s, value_s_name)
         kwds['serializers'] = serializers
+
+    def _named_attr(self, value):
+        if isinstance(value, str):
+            return value, getattr(self._program, value)
+        else:
+            return self._registry[value], value
+
 
 
 def job_process(program_class, opts, args, default_dir, pipe,
