@@ -20,26 +20,28 @@ from collections import namedtuple
 
 Serializer = namedtuple('Serializer', ('dumps', 'loads'))
 
-def key_serializer(serializer):
-    """A decorator to specify a serializer for map or reduce functions.
+def output_serializers(**kwargs):
+    """A decorator to specify key and value serializers for map or 
+    reduce functions.
 
-    The given `serializer` is a string that is mapped to a Serializer object
-    by the `MapReduce.serializer` method.
+    The two allowable keyword arguments are `key` and
+    `value`. These are serializers, which must be attributes of the program.
+    A serializer implements both the `dumps` and loads` methods.
+
+    Note that if None is given as a serializer, then pickle is used as the
+    default serializer.
     """
     def wrapper(f):
-        f.key_serializer = serializer
+        if 'key' in kwargs:
+            f.key_serializer = kwargs['key']
+            del kwargs['key']
+        if 'value' in kwargs:
+            f.value_serializer = kwargs['value']
+            del kwargs['value']
+        if kwargs:
+            raise TypeError('Invalid keyword argument(s) for this function')
         return f
-    return wrapper
 
-def value_serializer(serializer):
-    """A decorator to specify a serializer for map or reduce functions.
-
-    The given `serializer` is a string that is mapped to a Serializer object
-    by the `MapReduce.serializer` method.
-    """
-    def wrapper(f):
-        f.value_serializer = serializer
-        return f
     return wrapper
 
 
