@@ -16,6 +16,7 @@
 from __future__ import division, print_function
 
 from collections import namedtuple
+import struct
 
 
 Serializer = namedtuple('Serializer', ('dumps', 'loads'))
@@ -115,6 +116,36 @@ def int_loads(b):
     return int(b.decode('utf-8'))
 
 int_serializer = Serializer(int_dumps, int_loads)
+
+###############################################################################
+# struct <-> bytes
+
+def single_struct_serializer(format):
+    """Serialize a single value as a struct.
+
+    The given `format` is a format string as defined in the `struct` module.
+
+    See: http://docs.python.org/library/struct.html
+    """
+    structure = struct.Struct(format)
+    def loads(b):
+        return structure.unpack(b)[0]
+
+    return Serializer(structure.pack, loads)
+
+def multi_struct_serializer(format):
+    """Serialize a tuple of values as a struct.
+
+    The given `format` is a format string as defined in the `struct` module.
+
+    See: http://docs.python.org/library/struct.html
+    """
+    structure = struct.Struct(format)
+    def dumps(values):
+        return structure.pack(*values)
+
+    return Serializer(dumps, structure.unpack)
+
 
 ###############################################################################
 # Protocol Buffer <-> bytes
