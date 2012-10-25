@@ -130,12 +130,10 @@ class RandomWalkAnalyzer(mrs.MapReduce):
         # If you don't return 0, mrs thinks your job failed
         return 0
 
-    unsigned_long_serializer = mrs.serializers.single_struct_serializer('=L')
-    long_pair_serializer = mrs.serializers.multi_struct_serializer('=LL')
+    long_serializer = mrs.make_primitive_serializer('L')
+    long_pair_serializer = mrs.make_struct_serializer('=LL')
 
-    #@mrs.output_serializers(key='int_serializer', value=long_pair_serializer)
-    @mrs.output_serializers(key=unsigned_long_serializer,
-            value=long_pair_serializer)
+    @mrs.output_serializers(key=long_serializer, value=long_pair_serializer)
     def map_walk_files(self, key, value):
         filename = key
         offset, count = value

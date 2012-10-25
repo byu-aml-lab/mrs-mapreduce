@@ -400,4 +400,9 @@ real-life problems.
 
 - `create_matrix.py <http://code.google.com/p/mrs-mapreduce/source/browse/examples/contrib/create_matrix.py>`_
 
+    The ``create_matrix.py`` program analyzes pregenerated lists of random
+    walks through a graph.  This program includes examples of using custom
+    serializers to improve performance.  It also serves as a helpful example
+    of how to break down large input files.
+
 - `dependency_parse.py <http://code.google.com/p/mrs-mapreduce/source/browse/examples/contrib/dependency_parse.py>`_
