@@ -280,17 +280,62 @@ attribute rather than the name (e.g. ``key=mrs.MapReduce.str_serializer``).
 
 To define your own custom serializer, add the serializer as an attribute to
 your program, and then pass it in as the argument to the decorator. Here is an
-example using the ``serializers.protobuf_serializer`` helper::
+example using the ``mrs.make_protobuf_serializer`` helper::
 
     class MyProgram(mrs.MapReduce):
         ...
 
-        some_serializer = mrs.serializers.protobuf_serializer(some_proto)
+        my_serializer = mrs.make_protobuf_serializer(some_proto)
 
-        @mrs.output_serializers(value=some_serializer)
+        @mrs.output_serializers(value=my_serializer)
         def map(self, key, value):
             #do stuff
             yield new_key, message
+
+For one final example, we use the the ``mrs.make_struct_serializer`` helper
+to create a serialzer which knows how to pack and unpack tuples of a specific
+type. In this case, we will deal with tuples which are pairs of longs.
+
+    class MyProgram(mrs.MapReduce):
+
+        my_serializer = mrs.make_struct_serializer('=LL')
+
+        @mrs.output_serializers(value=my_serializer):
+        def map(self, key, value):
+            #do stuff
+            yield new_key, (value_1, value_2)
+
+You may use any serializer type you want, so long as the serializer has the
+``loads`` and ``dumps`` methods which respectively decode and encode your data.
+There are a few helpers for common data formats already included:
+
+- ``mrs.make_struct_serializer`` Creates a serializer for tuples of primative
+  types. It takes format strings as defined in the struct module to define how
+  the tuples used by the serializer will be structured.
+
+- ``mrs.make_primative_serializer`` Creates a serializer for a single primative
+  type. Like the struct serializer, it takes a struct format string, but only
+  allows structs with a single primative type. This is useful because the
+  struct serializer always expects and returns tuples, even with the tuple has
+  only one element.
+
+- ``mrs.make_protobuf_serializer`` Creates a serializer from a protocol buffer
+  object.
+
+- ``mrs.str_serializer`` A pre-made serializer for Python string values. It is
+  also found as ``mrs.MapReduce.str_serializer`` so you do not need to create
+  extra attributes in your own program.
+
+- ``mrs.int_serializer`` A pre-made serializer for Python integer values. It is
+  also found as ``mrs.MapReduce.int_serializer`` so you do not need to create
+  extra attributes in your own program. It is not as fast as using
+  ``mrs.make_primative_serializer``, but will allow you to use arbitrarily
+  large integer values.
+
+- ``mrs.raw_serializer`` A pre-made serializer which is a no-op. It is also
+  found as ``mrs.MapReduce.raw_serializer`` so you do not need to create extra
+  attributes in your own program. It is useful when you already have data in
+  binary format and do not need to apply any serialization to that data.
 
 Examples
 ========
