@@ -317,6 +317,8 @@ class TaskRunnerParams(ParamObj):
             doc="Interval (seconds) between outputting timing statistics"),
         sequential_datasets=Param(type='bool',
             doc="Compute datasets sequentially (for performance comparisons)"),
+        max_failures=Param(default=3, type='int',
+            doc='Maximum number of tolerable failures per task')
         )
 
 

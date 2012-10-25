@@ -440,7 +440,11 @@ class TaskRunner(BaseRunner):
         """Report that a task was lost (e.g., to a dead slave)."""
         tasklist = self.tasklists.get(dataset_id)
         if tasklist is not None:
-            tasklist.push(task_index)
+            failure_count = tasklist.task_failed(task_index)
+            if failure_count > self.opts.mrs__max_failures:
+                msg = ("Task failed too many times (see slave logs "
+                        "for details): (%s, %s)" % (dataset_id, task_index))
+                raise RuntimeError(msg)
 
     def dataset_done(self, dataset):
         self.runnable_datasets.remove(dataset)
@@ -552,6 +556,7 @@ class TaskList(object):
         self._tasks_made = False
         self._async_incomplete = None
         self._last_progress_report = 0.0
+        self._failures = collections.defaultdict(int)
 
     def make_tasks(self, done_tasks, backlink_tasks, incomplete_sources):
         """Generate tasks for the given dataset, adding them to ready_tasks.
@@ -624,12 +629,15 @@ class TaskList(object):
         except IndexError:
             return None
 
-    def push(self, task_index):
-        """Push back a task.
+    def task_failed(self, task_index):
+        """Push back a failed task.
 
-        Called if, for example, a Task is aborted.
+        Called if, for example, a Task is aborted.  Returns the number of
+        times that this particular task has failed.
         """
         self._ready_tasks.append(task_index)
+        self._failures[task_index] += 1
+        return self._failures[task_index]
 
     def __iter__(self):
         """Iterate over tasks ((dataset_id, task_index) pairs)."""
@@ -676,7 +684,7 @@ class MockParallelRunner(TaskRunner, worker.WorkerManager):
         self.schedule()
 
     def worker_failure(self, r):
-        """Called when a worker sends a WorkerSuccess."""
+        """Called when a worker sends a WorkerFailure."""
         raise RuntimeError('Task failed')
 
 # vim: et sw=4 sts=4
