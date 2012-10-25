@@ -89,12 +89,16 @@ class Task(object):
         urls = [b.url for b in self.input_ds[:, self.task_index] if b.url]
 
         input_serializers = self.input_ds.serializers
+
         if input_serializers:
-            input_ser_names = input_serializers.names()
+            input_ser_names = (input_serializers.key_s_name,
+                    input_serializers.value_s_name)
         else:
             input_ser_names = ''
+
         if self.serializers:
-            ser_names = self.serializers.names()
+            ser_names = (self.serializers.key_s_name,
+                    self.serializers.value_s_name)
         else:
             ser_names = ''
 

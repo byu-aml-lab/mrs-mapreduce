@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from amlpso.standardpso import StandardPSO, update_parser
+from amlpso.standardpso import StandardPSO
 from collections import defaultdict
 
 from .conftest import run_serial, run_mockparallel, run_master_slave
@@ -24,11 +24,11 @@ def test_pso(mrs_impl, tmpdir, capfd):
             '42', '--hey-im-testing']
 
     if mrs_impl == 'serial':
-        run_serial(StandardPSO, args, update_parser)
+        run_serial(StandardPSO, args)
     elif mrs_impl == 'mockparallel':
-        run_mockparallel(StandardPSO, args, tmpdir, update_parser)
+        run_mockparallel(StandardPSO, args, tmpdir)
     elif mrs_impl == 'master_slave':
-        run_master_slave(StandardPSO, args, tmpdir, update_parser)
+        run_master_slave(StandardPSO, args, tmpdir)
     else:
         raise RuntimeError('Unknown mrs_impl: %s' % mrs_impl)
 

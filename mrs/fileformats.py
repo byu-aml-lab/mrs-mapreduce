@@ -56,9 +56,10 @@ class Writer(object):
     Parameters:
         fileobj: A file or filelike object.
         serializers: A Serializers instance (such as a namedtuple) for
-            serializing from Python objects to bytes.  If a serializer is
-            None, use pickle.  Otherwise, use its `dumps` function.  A `dumps`
-            function set to None indicates that the keys are already bytes.
+            serializing from Python objects to bytes.  If a serializer is None,
+            use pickle.  Otherwise, use the serializer's `dumps` function.  A
+            `dumps` function set to None indicates that the keys are already
+            bytes.
     """
     def __init__(self, fileobj, serializers=None):
         self.fileobj = fileobj

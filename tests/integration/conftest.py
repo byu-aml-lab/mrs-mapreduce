@@ -37,25 +37,25 @@ def pytest_generate_tests(metafunc):
                 metafunc.addcall(funcargs={'mrs_impl': mrs_impl})
 
 
-def run_serial(program, args, update_parser=None):
+def run_serial(program, args):
     args = ['-I', 'Serial'] + args
 
     with pytest.raises(SystemExit) as excinfo:
-        mrs.main(program, update_parser, args)
+        mrs.main(program, args=args)
     exitcode = excinfo.value.args[0]
     assert exitcode == 0
 
 
-def run_mockparallel(program, args, tmpdir, update_parser=None):
+def run_mockparallel(program, args, tmpdir):
     args = ['-I', 'MockParallel', '--mrs-tmpdir', tmpdir.strpath] + args
 
     with pytest.raises(SystemExit) as excinfo:
-        mrs.main(program, update_parser, args)
+        mrs.main(program, args=args)
     exitcode = excinfo.value.args[0]
     assert exitcode == 0
 
 
-def run_master_slave(program, args, tmpdir, update_parser=None):
+def run_master_slave(program, args, tmpdir):
     runfile = tmpdir.join('runfile').strpath
 
     procs = []
@@ -68,7 +68,7 @@ def run_master_slave(program, args, tmpdir, update_parser=None):
             tmpdir.strpath] + args
 
     with pytest.raises(SystemExit) as excinfo:
-        mrs.main(program, update_parser, args)
+        mrs.main(program, args=args)
     exitcode = excinfo.value.args[0]
     assert exitcode == 0
 
