@@ -130,6 +130,7 @@ class RandomWalkAnalyzer(mrs.MapReduce):
         # If you don't return 0, mrs thinks your job failed
         return 0
 
+    @mrs.output_serializers(key='int_serializer')
     def map_walk_files(self, key, value):
         filename = key
         offset, count = value
@@ -143,6 +144,7 @@ class RandomWalkAnalyzer(mrs.MapReduce):
             walk_id, hop, node = walk_struct.unpack(walk_buf)
             yield (walk_id, (hop, node))
 
+    @mrs.output_serializers(key='str_serializer', value='str_serializer')
     def map_walk_ids(self, key, value):
         for i, (beg_hop, beg_node) in enumerate(value):
             prev_node = beg_node
