@@ -255,33 +255,42 @@ effect on performance, so this is an optional advanced feature.
 
 Each dataset accepts ``key_serializer`` and ``value_serializer`` keyword
 arguments that specify serializers to be used for outputting each key and
-value.  Alternatively, the serializers can be specified directly on a map or
-reduce function using the ``mrs.key_serializer`` and ``mrs.value_serializer``
-decorators. In each case, the argument is a serializer attribute of the
-program. A serializer must have both ``dumps`` and ``loads`` methods.
+value. Alternatively, the serializers can be specified directly on a map or
+reduce function using the ``mrs.output_serializers``
+decorator. In each case, the arguments are either the name of a serializer
+attribute of the program or the attribute itself.
+A serializer must have both ``dumps`` and ``loads`` methods.
 The ``mrs.MapReduce`` class has three default serializers provided:
-``raw_serializer`` (bytes), ``int_serializer``, and ``str_serializer``.
+``raw_serializer`` (bytes), ``int_serializer``, and ``str_serializer``,
+so if you extend ``mrs.MapReduce``, you automatically get access to these three
+serializers.
 Deserializers are not explicitly given because they are specified in the parent
 dataset.
 
 The map function in the ``wordcount2.py`` example uses the str serializer for
 the output key and the int serializer for the output value::
 
-    @mrs.key_serializer(mrs.MapReduce.str_serializer)
-    @mrs.value_serializer(mrs.MapReduce.int_serializer)
+    @mrs.output_serializers(key='str_serializer', value='int_serializer')
     def map(self, key, value):
-        ...
+        #do stuff
+        yield new_key_str, new_value_int
+
+Alternativly, we could have specified the serializers by using the actual
+attribute rather than the name (e.g. ``key=mrs.MapReduce.str_serializer``).
 
 To define your own custom serializer, add the serializer as an attribute to
-your program, and then pass it in as the argument to the decorator::
+your program, and then pass it in as the argument to the decorator. Here is an
+example using the ``serializers.protobuf_serializer`` helper::
 
-     my_key_serializer = some_serializer
-     my_value_serializer = some_other_serializer
+    class MyProgram(mrs.MapReduce):
+        ...
 
-     @mrs.key_serializer(my_key_serializer)
-     @mrs.value_serializer(my_value_serializer)
-     def map(self, key, value):
-         ...
+        some_serializer = mrs.serializers.protobuf_serializer(some_proto)
+
+        @mrs.output_serializers(value=some_serializer)
+        def map(self, key, value):
+            #do stuff
+            yield new_key, message
 
 Examples
 ========
