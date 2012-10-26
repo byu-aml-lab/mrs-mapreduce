@@ -112,10 +112,10 @@ class ComputedData(datasets.RemoteData):
         return Task.from_op(self.op, input_data, self.id, task_index,
                 self.splits, self.dir, ext, self.serializers)
 
-    def fetchall(self):
+    def fetchall(self, **kwds):
         assert not self.computing, (
                 'Invalid attempt to call fetchall on a non-ready dataset.')
-        super(ComputedData, self).fetchall()
+        super(ComputedData, self).fetchall(**kwds)
 
     def _use_output(self, output):
         """Uses the contents of the given LocalData."""

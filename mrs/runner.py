@@ -64,8 +64,6 @@ class BaseRunner(object):
         close_requests: set of Datasets requested to be closed by the job
             process (but which cannot be closed until their dependents are
             computed)
-        computing_datasets: set of Datasets that are being or need to be
-            computed
         data_dependents: maps a dataset id to a deque listing datasets that
             cannot start until it has finished
         datasets: maps a dataset id to the corresponding Dataset object
@@ -88,9 +86,7 @@ class BaseRunner(object):
                     self.read_worker_pipe)
 
         self.datasets = {}
-        self.computing_datasets = set()
         self.data_dependents = collections.defaultdict(collections.deque)
-        self.close_requests = set()
 
     def read_job_conn(self):
         try:
@@ -105,12 +101,10 @@ class BaseRunner(object):
             if input_id:
                 self.data_dependents[input_id].append(ds.id)
             if isinstance(ds, computed_data.ComputedData):
-                self.computing_datasets.add(ds)
                 self.compute_dataset(ds)
         elif isinstance(message, job.CloseDataset):
-            self.close_requests.add(message.dataset_id)
-            self.try_to_close_dataset(message.dataset_id)
-            self.try_to_remove_dataset(message.dataset_id)
+            ds = self.datasets[message.dataset_id]
+            self.close_dataset(ds)
         elif isinstance(message, job.JobDone):
             if message.exitcode != 0:
                 logger.critical('Job execution failed.')
@@ -131,19 +125,23 @@ class BaseRunner(object):
         """Called when a dataset's computation is finished."""
 
         dataset.computation_done()
-        self.computing_datasets.remove(dataset)
 
         # Check whether any datasets can be closed as a result of the newly
         # completed computation.
-        if dataset.input_id:
-            self.try_to_close_dataset(dataset.input_id)
-        self.try_to_close_dataset(dataset.id)
+        #if dataset.input_id:
+        #    self.try_to_close_dataset(dataset.input_id)
+        #self.try_to_close_dataset(dataset.id)
 
         self.send_dataset_response(dataset)
-        self.try_to_remove_dataset(dataset.id)
+
+        # TODO: preface with `if not self.opts.checkpointing:` or similar.
+        input_id = getattr(dataset, 'input_id', None)
+        # Completing computation decrements the refcount of the input dataset.
+        self.data_dependents[input_id].remove(dataset.id)
+        self.try_to_remove_recursive(input_id)
 
     def send_dataset_response(self, dataset):
-        if not (dataset.closed or dataset.id in self.close_requests):
+        if not dataset.closed:
             for bucket in dataset[:, :]:
                 if len(bucket) or bucket.url:
                     response = job.BucketReady(dataset.id, bucket)
@@ -153,63 +151,79 @@ class BaseRunner(object):
 
     def close_dataset(self, dataset):
         """Close the given dataset, performing any necessary cleanup."""
-        logger.debug('Closing dataset: %s' % dataset.id)
         dataset.close()
+        # Since closing decrements the refcount, try to remove the dataset
+        # and any eligible parents.
+        self.try_to_remove_recursive(dataset.id)
 
-    def try_to_close_dataset(self, dataset_id):
-        """Try to close the given dataset and remove its parent."""
-        if dataset_id not in self.close_requests:
-            return
-        ds = self.datasets[dataset_id]
-        # Skip datasets that are currently being computed.
-        if ds in self.computing_datasets:
-            return
-        # Skip datasets that haven't been computed yet.
-        if getattr(ds, 'computing', False):
-            return
-        # Bail out if any dependent dataset still needs to be computed.
-        deplist = self.data_dependents[dataset_id]
-        for dependent_id in deplist:
-            dependent_ds = self.datasets[dependent_id]
-            if getattr(dependent_ds, 'computing', False):
-                return
+    def try_to_remove_recursive(self, dataset_id):
+        """Try to remove the given dataset and any eligible ancestors.
 
-        self.close_dataset(ds)
-        self.close_requests.remove(dataset_id)
+        Dataset removal is conceptually acyclic garbage collection, and we use
+        reference counts to determine whether a dataset can be removed.  There
+        are two types of references.  First, if a dataset is open, then the
+        run method is holding a reference.  Second, if a dataset is the input
+        to some other "dependent" dataset, than that other dataset holds a
+        reference.
 
-        input_id = getattr(ds, 'input_id', None)
-        if input_id:
-            self.data_dependents[input_id].remove(dataset_id)
-            self.try_to_remove_dataset(input_id)
+        Removal is recursive because removing a dataset decrements the
+        refcount of its input dataset.
+        """
+        candidate_ids = [dataset_id]
+        while candidate_ids:
+            cand_id = candidate_ids.pop()
+            new_candidates = self.try_to_remove_single(cand_id)
+            if new_candidates:
+                candidate_ids.extend(new_candidates)
 
-    def try_to_remove_dataset(self, dataset_id):
+    def try_to_remove_single(self, dataset_id):
         """Try to remove the given dataset.
 
-        If a dataset is not closed or if any of its direct dependents are not
-        closed, then it will not be removed.
-        """
-        if self.can_remove_dataset(dataset_id):
-            self.remove_dataset(self.datasets[dataset_id])
-
-    def can_remove_dataset(self, dataset_id):
-        """Determine whether the given dataset can be safely removed.
-
-        If a dataset is not closed or if any of its direct dependents are not
-        closed, then it will not be removed.
+        Returns a list of dataset ids which may possibly be eligible for
+        removal if this dataset was removed, or None otherwise.
         """
         ds = self.datasets.get(dataset_id, None)
-        if ds is None:
-            return False
-        if not ds.closed:
+        if not ds or not self.can_remove_dataset(ds):
+            return
+
+        input_id = getattr(ds, 'input_id', None)
+        self.remove_dataset(ds)
+        # Decrement the refcount on the input dataset.
+        if input_id:
+            input_dependents = self.data_dependents[input_id]
+            if dataset_id in input_dependents:
+                input_dependents.remove(dataset_id)
+                return [input_id]
+            else:
+                return
+        else:
+            return
+
+    def can_remove_dataset(self, dataset):
+        """Determine whether the given dataset can be safely removed."""
+
+        # If the dataset is open, then its refcount is non-zero.
+        if not dataset.closed:
             return False
 
-        deplist = self.data_dependents[dataset_id]
+        # If the dataset has dependents, then its refcount is non-zero.
+        deplist = self.data_dependents[dataset.id]
         if deplist:
+            return False
+
+        # Skip permanent datasets that are not yet computed.
+        if dataset.permanent and getattr(dataset, 'computing', False):
             return False
 
         return True
 
     def remove_dataset(self, dataset):
+        """Remove the given dataset.
+
+        The dataset and its related structures are cleared from RAM.  If the
+        dataset is non-permenant (any files are purely temporary), then its
+        files are also deleted.
+        """
         logger.info('Removing dataset: %s' % dataset.id)
         if dataset.permanent:
             dataset.clear()
@@ -298,21 +312,18 @@ class TaskRunner(BaseRunner):
 
         super(TaskRunner, self).close_dataset(dataset)
 
-    def can_remove_dataset(self, dataset_id):
-        """Determine whether the given dataset can be safely removed.
+    def can_remove_dataset(self, dataset):
+        """Determine whether the given dataset can be safely removed."""
 
-        If a dataset is not closed or if any of its direct dependents are not
-        closed, then it will not be removed.
-        """
-        if not super(TaskRunner, self).can_remove_dataset(dataset_id):
+        if not super(TaskRunner, self).can_remove_dataset(dataset):
             return False
-        if dataset_id not in self.forward_links:
+        if dataset.id not in self.forward_links:
             return True
 
-        if self.forward_links[dataset_id]:
+        if self.forward_links[dataset.id]:
             return False
         else:
-            del self.forward_links[dataset_id]
+            del self.forward_links[dataset.id]
             return True
 
     def next_task(self):
@@ -406,18 +417,17 @@ class TaskRunner(BaseRunner):
         tasklist.task_done(task_index)
 
         dataset = self.datasets[dataset_id]
-        if not dataset.closed:
-            for split, url in outurls:
-                bucket = dataset[task_index, split]
-                bucket.url = url
-                if dataset_id not in self.close_requests:
-                    response = job.BucketReady(dataset_id, bucket)
-                    self.job_conn.send(response)
-            if tasklist.time_to_report_progress():
-                response = job.ProgressUpdate(dataset_id,
-                        tasklist.fraction_complete())
+        for split, url in outurls:
+            bucket = dataset[task_index, split]
+            bucket.url = url
+            if not dataset.closed:
+                response = job.BucketReady(dataset_id, bucket)
                 self.job_conn.send(response)
-            dataset.notify_urls_known()
+        if tasklist.time_to_report_progress():
+            response = job.ProgressUpdate(dataset_id,
+                    tasklist.fraction_complete())
+            self.job_conn.send(response)
+        dataset.notify_urls_known()
 
         if tasklist.complete():
             self.dataset_done(dataset)

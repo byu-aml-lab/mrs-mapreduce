@@ -308,14 +308,15 @@ class RemoteData(BaseDataset):
         self._fetched = False
 
     # TODO: consider parallelizing this to use multiple downloading threads.
-    def fetchall(self):
+    def fetchall(self, _called_in_runner=False):
         """Download all of the files."""
-        assert not self.closed, (
-                'Invalid fetchall on a closed dataset.')
 
-        # Don't call fetchall twice:
+        # Don't call fetchall twice.
         if self._fetched:
             return
+
+        assert _called_in_runner or not self.closed, (
+                'Invalid fetchall on a closed dataset.')
 
         assert self._urls_known, (
                 'Invalid fetchall on a dataset with unknown urls.')

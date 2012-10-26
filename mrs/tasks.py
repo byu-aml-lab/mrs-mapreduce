@@ -107,7 +107,7 @@ class Task(object):
 
     def _get_all_input(self, serial):
         """Fetches all data from the input data set and returns an iterator."""
-        self.input_ds.fetchall()
+        self.input_ds.fetchall(_called_in_runner=True)
         if serial:
             all_input = self.input_ds.data()
             # Avoid subtle race conditions in serial MapReduce when objects
