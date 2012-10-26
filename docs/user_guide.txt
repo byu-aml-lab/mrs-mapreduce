@@ -53,13 +53,6 @@ Additional optional methods are:
     provides a convenient mechanism for including serial and parallel
     implementations of a program side by side.
 
-- ``serializer(self, key)``
-
-    If any map or reduce function specifies a custom serializer, then the
-    ``serializer`` method is called to translate the serializer's name (which
-    is transmitted over the network) to the corresponding ``Serializer``
-    object (which serializes and deserializes data).
-
 
 The Default MapReduce Class
 ===========================

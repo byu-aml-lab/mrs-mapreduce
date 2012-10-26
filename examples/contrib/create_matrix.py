@@ -57,9 +57,12 @@ from collections import defaultdict
 from StringIO import StringIO
 from subprocess import Popen, PIPE
 
-NUM_PAIR_TASKS = 450
-NUM_COUNT_TASKS = 350
-MAX_INPUT_SIZE = 10000000
+#NUM_PAIR_TASKS = 400
+#NUM_COUNT_TASKS = 300
+#MAX_INPUT_SIZE = 20000000
+NUM_PAIR_TASKS = 300
+NUM_COUNT_TASKS = 300
+MAX_INPUT_SIZE = 25000000
 MIN_COUNT = 2
 
 # Use the mrs logger, so we have the same log level
