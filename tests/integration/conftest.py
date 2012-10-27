@@ -56,7 +56,7 @@ def run_mockparallel(program, args, tmpdir):
 
 
 def run_master_slave(program, args, tmpdir):
-    runfile = tmpdir.join('runfile').strpath
+    runfile = tmpdir.join('runfile')
 
     procs = []
     for i in range(2):
@@ -64,7 +64,7 @@ def run_master_slave(program, args, tmpdir):
         p.start()
         procs.append(p)
 
-    args = ['-I', 'Master', '--mrs-runfile', runfile, '--mrs-tmpdir',
+    args = ['-I', 'Master', '--mrs-runfile', runfile.strpath, '--mrs-tmpdir',
             tmpdir.strpath] + args
 
     with pytest.raises(SystemExit) as excinfo:
@@ -75,6 +75,8 @@ def run_master_slave(program, args, tmpdir):
     for p in procs:
         p.join()
         assert p.exitcode == 0
+
+    runfile.remove()
 
 
 def run_slave(program, master, tmpdir):
@@ -95,7 +97,7 @@ def slave_process(program, runfile, tmpdir):
     while True:
         assert time.time() - start < 5, 'Master failed to start promptly.'
         try:
-            with open(runfile) as f:
+            with open(runfile.strpath) as f:
                 port = f.read().strip()
                 if port == '-':
                     # The master has already finished.

@@ -37,6 +37,9 @@ def test_dickens(mrs_impl, mrs_reduce_tasks, tmpdir):
     else:
         raise RuntimeError('Unknown mrs_impl: %s' % mrs_impl)
 
+    # Make sure no extra temporary files are left behind.
+    assert len(tmpdir.listdir()) == 1
+
     files = outdir.listdir()
     assert len(files) == mrs_reduce_tasks
 
