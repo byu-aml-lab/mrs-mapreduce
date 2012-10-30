@@ -100,14 +100,14 @@ class RandomWalkAnalyzer(mrs.MapReduce):
         source = job.local_data(kv_pairs)
 
         # We pass the initial data into the map tasks
-        walk_ids = job.map_data(source, self.map_walk_files,
+        walk_ids = job.map_data(source, self.walk_file_map,
                 parter=self.mod_partition, splits=NUM_PAIR_TASKS)
         source.close()
 
         # If the output of a reduce is going straight into a map, we can do a
         # reducemap, which is pretty nice.
-        node_pairs = job.reducemap_data(walk_ids, self.collapse_reduce,
-                self.map_walk_ids, splits=NUM_COUNT_TASKS)
+        node_pairs = job.reducemap_data(walk_ids, self.walk_id_reduce,
+                self.node_pair_map, splits=NUM_COUNT_TASKS)
         walk_ids.close()
 
         # We just output here, which leads to pretty ugly storing of the
@@ -116,8 +116,8 @@ class RandomWalkAnalyzer(mrs.MapReduce):
         # run() method, but then you have to hope that all of the data fits in
         # memory.  Because we think this output will be rather large, we do
         # our outputting directly from the reduce.
-        output = job.reduce_data(node_pairs, self.count_reduce, outdir=outdir,
-                format=mrs.fileformats.TextWriter)
+        output = job.reduce_data(node_pairs, self.path_count_reduce,
+                outdir=outdir, format=mrs.fileformats.TextWriter)
         node_pairs.close()
 
         ready = []
@@ -134,7 +134,7 @@ class RandomWalkAnalyzer(mrs.MapReduce):
     long_pair_serializer = mrs.make_struct_serializer('=LL')
 
     @mrs.output_serializers(key=long_serializer, value=long_pair_serializer)
-    def map_walk_files(self, key, value):
+    def walk_file_map(self, key, value):
         filename = key
         offset, count = value
         logger.info('Got walk file %s (offset %s, count %s)' %
@@ -147,27 +147,30 @@ class RandomWalkAnalyzer(mrs.MapReduce):
             walk_id, hop, node = walk_struct.unpack(walk_buf)
             yield (walk_id, (hop, node))
 
-    @mrs.output_serializers(key='str_serializer', value='str_serializer')
-    def map_walk_ids(self, key, value):
-        for i, (beg_hop, beg_node) in enumerate(value):
-            prev_node = beg_node
-            path = str(beg_node)
-            for (end_hop, end_node) in value[i+1:]:
-                # TODO: look up edge type between prev_node and end_node, and
-                # otherwise make path nice
-                path += '-' + str(end_node)
-                yield ('%d-%d' % (beg_node, end_node), path)
-
-    def collapse_reduce(self, key, values):
-        v = list(values)
+    def walk_id_reduce(self, key, values):
+        value_list = list(values)
         # GraphChi shouldn't ever let this happen, but sometimes there is a
         # single walk_id with a pathologically long list of hops that really
         # breaks things in map_walk_ids.  So we catch that case here.
-        if len(v) < 100:
-            v.sort()
-            yield v
+        if len(value_list) < 100:
+            value_list.sort()
+            nodes = [node for hop, node in value_list]
+            yield nodes
 
-    def count_reduce(self, key, values):
+    @mrs.output_serializers(key=long_pair_serializer, value='str_serializer')
+    def node_pair_map(self, key, value):
+        for i, start_node in enumerate(value):
+            path = None
+            prev_node = start_node
+            for node in value[i+1:]:
+                if path is None:
+                    path = str(start_node)
+                else:
+                    path += '-' + str(prev_node)
+                yield ((start_node, node), path)
+                prev_node = node
+
+    def path_count_reduce(self, key, values):
         counts = defaultdict(int)
         for v in values:
             counts[v] += 1
@@ -176,7 +179,7 @@ class RandomWalkAnalyzer(mrs.MapReduce):
             if count >= MIN_COUNT:
                 outdict[path] = count
         if outdict:
-            yield str(outdict)
+            yield outdict
 
 
 if __name__ == '__main__':
