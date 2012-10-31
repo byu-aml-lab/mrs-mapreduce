@@ -107,7 +107,7 @@ public class ConditionalProb extends Configured implements Tool {
 
             ArrayList<IntWritable> nodes_array = new ArrayList<IntWritable>();
             for (IntPairWritable pair: value_array) {
-                nodes_array.add(new IntWritable(pair.getFirst()));
+                nodes_array.add(new IntWritable(pair.getSecond()));
             }
 
             output.collect(walk_id, IntArrayWritable.fromArrayList(nodes_array));
@@ -169,10 +169,12 @@ public class ConditionalProb extends Configured implements Tool {
             StringBuilder builder = new StringBuilder();
             boolean first = true;
             for (Map.Entry<Integer, Integer> entry : distribution.entrySet()) {
-                float prob = entry.getValue() / total;
+                float prob = ((float)entry.getValue()) / total;
 
                 if (first) {
+                    builder.append("{");
                     first = false;
+                } else {
                     builder.append(", ");
                 }
 
@@ -182,7 +184,7 @@ public class ConditionalProb extends Configured implements Tool {
             }
             String out_value = builder.toString();
 
-            if (out_value.length() == 0) {
+            if (distribution.size() == 0) {
                 reporter.getCounter(COUNTERS.NO_KEPT_PATHS).increment(1);
             }
             else {
@@ -233,10 +235,6 @@ public class ConditionalProb extends Configured implements Tool {
         JobConf conf = new JobConf(getConf(), ConditionalProb.class);
         conf.setJobName("FirstConditionalProbMapReduce");
 
-        //DistributedCache.addFileToClassPath(new Path("/tmp/mg1/lib/mahout-core-0.5.jar"), conf);
-        DistributedCache.addFileToClassPath(new Path("/tmp/mg1/lib/hadoop-core.jar"), conf);
-        DistributedCache.addFileToClassPath(new Path("/tmp/mg1/lib/log4j-1.2.15.jar"), conf);
-
         conf.setInputFormat(WalkFileInputFormat.class);
         conf.setMapperClass(WalkFileMapper.class);
         conf.setMapOutputKeyClass(IntWritable.class);
@@ -267,7 +265,7 @@ public class ConditionalProb extends Configured implements Tool {
         conf.setInputFormat(SequenceFileInputFormat.class);
         conf.setMapperClass(NodePairMapper.class);
         conf.setMapOutputKeyClass(IntWritable.class);
-        conf.setMapOutputValueClass(Text.class);
+        conf.setMapOutputValueClass(IntWritable.class);
 
         conf.setReducerClass(NormalizeReducer.class);
         conf.setOutputKeyClass(IntWritable.class);
@@ -284,11 +282,6 @@ public class ConditionalProb extends Configured implements Tool {
 
         FileInputFormat.setInputPaths(conf, new Path(tmp_dir));
         FileOutputFormat.setOutputPath(conf, new Path(output_dir));
-
-        // TODO: fix this to use HADOOP_CLASSPATH
-        //DistributedCache.addFileToClassPath(new Path("/tmp/mg1/lib/mahout-core-0.5.jar"), conf);
-        DistributedCache.addFileToClassPath(new Path("/tmp/mg1/lib/hadoop-core.jar"), conf);
-        DistributedCache.addFileToClassPath(new Path("/tmp/mg1/lib/log4j-1.2.15.jar"), conf);
 
         JobClient.runJob(conf);
 
