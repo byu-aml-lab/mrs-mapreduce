@@ -24,12 +24,14 @@ BACKLOG = 1024
 # Maximum number of retries for HTTP clients (since the server gives a
 # Connection Refused if its backlog is full).
 RETRIES = 10
+RETRY_DELAY = 5
 
 import errno
 import os
 import posixpath
 import socket
 import sys
+import time
 
 try:
     from http.client import HTTPConnection
@@ -79,6 +81,7 @@ class TimeoutTransport(Transport):
                 return Transport.request(self, host, *args, **kwds)
             except socket.timeout:
                 logger.error("RPC to %s failed: timed out." % host)
+                time.sleep(RETRY_DELAY)
                 continue
             except socket.error as e:
                 if e.errno == errno.ECONNREFUSED:
