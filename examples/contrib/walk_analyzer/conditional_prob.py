@@ -104,10 +104,10 @@ class RandomWalkAnalyzer(mrs.MapReduce):
         # If you don't return 0, mrs thinks your job failed
         return 0
 
-    long_serializer = mrs.make_primitive_serializer('L')
-    long_pair_serializer = mrs.make_struct_serializer('=LL')
+    int32_serializer = mrs.make_primitive_serializer('I')
+    int32_pair_serializer = mrs.make_struct_serializer('=II')
 
-    @mrs.output_serializers(key=long_serializer, value=long_pair_serializer)
+    @mrs.output_serializers(key=int32_serializer, value=int32_pair_serializer)
     def walk_file_map(self, key, value):
         """Process the input files, emitting one entry for each step."""
         filename = key
@@ -133,7 +133,7 @@ class RandomWalkAnalyzer(mrs.MapReduce):
             nodes = [node for hop, node in value_list]
             yield nodes
 
-    @mrs.output_serializers(key=long_serializer, value=long_serializer)
+    @mrs.output_serializers(key=int32_serializer, value=int32_serializer)
     def node_pair_map(self, key, value):
         """Emit an entry for each pair of nodes in the walks."""
         for i, start_node in enumerate(value):
