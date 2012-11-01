@@ -85,6 +85,9 @@ class EventLoop(object):
             try:
                 if timeout_function:
                     timeout = timeout_function()
+                    # Note that the timeout of poll is in milliseconds.
+                    if timeout is not None:
+                        timeout *= 1000
                 else:
                     timeout = None
                 for fd, event in self.poll.poll(timeout):
