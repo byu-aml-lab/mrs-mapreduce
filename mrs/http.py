@@ -21,6 +21,7 @@ RPC mechanisms and HTTP servers built on Python's standard library.
 # Socket backlog (argument to socket.listen).
 # The maximum is defined by /proc/sys/net/core/somaxconn (128 by default).
 BACKLOG = 1024
+PROCESS_REQUESTS_THREADS = 20
 # Maximum number of retries for HTTP clients (since the server gives a
 # Connection Refused if its backlog is full).
 RETRIES = 10
@@ -31,12 +32,14 @@ import os
 import posixpath
 import socket
 import sys
+import threading
 import time
 
 try:
     from http.client import HTTPConnection
     from http.server import SimpleHTTPRequestHandler
     from urllib.parse import urlsplit, urlunsplit, unquote
+    import queue
     import socketserver
     from xmlrpc.client import ServerProxy, Transport
     from xmlrpc.server import SimpleXMLRPCRequestHandler, SimpleXMLRPCServer
@@ -45,6 +48,7 @@ except ImportError:
     from SimpleHTTPServer import SimpleHTTPRequestHandler
     from SimpleXMLRPCServer import (SimpleXMLRPCRequestHandler,
             SimpleXMLRPCServer)
+    import Queue as queue
     import SocketServer as socketserver
     from urllib import unquote
     from urlparse import urlsplit, urlunsplit
@@ -132,13 +136,30 @@ class NoDelayHTTPConnection(HTTPConnection):
         self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
 
-
 class TimeoutServerProxy(ServerProxy):
     """An RPC client that supports timeouts and retries."""
     def __init__(self, uri, timeout):
         transport = TimeoutTransport(timeout)
         uri = rpc_url(uri)
         ServerProxy.__init__(self, uri, transport=transport)
+
+
+class ThreadPoolMixIn(socketserver.ThreadingMixIn):
+    queue = None
+
+    def process_request(self, request, client_address):
+        if self.queue is None:
+            self.queue = queue.Queue()
+            for i in xrange(PROCESS_REQUESTS_THREADS):
+                t = threading.Thread(target=self.process_requests_thread)
+                t.daemon = True
+                t.start()
+        self.queue.put((request, client_address))
+
+    def process_requests_thread(self):
+        while True:
+            request, client_address = self.queue.get()
+            self.process_request_thread(request, client_address)
 
 
 class RPCRequestHandler(SimpleXMLRPCRequestHandler):
@@ -207,8 +228,8 @@ class RPCServer(SimpleXMLRPCServer):
             raise
 
 
-class ThreadingRPCServer(socketserver.ThreadingMixIn, RPCServer):
-    daemon_threads = True
+class ThreadingRPCServer(ThreadPoolMixIn, RPCServer):
+    pass
 
 
 def uses_host(f):
@@ -299,8 +320,8 @@ class BucketServer(socketserver.TCPServer):
         self.basedir = basedir
 
 
-class ThreadingBucketServer(socketserver.ThreadingMixIn, BucketServer):
-    daemon_threads = True
+class ThreadingBucketServer(ThreadPoolMixIn, BucketServer):
+    pass
 
 
 class ConnectionFailed(Exception):
