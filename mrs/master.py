@@ -117,10 +117,11 @@ class MasterRunner(runner.TaskRunner):
 
     def maintain_chore_queue(self):
         """Maintains the chore_queue and returns the timeout value for poll."""
-        timeleft = self.chore_queue.time_to_reschedule()
+        chore_queue = self.chore_queue
+        timeleft = chore_queue.time_to_reschedule()
         if (timeleft is not None) and (timeleft <= 0):
-            self.chore_queue.reschedule()
-            timeleft = self.chore_queue.time_to_reschedule()
+            chore_queue.reschedule()
+            timeleft = chore_queue.time_to_reschedule()
         return timeleft
 
     def read_sched_pipe(self):

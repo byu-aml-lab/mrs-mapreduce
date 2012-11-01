@@ -123,11 +123,12 @@ class ChoreQueue(object):
 
     def time_to_reschedule(self):
         """Returns the number of seconds until reschedule should be called."""
-        now = time.time()
-        if self._earliest is None:
+        earliest = self._earliest
+        if earliest is None:
             return None
         else:
-            return max(0, self._earliest - now)
+            now = time.time()
+            return max(0, earliest - now)
 
     def reschedule(self):
         """Moves any pending items to the queue."""
