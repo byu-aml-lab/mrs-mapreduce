@@ -228,7 +228,7 @@ class RPCServer(SimpleXMLRPCServer):
             raise
 
 
-class ThreadingRPCServer(ThreadPoolMixIn, RPCServer):
+class ThreadingRPCServer(socketserver.ThreadingMixIn, RPCServer):
     pass
 
 
