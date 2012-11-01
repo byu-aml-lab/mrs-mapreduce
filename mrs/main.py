@@ -340,9 +340,9 @@ class NetworkParams(ParamObj):
     _params = dict(
         port=Param(default=0, type='int', shortopt='-P',
             doc='RPC Port for incoming requests'),
-        timeout=Param(default=30, type='float',
+        timeout=Param(default=120, type='float',
             doc='Timeout for RPC calls (incl. pings)'),
-        pingdelay=Param(default=60, type='float',
+        pingdelay=Param(default=120, type='float',
             doc='Interval between pings'),
         )
 
