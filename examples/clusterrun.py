@@ -86,6 +86,11 @@ parser.add_option('--mrs-tmpdir',
         action='store',
         help='local temporary directory',
         default='/tmp')
+parser.add_option('--mrs-timeout',
+        dest='mrs_timeout',
+        action='store',
+        help='Timeout value for the master and for the slaves',
+        default=None)
 parser.add_option('--mrs-profile',
         dest='mrs_profile',
         action='store_true',
@@ -177,6 +182,8 @@ master_args = [
     '--mrs-tmpdir=%s' % opts.mrs_tmpdir,
     '--mrs-timing-file=%s' % timefilename,
     ]
+if opts.mrs_timeout:
+    master_args += ['--mrs-timeout', opts.mrs_timeout]
 if opts.mrs_profile:
     master_args.append('--mrs-profile')
 if opts.mrs_verbose:
@@ -234,6 +241,8 @@ slave_args = [
     '--mrs-master=%s:%s' % (master_hostname, master_port),
     '--mrs-tmpdir=%s' % opts.mrs_tmpdir,
     ]
+if opts.mrs_timeout:
+    slave_args += ['--mrs-timeout', opts.mrs_timeout]
 if opts.mrs_profile:
     slave_args.append('--mrs-profile')
 if opts.mrs_verbose:
