@@ -25,6 +25,7 @@ import time
 from . import job
 from . import peons
 from . import computed_data
+from . import serializers
 from . import util
 from . import worker
 
@@ -96,6 +97,10 @@ class BaseRunner(object):
 
         if isinstance(message, job.DatasetSubmission):
             ds = message.dataset
+            # Fix the breaking of serializers caused by pickling.
+            if ds.serializers is not None:
+                ds.serializers = serializers.from_names(ds.serializers,
+                        self.program_class)
             self.datasets[ds.id] = ds
             input_id = getattr(ds, 'input_id', None)
             if input_id:

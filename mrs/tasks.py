@@ -25,7 +25,7 @@ from operator import itemgetter
 
 from . import datasets
 from . import fileformats
-from .serializers import Serializers
+from . import serializers
 from . import util
 
 
@@ -68,13 +68,13 @@ class Task(object):
         """
         op = Operation.from_args(*op_args)
 
-        input_serializers = Serializers.from_names(input_ser_names, program)
-        serializers = Serializers.from_names(ser_names, program)
+        input_serializers = serializers.from_names(input_ser_names, program)
+        output_serializers = serializers.from_names(ser_names, program)
 
         input_ds = datasets.FileData(urls, program, splits=1,
                 first_split=task_index, serializers=input_serializers)
         return Task.from_op(op, input_ds, dataset_id, task_index, splits,
-                storage, ext, serializers)
+                storage, ext, output_serializers)
 
     def to_args(self):
         """Converts the Task to a simple tuple.

@@ -56,38 +56,37 @@ class Serializers(object):
         self.value_s = value_s
         self.value_s_name = value_s_name
 
-    @classmethod
-    def from_names(cls, names, program):
-        """Create a Serializers from a pair of names and a MapReduce program.
-        """
-
-        if not names:
-            return None
-        key_s_name, value_s_name = names
-
-        if key_s_name:
-            try:
-                key_s = getattr(program, key_s_name)
-            except AttributeError:
-                msg = 'Key serializer not an attribute of the program'
-                raise RuntimeError(msg)
-        else:
-            key_s = None
-
-        if value_s_name:
-            try:
-                value_s = getattr(program, value_s_name)
-            except AttributeError:
-                msg = 'Value serializer not an attribute of the program'
-                raise RuntimeError(msg)
-        else:
-            value_s = None
-
-        return cls(key_s, key_s_name, value_s, value_s_name)
-
     def __repr__(self):
         return 'Serializers(%r, %r, %r, %r)' % (self.key_s,
                 self.key_s_name, self.value_s, self.value_s_name)
+
+
+def from_names(names, program):
+    """Create a Serializers from a pair of names and a MapReduce program."""
+
+    if not names:
+        return None
+    key_s_name, value_s_name = names
+
+    if key_s_name:
+        try:
+            key_s = getattr(program, key_s_name)
+        except AttributeError:
+            msg = 'Key serializer not an attribute of the program'
+            raise RuntimeError(msg)
+    else:
+        key_s = None
+
+    if value_s_name:
+        try:
+            value_s = getattr(program, value_s_name)
+        except AttributeError:
+            msg = 'Value serializer not an attribute of the program'
+            raise RuntimeError(msg)
+    else:
+        value_s = None
+
+    return Serializers(key_s, key_s_name, value_s, value_s_name)
 
 
 ###############################################################################

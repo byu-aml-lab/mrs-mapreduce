@@ -206,6 +206,15 @@ class BaseDataset(object):
         if not self.closed:
             self.close()
 
+    def __getstate__(self):
+        """Pickle without getting certain forbidden/unnecessary elements."""
+        state = self.__dict__.copy()
+        serializers = self.serializers
+        if serializers is not None:
+            state['serializers'] = (serializers.key_s_name,
+                    serializers.value_s_name)
+        return state
+
 
 class LocalData(BaseDataset):
     """Collect output from an iterator.
@@ -295,7 +304,7 @@ class RemoteData(BaseDataset):
 
     def __getstate__(self):
         """Pickle without getting certain forbidden/unnecessary elements."""
-        state = self.__dict__.copy()
+        state = super(RemoteData, self).__getstate__()
         del state['_close_callback']
         del state['_fetched']
         if self.closed:
