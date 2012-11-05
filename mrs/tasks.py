@@ -21,6 +21,7 @@ A Task represents a unit of work and the mechanism for carrying it out.
 from __future__ import division, print_function
 
 import copy
+import itertools
 from operator import itemgetter
 
 from . import datasets
@@ -272,7 +273,8 @@ class ReduceOperation(Operation):
             reducer = getattr(program, self.reduce_name)
 
         sorted_input = sorted(input, key=itemgetter(0))
-        grouped_input = grouped(sorted_input)
+        grouped_input = ((k, (pair[1] for pair in v)) for k, v in
+            itertools.groupby(sorted_input, key=itemgetter(0)))
 
         for key, iterator in grouped_input:
             for value in reducer(key, iterator):
@@ -296,38 +298,6 @@ class ReduceMapOperation(MapOperation, ReduceOperation):
     def to_args(self):
         return (self.op_name, self.reduce_name, self.map_name,
                 self.combine_name, self.part_name)
-
-
-def grouped(sorted_itr):
-    """Yields key-iterator pairs from a sorted sequence of key-value pairs.
-
-    This is very similar to itertools.groupby, except that we assume that
-    the sorted_itr is sorted, and we assume key-value pairs.
-    """
-    input_itr = iter(sorted_itr)
-    input = next(input_itr)
-    next_pair = list(input)
-
-    def subiterator():
-        # Closure warning: don't rebind next_pair anywhere in this function
-        group_key, value = next_pair
-
-        while True:
-            yield value
-            try:
-                input = next(input_itr)
-            except StopIteration:
-                next_pair[0] = None
-                return
-            key, value = input
-            if key != group_key:
-                # A new key has appeared.
-                next_pair[:] = key, value
-                return
-
-    while next_pair[0] is not None:
-        yield next_pair[0], subiterator()
-    raise StopIteration
 
 
 OP_CLASSES = dict((op.op_name, op) for op in (MapOperation, ReduceOperation,
