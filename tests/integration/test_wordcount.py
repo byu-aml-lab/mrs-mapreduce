@@ -46,9 +46,12 @@ def test_dickens(mrs_impl, mrs_reduce_tasks, tmpdir):
     counts = defaultdict(int)
     for outfile in files:
         text = outfile.readlines()
+        last_key = None
         for line in text:
             key, value = line.split()
             counts[key] += int(value)
+            assert last_key is None or last_key <= key
+            last_key = key
 
     # Check counts for all of the words in the first two lines.
     assert counts['it'] == 11

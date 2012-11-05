@@ -125,14 +125,9 @@ class MapReduce(object):
             return 1
 
         try:
-            try:
-                combiner = self.combine
-            except AttributeError:
-                combiner = None
-            intermediate = job.map_data(source, self.map, combiner=combiner)
+            intermediate = self.make_map_data(job, source)
             source.close()
-            output = job.reduce_data(intermediate, self.reduce,
-                    outdir=outdir, format=fileformats.TextWriter)
+            output = self.make_reduce_data(job, intermediate)
             intermediate.close()
             output.close()
 
@@ -148,6 +143,20 @@ class MapReduce(object):
             print('Interrupted.')
 
         return 0
+
+    def make_map_data(self, job, source_data):
+        try:
+            combiner = self.combine
+        except AttributeError:
+            combiner = None
+        interm_data = job.map_data(source_data, self.map, combiner=combiner)
+        return interm_data
+
+    def make_reduce_data(self, job, interm_data):
+        outdir = self.output_dir()
+        output_data = job.reduce_data(interm_data, self.reduce,
+                outdir=outdir, format=fileformats.TextWriter)
+        return output_data
 
     def hash_partition(self, x, n):
         """A partition function that partitions by hashing the key.

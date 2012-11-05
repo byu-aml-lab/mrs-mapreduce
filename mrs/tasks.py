@@ -20,6 +20,7 @@ A Task represents a unit of work and the mechanism for carrying it out.
 
 from __future__ import division, print_function
 
+import collections
 import copy
 from operator import itemgetter
 
@@ -175,14 +176,11 @@ class ReduceTask(Task):
     def run(self, program, default_dir, serial=False):
         assert isinstance(self.op, ReduceOperation)
 
-        # SORT PHASE
         all_input = self._get_all_input(serial)
-        sorted_input = sorted(all_input, key=itemgetter(0))
 
-        # REDUCE PHASE
         permanent = self.make_outdir(default_dir)
         kwds = self._outdata_kwds(program, permanent)
-        reduce_itr = self.op.reduce(program, sorted_input)
+        reduce_itr = self.op.reduce(program, all_input)
         self.output = datasets.LocalData(reduce_itr, permanent=permanent,
                 **kwds)
 
@@ -191,14 +189,11 @@ class ReduceMapTask(Task):
     def run(self, program, default_dir, serial=False):
         assert isinstance(self.op, ReduceMapOperation)
 
-        # SORT PHASE
         all_input = self._get_all_input(serial)
-        sorted_input = sorted(all_input, key=itemgetter(0))
 
-        # REDUCEMAP PHASE
         permanent = self.make_outdir(default_dir)
         kwds = self._outdata_kwds(program, permanent)
-        reduce_itr = self.op.reduce(program, sorted_input)
+        reduce_itr = self.op.reduce(program, all_input)
         map_itr = self.op.map(program, reduce_itr)
         self.output = datasets.LocalData(map_itr, permanent=permanent, **kwds)
 
@@ -234,7 +229,8 @@ class MapOperation(Operation):
             mapper = getattr(program, self.map_name)
 
         if self.combine_name:
-            combine_op = ReduceOperation(self.combine_name, self.part_name)
+            combine_op = ReduceOperation(self.combine_name, False,
+                    self.part_name)
         else:
             combine_op = None
 
@@ -261,9 +257,10 @@ class ReduceOperation(Operation):
     op_name = 'reduce'
     task_class = ReduceTask
 
-    def __init__(self, reduce_name, *args):
+    def __init__(self, reduce_name, sort, *args):
         Operation.__init__(self, *args)
         self.reduce_name = reduce_name
+        self.sort = sort
         self.id = '%s' % self.reduce_name
 
     def reduce(self, program, input):
@@ -277,37 +274,44 @@ class ReduceOperation(Operation):
         else:
             reducer = getattr(program, self.reduce_name)
 
-        for key, iterator in grouped_read(input):
+        if self.sort:
+            sorted_input = sorted(input, key=itemgetter(0))
+            grouped_input = grouped(sorted_input)
+        else:
+            grouped_input = bucketed(input)
+
+        for key, iterator in grouped_input:
             for value in reducer(key, iterator):
                 yield (key, value)
 
     def to_args(self):
-        return (self.op_name, self.reduce_name, self.part_name)
+        return (self.op_name, self.reduce_name, self.sort, self.part_name)
 
 
 class ReduceMapOperation(MapOperation, ReduceOperation):
     op_name = 'reducemap'
     task_class = ReduceMapTask
 
-    def __init__(self, reduce_name, map_name, combine_name, *args):
+    def __init__(self, reduce_name, sort, map_name, combine_name, *args):
         Operation.__init__(self, *args)
         self.reduce_name = reduce_name
+        self.sort = sort
         self.map_name = map_name
         self.combine_name = combine_name
         self.id = '%s_%s' % (self.reduce_name, self.map_name)
 
     def to_args(self):
-        return (self.op_name, self.reduce_name, self.map_name,
+        return (self.op_name, self.reduce_name, self.sort, self.map_name,
                 self.combine_name, self.part_name)
 
 
-def grouped_read(input_file):
-    """Yields key-iterator pairs over a sorted input_file.
+def grouped(sorted_itr):
+    """Yields key-iterator pairs from a sorted sequence of key-value pairs.
 
     This is very similar to itertools.groupby, except that we assume that
-    the input_file is sorted, and we assume key-value pairs.
+    the sorted_itr is sorted, and we assume key-value pairs.
     """
-    input_itr = iter(input_file)
+    input_itr = iter(sorted_itr)
     input = next(input_itr)
     next_pair = list(input)
 
@@ -331,6 +335,17 @@ def grouped_read(input_file):
     while next_pair[0] is not None:
         yield next_pair[0], subiterator()
     raise StopIteration
+
+
+def bucketed(itr):
+    """Yields key-iterator pairs from an arbitrary sequence of key-value pairs.
+
+    All of the values are loaded into an in-RAM dictionary.
+    """
+    d = collections.defaultdict(list)
+    for key, value in itr:
+        d[key].append(value)
+    return d.iteritems()
 
 
 OP_CLASSES = dict((op.op_name, op) for op in (MapOperation, ReduceOperation,
