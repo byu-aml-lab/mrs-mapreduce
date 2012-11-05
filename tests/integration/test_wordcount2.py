@@ -31,7 +31,7 @@ def test_dickens(mrs_impl, mrs_reduce_tasks, tmpdir):
             print(filename, file=listfile)
         listfile.flush()
 
-        args = [listfile.name, outdir.strpath, '--unsorted']
+        args = [listfile.name, outdir.strpath]
 
         if mrs_impl == 'serial':
             assert mrs_reduce_tasks == 1
@@ -49,18 +49,14 @@ def test_dickens(mrs_impl, mrs_reduce_tasks, tmpdir):
     assert len(files) == mrs_reduce_tasks
 
     counts = defaultdict(int)
-    unsorted_lines = 0
     for outfile in files:
         text = outfile.readlines()
         last_key = None
         for line in text:
             key, value = line.split()
             counts[key] += int(value)
-            if last_key is not None and last_key > key:
-                unsorted_lines += 1
+            assert last_key is None or last_key <= key
             last_key = key
-
-    assert unsorted_lines > 0
 
     # Check counts for all of the words in the first two lines.
     assert counts['it'] == 11

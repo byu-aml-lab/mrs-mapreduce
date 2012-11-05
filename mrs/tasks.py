@@ -20,7 +20,6 @@ A Task represents a unit of work and the mechanism for carrying it out.
 
 from __future__ import division, print_function
 
-import collections
 import copy
 from operator import itemgetter
 
@@ -229,8 +228,7 @@ class MapOperation(Operation):
             mapper = getattr(program, self.map_name)
 
         if self.combine_name:
-            combine_op = ReduceOperation(self.combine_name, False,
-                    self.part_name)
+            combine_op = ReduceOperation(self.combine_name, self.part_name)
         else:
             combine_op = None
 
@@ -257,10 +255,9 @@ class ReduceOperation(Operation):
     op_name = 'reduce'
     task_class = ReduceTask
 
-    def __init__(self, reduce_name, sort, *args):
+    def __init__(self, reduce_name, *args):
         Operation.__init__(self, *args)
         self.reduce_name = reduce_name
-        self.sort = sort
         self.id = '%s' % self.reduce_name
 
     def reduce(self, program, input):
@@ -274,34 +271,30 @@ class ReduceOperation(Operation):
         else:
             reducer = getattr(program, self.reduce_name)
 
-        if self.sort:
-            sorted_input = sorted(input, key=itemgetter(0))
-            grouped_input = grouped(sorted_input)
-        else:
-            grouped_input = bucketed(input)
+        sorted_input = sorted(input, key=itemgetter(0))
+        grouped_input = grouped(sorted_input)
 
         for key, iterator in grouped_input:
             for value in reducer(key, iterator):
                 yield (key, value)
 
     def to_args(self):
-        return (self.op_name, self.reduce_name, self.sort, self.part_name)
+        return (self.op_name, self.reduce_name, self.part_name)
 
 
 class ReduceMapOperation(MapOperation, ReduceOperation):
     op_name = 'reducemap'
     task_class = ReduceMapTask
 
-    def __init__(self, reduce_name, sort, map_name, combine_name, *args):
+    def __init__(self, reduce_name, map_name, combine_name, *args):
         Operation.__init__(self, *args)
         self.reduce_name = reduce_name
-        self.sort = sort
         self.map_name = map_name
         self.combine_name = combine_name
         self.id = '%s_%s' % (self.reduce_name, self.map_name)
 
     def to_args(self):
-        return (self.op_name, self.reduce_name, self.sort, self.map_name,
+        return (self.op_name, self.reduce_name, self.map_name,
                 self.combine_name, self.part_name)
 
 
@@ -335,17 +328,6 @@ def grouped(sorted_itr):
     while next_pair[0] is not None:
         yield next_pair[0], subiterator()
     raise StopIteration
-
-
-def bucketed(itr):
-    """Yields key-iterator pairs from an arbitrary sequence of key-value pairs.
-
-    All of the values are loaded into an in-RAM dictionary.
-    """
-    d = collections.defaultdict(list)
-    for key, value in itr:
-        d[key].append(value)
-    return d.iteritems()
 
 
 OP_CLASSES = dict((op.op_name, op) for op in (MapOperation, ReduceOperation,

@@ -59,22 +59,6 @@ class WordCount2(mrs.MapReduce):
                     inputs.append(line.strip())
         return job.file_data(inputs)
 
-    def make_reduce_data(self, job, interm_data):
-        outdir = self.output_dir()
-        sort = not self.opts.unsorted
-        output_data = job.reduce_data(interm_data, self.reduce,
-                outdir=outdir, format=mrs.TextWriter, sort=sort)
-        return output_data
-
-    @classmethod
-    def update_parser(cls, parser):
-        parser.add_option('--unsorted',
-            action='store_true',
-            dest='unsorted',
-            help='Do not sort each output file by key')
-
-        return parser
-
 if __name__ == '__main__':
     mrs.main(WordCount2)
 

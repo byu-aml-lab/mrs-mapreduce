@@ -140,7 +140,7 @@ class Job(object):
         return ds
 
     def reduce_data(self, input, reducer, splits=None, outdir=None,
-            parter=None, sort=True, **kwds):
+            parter=None, **kwds):
         """Define a set of data computed with a reducer operation.
 
         Specify the input dataset and a reducer function.  The reducer must be
@@ -164,7 +164,7 @@ class Job(object):
         reduce_name, reducer = self._named_attr(reducer)
         self._set_serializers(reducer, kwds, input.serializers)
 
-        op = tasks.ReduceOperation(reduce_name, sort, part_name)
+        op = tasks.ReduceOperation(reduce_name, part_name)
         ds = computed_data.ComputedData(op, input, splits=splits, dir=outdir,
                 permanent=permanent, **kwds)
         self._manager.submit(ds)
@@ -172,7 +172,7 @@ class Job(object):
         return ds
 
     def reducemap_data(self, input, reducer, mapper, splits=None, outdir=None,
-            combiner=None, parter=None, sort=True, **kwds):
+            combiner=None, parter=None, **kwds):
         """Define a set of data computed with the reducemap operation.
 
         Called from the user-specified run function.
@@ -198,8 +198,8 @@ class Job(object):
             combine_name = ''
         part_name, _ = self._named_attr(parter)
 
-        op = tasks.ReduceMapOperation(reduce_name, sort, map_name,
-                combine_name, part_name)
+        op = tasks.ReduceMapOperation(reduce_name, map_name, combine_name,
+                part_name)
         ds = computed_data.ComputedData(op, input, splits=splits, dir=outdir,
                 permanent=permanent, **kwds)
         self._manager.submit(ds)
