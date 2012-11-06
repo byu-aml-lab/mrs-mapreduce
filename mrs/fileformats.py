@@ -16,7 +16,6 @@
 from __future__ import division, print_function
 
 import codecs
-import functools
 import gzip
 from itertools import islice
 import os
@@ -36,6 +35,7 @@ else:
     import cPickle as pickle
 
 from . import hdfs
+from .serializers import dumps_functions, loads_functions
 
 
 DEFAULT_BUFFER_SIZE = 4096
@@ -63,23 +63,7 @@ class Writer(object):
     """
     def __init__(self, fileobj, serializers=None):
         self.fileobj = fileobj
-
-        if serializers is None:
-            key_s = None
-            value_s = None
-        else:
-            key_s = serializers.key_s
-            value_s = serializers.value_s
-
-        if key_s is None:
-            self.dumps_key = functools.partial(pickle.dumps, protocol=-1)
-        else:
-            self.dumps_key = key_s.dumps
-
-        if value_s is None:
-            self.dumps_value = functools.partial(pickle.dumps, protocol=-1)
-        else:
-            self.dumps_value = value_s.dumps
+        self.dumps_key, self.dumps_value = dumps_functions(serializers)
 
     def writepair(self, kvpair):
         raise NotImplementedError
@@ -112,23 +96,7 @@ class Reader(object):
     """
     def __init__(self, fileobj, serializers=None):
         self.fileobj = fileobj
-
-        if serializers is None:
-            key_s = None
-            value_s = None
-        else:
-            key_s = serializers.key_s
-            value_s = serializers.value_s
-
-        if key_s is None:
-            self.loads_key = pickle.loads
-        else:
-            self.loads_key = key_s.loads
-
-        if value_s is None:
-            self.loads_value = pickle.loads
-        else:
-            self.loads_value = value_s.loads
+        self.loads_key, self.loads_value = loads_functions(serializers)
 
     def __iter__(self, kvpair):
         raise NotImplementedError

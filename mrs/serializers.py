@@ -16,18 +16,24 @@
 from __future__ import division, print_function
 
 from collections import namedtuple
+import functools
 import struct
+
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
 
 
 Serializer = namedtuple('Serializer', ('dumps', 'loads'))
 
 def output_serializers(**kwargs):
-    """A decorator to specify key and value serializers for map or 
-    reduce functions.
+    """A decorator to specify key and value serializers for map or reduce
+    functions.
 
-    The two allowable keyword arguments are `key` and
-    `value`. These are serializers, which must be attributes of the program.
-    A serializer implements both the `dumps` and loads` methods.
+    The two allowable keyword arguments are `key` and `value`. These are
+    serializers, which must be attributes of the program.  A serializer
+    implements both the `dumps` and loads` methods.
 
     Note that if None is given as a serializer, then pickle is used as the
     default serializer.
@@ -87,6 +93,62 @@ def from_names(names, program):
         value_s = None
 
     return Serializers(key_s, key_s_name, value_s, value_s_name)
+
+
+def dumps_functions(serializers):
+    """Return a pair of dumps functions (for the key and value).
+
+    Parameters:
+        serializers: A Serializers instance (such as a namedtuple) for
+            serializing from Python objects to bytes.  If a serializer is None,
+            use pickle.  Otherwise, use the serializer's `dumps` function.
+    """
+    if serializers is None:
+        key_s = None
+        value_s = None
+    else:
+        key_s = serializers.key_s
+        value_s = serializers.value_s
+
+    if key_s is None:
+        dumps_key = functools.partial(pickle.dumps, protocol=-1)
+    else:
+        dumps_key = key_s.dumps
+
+    if value_s is None:
+        dumps_value = functools.partial(pickle.dumps, protocol=-1)
+    else:
+        dumps_value = value_s.dumps
+
+    return dumps_key, dumps_value
+
+
+def loads_functions(serializers):
+    """Return a pair of loads functions (for the key and value).
+
+    Parameters:
+        serializers: A Serializers instance (such as a namedtuple) for
+            serializing from Python objects to bytes.  If a serializer is
+            None, use pickle.  Otherwise, use its `dumps` function.
+    """
+    if serializers is None:
+        key_s = None
+        value_s = None
+    else:
+        key_s = serializers.key_s
+        value_s = serializers.value_s
+
+    if key_s is None:
+        loads_key = pickle.loads
+    else:
+        loads_key = key_s.loads
+
+    if value_s is None:
+        loads_value = pickle.loads
+    else:
+        loads_value = value_s.loads
+
+    return loads_key, loads_value
 
 
 ###############################################################################
