@@ -241,4 +241,14 @@ def profile_call(function, args, kwds, filename):
         prof.dump_stats(tmp_path)
         os.rename(tmp_path, path)
 
+def log_ram_usage():
+    """Log the amount of memory being used by the current process."""
+    pid = os.getpid()
+    with open('/proc/%s/status' % pid) as f:
+        for line in f:
+            if line.startswith('VmRSS:'):
+                _, value = line.split(':')
+                rss = value.strip()
+    logger.debug('Memory usage (RSS): %s' % rss)
+
 # vim: et sw=4 sts=4
