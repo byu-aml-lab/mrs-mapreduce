@@ -107,6 +107,8 @@ class Worker(object):
         self.request_pipe = request_pipe
         self.default_dir = None
         self.program = None
+        self.opts = None
+        self.args = None
 
     def run(self):
         while self.run_once():
@@ -125,10 +127,10 @@ class Worker(object):
 
             if isinstance(request, WorkerSetupRequest):
                 assert self.program is None
-                opts = request.opts
-                args = request.args
+                self.opts = request.opts
+                self.args = request.args
                 logger.debug('Starting to run the user setup function.')
-                self.program = self.program_class(opts, args)
+                self.program = self.program_class(self.opts, self.args)
                 self.default_dir = request.default_dir
                 response = WorkerSetupSuccess()
 
@@ -142,8 +144,10 @@ class Worker(object):
                 assert self.program is not None
                 logger.info('Running task: %s, %s' %
                         (request.dataset_id, request.task_index))
+                max_sort_size = getattr(self.opts, 'mrs__max_sort_size', None)
                 t = tasks.Task.from_args(*request.args, program=self.program)
-                t.run(self.program, self.default_dir)
+                t.run(self.program, self.default_dir,
+                        max_sort_size=max_sort_size)
                 response = WorkerSuccess(request.dataset_id,
                         request.task_index, t.outdir, t.outurls(),
                         request.id())

@@ -18,11 +18,16 @@
 # files are pre-split).
 
 import collections
+import heapq
 from itertools import chain
+from operator import itemgetter
 import random
+import tempfile
 
 from . import bucket
 from . import fileformats
+from .serializers import (dumps_functions, loads_functions, raw_serializer,
+        Serializers)
 from . import util
 
 from logging import getLogger
@@ -86,17 +91,28 @@ class BaseDataset(object):
     def __nonzero__(self):
         return True
 
+    def _assert_open(self, _called_in_runner):
+        """Assert that the dataset is not closed.
+
+        If called from within the runner thread (as determined by the given
+        parameter), then operations on closed datasets are permitted.
+        """
+        assert _called_in_runner or not self.closed, (
+                'Invalid operation on a closed dataset.')
+
     def data(self):
         """Iterate over data from all buckets."""
         buckets = self[:, :]
         return chain.from_iterable(buckets)
 
-    def stream_data(self):
+    def stream_data(self, _called_in_runner=False):
         """Iterate over all key-value pairs in the dataset."""
+        self._assert_open(_called_in_runner)
         return self.data()
 
-    def splitdata(self, split):
+    def splitdata(self, split, _called_in_runner=False):
         """Iterate over data from buckets for a given split."""
+        self._assert_open(_called_in_runner)
         buckets = self[:, split]
         return chain.from_iterable(buckets)
 
@@ -332,9 +348,7 @@ class RemoteData(BaseDataset):
         if self._fetched:
             return
 
-        assert _called_in_runner or not self.closed, (
-                'Invalid fetchall on a closed dataset.')
-
+        self._assert_open(_called_in_runner)
         assert self._urls_known, (
                 'Invalid fetchall on a dataset with unknown urls.')
 
@@ -358,8 +372,7 @@ class RemoteData(BaseDataset):
 
     def stream_data(self, serializers=None, _called_in_runner=False):
         """Iterate over all remote key-value pairs in the dataset."""
-        assert _called_in_runner or not self.closed, (
-                'Invalid fetchall on a closed dataset.')
+        self._assert_open(_called_in_runner)
         if self._fetched:
             return self.data()
 
@@ -368,8 +381,7 @@ class RemoteData(BaseDataset):
         return self._stream_buckets(buckets, serializers)
 
     def stream_split(self, split, serializers=None, _called_in_runner=False):
-        assert _called_in_runner or not self.closed, (
-                'Invalid fetchall on a closed dataset.')
+        self._assert_open(_called_in_runner)
         if self._fetched:
             return self.splitdata(split)
 
@@ -380,6 +392,84 @@ class RemoteData(BaseDataset):
     def notify_urls_known(self):
         """Signify that all buckets have been assigned urls."""
         self._urls_known = True
+
+
+class MergeSortData(BaseDataset):
+    """A locally stored copy, sorted by key, of another dataset.
+
+    If the dataset is small enough, it will be stored in RAM.  Otherwise,
+    it will be stored in local temporary files.
+
+    Note that this class is very specific in its purpose and applicability.
+    """
+    def __init__(self, input, input_split, max_sort_size, splits=None,
+            source=None, parter=None, _called_in_runner=False, **kwds):
+        if parter is not None:
+            raise RuntimeError('The parter paramater must not be specified')
+        if source is not None:
+            raise RuntimeError('The source paramater must not be specified')
+        if splits is not None:
+            raise RuntimeError('The splits paramater must not be specified')
+
+        super(MergeSortData, self).__init__(splits=splits, **kwds)
+        self.id = 'mergesort_' + self.id
+        self.fixed_split = input_split
+        self.serializers = input.serializers
+        self.permanent = False
+
+        self.collected = False
+        self._collect(input, input_split, max_sort_size, _called_in_runner)
+        self.collected = True
+
+    def _collect(self, input, input_split, max_sort_size, _called_in_runner):
+        assert not self.collected
+        loads_key, loads_value = loads_functions(input.serializers)
+        raw_serializers = Serializers(raw_serializer, 'raw_serializer',
+                raw_serializer, 'raw_serializer')
+        max_ram_bytes = 1024 * 1024 * max_sort_size
+
+        byte_count = 0
+        data_list = []
+        for raw_key, raw_value in input.stream_split(input_split,
+                serializers=raw_serializers,
+                _called_in_runner=_called_in_runner):
+            pair_bytes = len(raw_key) + len(raw_value)
+            if byte_count + pair_bytes > max_ram_bytes:
+                data_list.sort(key=itemgetter(0))
+                self._flush_data(data_list, raw_serializers, input.serializers)
+                byte_count = 0
+
+            key = loads_key(raw_key)
+            data_list.append((key, raw_key, raw_value))
+            byte_count += pair_bytes
+
+        if self._data:
+            data_list.sort(key=itemgetter(0))
+            self._flush_data(data_list, raw_serializers, input.serializers)
+        else:
+            data_list.sort(key=itemgetter(0))
+            b = bucket.WriteBucket(0, self.fixed_split)
+            b.collect((k, loads_value(raw_v)) for (k, _, raw_v) in data_list)
+            self._append_bucket(b, empty=False)
+
+    def _flush_data(self, data_list, serializers, input_serializers):
+        if not data_list:
+            return
+        b = bucket.WriteBucket(len(self._data), self.fixed_split,
+                self.dir, serializers=serializers)
+        b.collect((raw_k, raw_v) for (k, raw_k, raw_v) in data_list)
+        b.serializers = input_serializers
+        self._append_bucket(b)
+        del data_list[:]
+
+    def _append_bucket(self, b, empty=True):
+        b = b.readonly_copy(empty)
+        self._data[b.source, b.split] = b
+
+    def stream_data(self, serializers=None, _called_in_runner=False):
+        """Iterate over data from all buckets in key-sorted order."""
+        streams = [b.stream(serializers) for b in self[:, :]]
+        return heapq.merge(*streams)
 
 
 class FileData(RemoteData):

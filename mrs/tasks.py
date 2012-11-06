@@ -106,19 +106,27 @@ class Task(object):
         return (op_args, urls, self.dataset_id, self.task_index, self.splits,
                 self.storage, self.ext, input_ser_names, ser_names)
 
-    def _get_all_input(self, serial):
-        """Fetches all data from the input data set and returns an iterator."""
-        self.input_ds.fetchall(_called_in_runner=True)
+    def _get_all_input(self, serial, sort=False, tmpdir=None,
+            max_sort_size=None):
+        """Returns an iterator over all input data."""
         if serial:
-            all_input = self.input_ds.data()
+            self.input_ds.fetchall(_called_in_runner=True)
+            uncopied_data = self.input_ds.data()
             # Avoid subtle race conditions in serial MapReduce when objects
             # are mutable by recklessly copying everything.  In the future, we
             # might make this disableable, but performance in serial MapReduce
             # is not a high priority.
-            all_input = (copy.deepcopy(x) for x in all_input)
+            data = (copy.deepcopy(x) for x in uncopied_data)
+            if sort:
+                data = sorted(data, key=itemgetter(0))
+        elif sort:
+            sorted_ds = datasets.MergeSortData(self.input_ds, self.task_index,
+                    max_sort_size, dir=tmpdir, _called_in_runner=True)
+            data = sorted_ds.stream_data(_called_in_runner=True)
         else:
-            all_input = self.input_ds.splitdata(self.task_index)
-        return all_input
+            data = self.input_ds.stream_split(self.task_index,
+                    _called_in_runner=True)
+        return data
 
     def _outdata_kwds(self, program, permanent):
         """Returns arguments for the output dataset (common to all task types).
@@ -162,7 +170,7 @@ class Task(object):
 
 
 class MapTask(Task):
-    def run(self, program, default_dir, serial=False):
+    def run(self, program, default_dir, serial=False, max_sort_size=None):
         assert isinstance(self.op, MapOperation)
 
         all_input = self._get_all_input(serial)
@@ -173,10 +181,11 @@ class MapTask(Task):
 
 
 class ReduceTask(Task):
-    def run(self, program, default_dir, serial=False):
+    def run(self, program, default_dir, serial=False, max_sort_size=None):
         assert isinstance(self.op, ReduceOperation)
 
-        all_input = self._get_all_input(serial)
+        all_input = self._get_all_input(serial, sort=True, tmpdir=default_dir,
+                max_sort_size=max_sort_size)
 
         permanent = self.make_outdir(default_dir)
         kwds = self._outdata_kwds(program, permanent)
@@ -186,10 +195,11 @@ class ReduceTask(Task):
 
 
 class ReduceMapTask(Task):
-    def run(self, program, default_dir, serial=False):
+    def run(self, program, default_dir, serial=False, max_sort_size=None):
         assert isinstance(self.op, ReduceMapOperation)
 
-        all_input = self._get_all_input(serial)
+        all_input = self._get_all_input(serial, sort=True, tmpdir=default_dir,
+                max_sort_size=max_sort_size)
 
         permanent = self.make_outdir(default_dir)
         kwds = self._outdata_kwds(program, permanent)
@@ -272,9 +282,8 @@ class ReduceOperation(Operation):
         else:
             reducer = getattr(program, self.reduce_name)
 
-        sorted_input = sorted(input, key=itemgetter(0))
         grouped_input = ((k, (pair[1] for pair in v)) for k, v in
-            itertools.groupby(sorted_input, key=itemgetter(0)))
+            itertools.groupby(input, key=itemgetter(0)))
 
         for key, iterator in grouped_input:
             for value in reducer(key, iterator):
