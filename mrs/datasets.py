@@ -91,10 +91,18 @@ class BaseDataset(object):
         buckets = self[:, :]
         return chain.from_iterable(buckets)
 
+    def stream_data(self):
+        """Iterate over all key-value pairs in the dataset."""
+        return self.data()
+
     def splitdata(self, split):
         """Iterate over data from buckets for a given split."""
         buckets = self[:, split]
         return chain.from_iterable(buckets)
+
+    def stream_split(self, split):
+        """Iterate over data from buckets for a given split."""
+        return self.splitdata(split)
 
     def sourcedata(self, source):
         """Iterate over data from buckets for a given source."""
@@ -343,6 +351,31 @@ class RemoteData(BaseDataset):
                 bucket.collect(reader)
 
         self._fetched = True
+
+    def _stream_buckets(self, buckets, serializers):
+        streams = (b.stream(serializers) for b in buckets)
+        return chain.from_iterable(streams)
+
+    def stream_data(self, serializers=None, _called_in_runner=False):
+        """Iterate over all remote key-value pairs in the dataset."""
+        assert _called_in_runner or not self.closed, (
+                'Invalid fetchall on a closed dataset.')
+        if self._fetched:
+            return self.data()
+
+        buckets = [bucket for bucket in self[:, :] if bucket.url]
+        random.shuffle(buckets)
+        return self._stream_buckets(buckets, serializers)
+
+    def stream_split(self, split, serializers=None, _called_in_runner=False):
+        assert _called_in_runner or not self.closed, (
+                'Invalid fetchall on a closed dataset.')
+        if self._fetched:
+            return self.splitdata(split)
+
+        buckets = [bucket for bucket in self[:, split] if bucket.url]
+        random.shuffle(buckets)
+        return self._stream_buckets(buckets, serializers)
 
     def notify_urls_known(self):
         """Signify that all buckets have been assigned urls."""

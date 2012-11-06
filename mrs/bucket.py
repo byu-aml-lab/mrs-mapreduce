@@ -17,14 +17,13 @@ from __future__ import division, print_function
 
 import os
 
+from . import fileformats
 from . import util
 
 try:
     from urllib.parse import urlparse, urlunparse
 except ImportError:
     from urlparse import urlparse, urlunparse
-
-from . import fileformats
 
 from logging import getLogger
 logger = getLogger('mrs')
@@ -109,7 +108,26 @@ class ReadBucket(object):
         """Get a particular item, mainly for debugging purposes"""
         return self._data[item]
 
+    def stream(self, serializers=None):
+        """Stream over kvpairs from the remote URL (or local data, if loaded).
+
+        Use the given serializers, defaulting to self.serializers.
+        """
+        if self._data:
+            return iter(self)
+        else:
+            if serializers is None:
+                serializers = self.serializers
+            return self._stream(serializers)
+
+    def _stream(self, serializers):
+        with fileformats.open_url(self.url, serializers=serializers) as reader:
+            # TODO: use yield-from when we drop support for Python <= 3.2.
+            for kvpair in reader:
+                yield kvpair
+
     def __iter__(self):
+        """Iterate over all already-loaded data."""
         return iter(self._data)
 
 
@@ -153,9 +171,10 @@ class WriteBucket(ReadBucket):
     def __setstate__(self, state):
         raise NotImplementedError
 
-    def readonly_copy(self):
+    def readonly_copy(self, empty=False):
         b = ReadBucket(self.source, self.split, self.serializers)
-        b._data = self._data
+        if not empty:
+            b._data = self._data
         b.url = self._filename
         return b
 
