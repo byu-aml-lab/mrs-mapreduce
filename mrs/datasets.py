@@ -261,7 +261,7 @@ class LocalData(BaseDataset):
     >>>
     """
     def __init__(self, itr, splits=None, source=0, parter=None,
-            **kwds):
+            write_only=False, **kwds):
         if parter is not None and splits is None:
             raise RuntimeError('The splits parameter is required when parter'
                     ' is specified.')
@@ -271,7 +271,7 @@ class LocalData(BaseDataset):
         self.fixed_source = source
 
         self.collected = False
-        self._collect(itr, parter)
+        self._collect(itr, parter, write_only)
         for key, bucket in self._data.items():
             self._data[key] = bucket.readonly_copy()
         self.collected = True
@@ -282,7 +282,7 @@ class LocalData(BaseDataset):
         return bucket.WriteBucket(source, split, self.dir, self.format,
                 serializers=self.serializers)
 
-    def _collect(self, itr, parter):
+    def _collect(self, itr, parter, write_only):
         """Collect all of the key-value pairs from the given iterator."""
         n = self.splits
         source = self.fixed_source
@@ -301,7 +301,7 @@ class LocalData(BaseDataset):
         else:
             if n == 1:
                 bucket = self[source, 0]
-                bucket.collect(itr)
+                bucket.collect(itr, write_only)
             else:
                 for kvpair in itr:
                     key, value = kvpair
@@ -449,8 +449,9 @@ class MergeSortData(BaseDataset):
         else:
             data_list.sort(key=itemgetter(0))
             b = bucket.WriteBucket(0, self.fixed_split)
-            b.collect((k, loads_value(raw_v)) for (k, _, raw_v) in data_list)
-            self._append_bucket(b, empty=False)
+            data_itr = ((k, loads_value(raw_v)) for (k, _, raw_v) in data_list)
+            b.collect(data_itr)
+            self._append_bucket(b)
 
         logger.debug('MergeSortData initialized with %s bytes.' % byte_count)
 
@@ -459,13 +460,14 @@ class MergeSortData(BaseDataset):
             return
         b = bucket.WriteBucket(len(self._data), self.fixed_split,
                 self.dir, serializers=serializers)
-        b.collect((raw_k, raw_v) for (k, raw_k, raw_v) in data_list)
+        data_itr = ((raw_k, raw_v) for (k, raw_k, raw_v) in data_list)
+        b.collect(data_itr, write_only=True)
         b.serializers = input_serializers
         self._append_bucket(b)
         del data_list[:]
 
-    def _append_bucket(self, b, empty=True):
-        b = b.readonly_copy(empty)
+    def _append_bucket(self, b):
+        b = b.readonly_copy()
         self._data[b.source, b.split] = b
 
     def stream_data(self, serializers=None, _called_in_runner=False):

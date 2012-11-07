@@ -29,6 +29,9 @@ from . import fileformats
 from . import serializers
 from . import util
 
+from logging import getLogger
+logger = getLogger('mrs')
+
 
 class Task(object):
     """Manage input and output for a piece of a map or reduce operation.
@@ -52,7 +55,7 @@ class Task(object):
         self.output = None
 
     def outurls(self):
-        return [(b.split, b.url) for b in self.output[:, :] if len(b)]
+        return [(b.split, b.url) for b in self.output[:, :] if b.url]
 
     @staticmethod
     def from_op(op, *args):
@@ -128,7 +131,7 @@ class Task(object):
                     _called_in_runner=True)
         return data
 
-    def _outdata_kwds(self, program, permanent):
+    def _outdata_kwds(self, program, permanent, serial):
         """Returns arguments for the output dataset (common to all task types).
         """
         kwds = {'source': self.task_index,
@@ -138,6 +141,8 @@ class Task(object):
                 'serializers': self.serializers,
                 'splits': self.splits,
                 }
+        if not serial:
+            kwds['write_only'] = True
         return kwds
 
     def make_outdir(self, default_dir):
@@ -175,7 +180,7 @@ class MapTask(Task):
 
         all_input = self._get_all_input(serial)
         permanent = self.make_outdir(default_dir)
-        kwds = self._outdata_kwds(program, permanent)
+        kwds = self._outdata_kwds(program, permanent, serial)
         map_itr = self.op.map(program, all_input)
         self.output = datasets.LocalData(map_itr, permanent=permanent, **kwds)
 
@@ -188,7 +193,7 @@ class ReduceTask(Task):
                 max_sort_size=max_sort_size)
 
         permanent = self.make_outdir(default_dir)
-        kwds = self._outdata_kwds(program, permanent)
+        kwds = self._outdata_kwds(program, permanent, serial)
         reduce_itr = self.op.reduce(program, all_input)
         self.output = datasets.LocalData(reduce_itr, permanent=permanent,
                 **kwds)
@@ -202,7 +207,7 @@ class ReduceMapTask(Task):
                 max_sort_size=max_sort_size)
 
         permanent = self.make_outdir(default_dir)
-        kwds = self._outdata_kwds(program, permanent)
+        kwds = self._outdata_kwds(program, permanent, serial)
         reduce_itr = self.op.reduce(program, all_input)
         map_itr = self.op.map(program, reduce_itr)
         self.output = datasets.LocalData(map_itr, permanent=permanent, **kwds)

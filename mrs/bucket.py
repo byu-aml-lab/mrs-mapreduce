@@ -171,10 +171,9 @@ class WriteBucket(ReadBucket):
     def __setstate__(self, state):
         raise NotImplementedError
 
-    def readonly_copy(self, empty=False):
+    def readonly_copy(self):
         b = ReadBucket(self.source, self.split, self.serializers)
-        if not empty:
-            b._data = self._data
+        b._data = self._data
         b.url = self._filename
         return b
 
@@ -215,7 +214,7 @@ class WriteBucket(ReadBucket):
                 self.open_writer()
             self._writer.writepair(kvpair)
 
-    def collect(self, pairiter):
+    def collect(self, pairiter, write_only=False):
         """Collect all key-value pairs from the given iterable
 
         The collection can be a generator or a Mrs format.  This will block if
@@ -225,9 +224,13 @@ class WriteBucket(ReadBucket):
         if self.dir:
             if not self._writer:
                 self.open_writer()
-            for kvpair in pairiter:
-                data.append(kvpair)
-                self._writer.writepair(kvpair)
+            if write_only:
+                for kvpair in pairiter:
+                    self._writer.writepair(kvpair)
+            else:
+                for kvpair in pairiter:
+                    data.append(kvpair)
+                    self._writer.writepair(kvpair)
         else:
             for kvpair in pairiter:
                 data.append(kvpair)
