@@ -53,6 +53,7 @@ class Task(object):
 
         self.outdir = None
         self.output = None
+        self.sorted_ds = None
 
     def outurls(self):
         return [(b.split, b.url) for b in self.output[:, :] if b.url]
@@ -109,7 +110,7 @@ class Task(object):
         return (op_args, urls, self.dataset_id, self.task_index, self.splits,
                 self.storage, self.ext, input_ser_names, ser_names)
 
-    def _get_all_input(self, serial, sort=False, tmpdir=None,
+    def _get_all_input(self, serial, sort=False, default_dir=None,
             max_sort_size=None):
         """Returns an iterator over all input data."""
         if serial:
@@ -123,9 +124,11 @@ class Task(object):
             if sort:
                 data = sorted(data, key=itemgetter(0))
         elif sort:
+            tmpdir = util.mktempdir(default_dir, 'merge_%s_' % self.dataset_id)
             sorted_ds = datasets.MergeSortData(self.input_ds, self.task_index,
                     max_sort_size, dir=tmpdir, _called_in_runner=True)
             data = sorted_ds.stream_data(_called_in_runner=True)
+            self.sorted_ds = sorted_ds
         else:
             data = self.input_ds.stream_split(self.task_index,
                     _called_in_runner=True)
@@ -189,28 +192,32 @@ class ReduceTask(Task):
     def run(self, program, default_dir, serial=False, max_sort_size=None):
         assert isinstance(self.op, ReduceOperation)
 
-        all_input = self._get_all_input(serial, sort=True, tmpdir=default_dir,
-                max_sort_size=max_sort_size)
+        all_input = self._get_all_input(serial, sort=True,
+                default_dir=default_dir, max_sort_size=max_sort_size)
 
         permanent = self.make_outdir(default_dir)
         kwds = self._outdata_kwds(program, permanent, serial)
         reduce_itr = self.op.reduce(program, all_input)
         self.output = datasets.LocalData(reduce_itr, permanent=permanent,
                 **kwds)
+        if self.sorted_ds is not None:
+            self.sorted_ds.delete()
 
 
 class ReduceMapTask(Task):
     def run(self, program, default_dir, serial=False, max_sort_size=None):
         assert isinstance(self.op, ReduceMapOperation)
 
-        all_input = self._get_all_input(serial, sort=True, tmpdir=default_dir,
-                max_sort_size=max_sort_size)
+        all_input = self._get_all_input(serial, sort=True,
+                default_dir=default_dir, max_sort_size=max_sort_size)
 
         permanent = self.make_outdir(default_dir)
         kwds = self._outdata_kwds(program, permanent, serial)
         reduce_itr = self.op.reduce(program, all_input)
         map_itr = self.op.map(program, reduce_itr)
         self.output = datasets.LocalData(map_itr, permanent=permanent, **kwds)
+        if self.sorted_ds is not None:
+            self.sorted_ds.delete()
 
 
 class Operation(object):
