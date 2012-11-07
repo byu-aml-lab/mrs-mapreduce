@@ -45,6 +45,8 @@ COMPRESS_LEVEL = 9
 hex_encoder = codecs.getencoder('hex_codec')
 hex_decoder = codecs.getdecoder('hex_codec')
 
+len_struct = struct.Struct('<I')
+
 
 class Writer(object):
     """A writer takes a file-like object and writes key-value pairs.
@@ -247,11 +249,11 @@ class BinWriter(Writer):
         if self.dumps_value is not None:
             value = self.dumps_value(value)
 
-        binlen = struct.pack('<L', len(key))
+        binlen = len_struct.pack(len(key))
         self.fileobj.write(binlen)
         self.fileobj.write(key)
 
-        binlen = struct.pack('<L', len(value))
+        binlen = len_struct.pack(len(value))
         self.fileobj.write(binlen)
         self.fileobj.write(value)
 
@@ -292,23 +294,22 @@ class BinReader(Reader):
         self._buffer += self.fileobj.read(size)
 
     def _read_record(self):
-        LENFIELD_SIZE = 4
-        if len(self._buffer) < LENFIELD_SIZE:
+        if len(self._buffer) < len_struct.size:
             self._fill_buffer()
         if not self._buffer:
             return None
 
-        lenfield = self._buffer[:LENFIELD_SIZE]
-        length, = struct.unpack('<L', lenfield)
+        lenfield = self._buffer[:len_struct.size]
+        length, = len_struct.unpack(lenfield)
 
-        end = LENFIELD_SIZE + length
+        end = len_struct.size + length
         if end > len(self._buffer):
             self._fill_buffer(end - len(self._buffer))
 
         if end > len(self._buffer):
             raise RuntimeError('File ended unexpectedly')
 
-        data = self._buffer[LENFIELD_SIZE:end]
+        data = self._buffer[len_struct.size:end]
         self._buffer = self._buffer[end:]
         return data
 
