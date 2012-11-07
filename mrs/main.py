@@ -319,7 +319,7 @@ class TaskRunnerParams(ParamObj):
             doc="Compute datasets sequentially (for performance comparisons)"),
         max_failures=Param(default=3, type='int',
             doc='Maximum number of tolerable failures per task'),
-        max_sort_size=Param(default=500, type='int',
+        max_sort_size=Param(default=100, type='int',
             doc='Maximum amount of data (in MB) to sort in RAM'),
         )
 

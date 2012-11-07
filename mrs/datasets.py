@@ -428,20 +428,23 @@ class MergeSortData(BaseDataset):
                 raw_serializer, 'raw_serializer')
         max_ram_bytes = 1024 * 1024 * max_sort_size
 
-        byte_count = 0
+        current_bytes = 0
+        total_bytes = 0
         data_list = []
         for raw_key, raw_value in input.stream_split(input_split,
                 serializers=raw_serializers,
                 _called_in_runner=_called_in_runner):
             pair_bytes = len(raw_key) + len(raw_value)
-            if byte_count + pair_bytes > max_ram_bytes:
+            if current_bytes + pair_bytes > max_ram_bytes:
                 data_list.sort(key=itemgetter(0))
                 self._flush_data(data_list, raw_serializers, input.serializers)
-                byte_count = 0
+                data_list = []
+                current_bytes = 0
 
             key = loads_key(raw_key)
             data_list.append((key, raw_key, raw_value))
-            byte_count += pair_bytes
+            current_bytes += pair_bytes
+            total_bytes += pair_bytes
 
         if self._data:
             data_list.sort(key=itemgetter(0))
@@ -453,7 +456,8 @@ class MergeSortData(BaseDataset):
             b.collect(data_itr)
             self._append_bucket(b)
 
-        logger.debug('MergeSortData initialized with %s bytes.' % byte_count)
+        logger.debug('MergeSortData initialized %s bytes in %s buckets'
+                % (total_bytes, len(self._data)))
 
     def _flush_data(self, data_list, serializers, input_serializers):
         if not data_list:
