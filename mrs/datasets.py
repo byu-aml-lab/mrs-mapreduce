@@ -452,6 +452,8 @@ class MergeSortData(BaseDataset):
             b.collect((k, loads_value(raw_v)) for (k, _, raw_v) in data_list)
             self._append_bucket(b, empty=False)
 
+        logger.debug('MergeSortData initialized with %s bytes.' % byte_count)
+
     def _flush_data(self, data_list, serializers, input_serializers):
         if not data_list:
             return

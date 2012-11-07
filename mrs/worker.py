@@ -130,6 +130,7 @@ class Worker(object):
                 self.opts = request.opts
                 self.args = request.args
                 logger.debug('Starting to run the user setup function.')
+                util.log_ram_usage()
                 self.program = self.program_class(self.opts, self.args)
                 self.default_dir = request.default_dir
                 response = WorkerSetupSuccess()
@@ -144,6 +145,7 @@ class Worker(object):
                 assert self.program is not None
                 logger.info('Running task: %s, %s' %
                         (request.dataset_id, request.task_index))
+                util.log_ram_usage()
                 max_sort_size = getattr(self.opts, 'mrs__max_sort_size', None)
                 t = tasks.Task.from_args(*request.args, program=self.program)
                 t.run(self.program, self.default_dir,
@@ -153,6 +155,7 @@ class Worker(object):
                         request.id())
                 logger.info('Completed task: %s, %s' %
                         (request.dataset_id, request.task_index))
+                util.log_ram_usage()
         except KeyboardInterrupt:
             return
         except Exception as e:
