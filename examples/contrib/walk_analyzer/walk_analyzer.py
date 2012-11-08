@@ -63,6 +63,9 @@
 # But this is a starting place that does the basic work of producing the
 # probability table I'm interested in.
 
+from __future__ import division
+
+import itertools
 import logging
 import mrs
 import os
@@ -71,15 +74,16 @@ from collections import defaultdict
 from StringIO import StringIO
 from subprocess import Popen, PIPE
 
-NUM_PAIR_TASKS = 400
-NUM_COUNT_TASKS = 300
-MAX_INPUT_SIZE = 20000000
+NUM_PAIR_TASKS = 2000
+NUM_COUNT_TASKS = 3000
+NUM_OUTPUT_TASKS = 1000
+MAX_INPUT_SIZE = 64 * 1024 ** 2
 
 MIN_COUNT = 100
 MIN_TOTAL_COUNT = 300
 
-REL_NAMES_FILE = '/home/mg1/data/graphchi/nell_642_rels_only/labeled_edges.tsv'
-NODE_NAMES_FILE = '/home/mg1/data/graphchi/nell_642_rels_only/node_dict.tsv'
+REL_NAMES_FILE = '/aml/data/mjg82/walks_big/labeled_edges.tsv'
+NODE_NAMES_FILE = '/aml/data/mjg82/walks_big/node_dict.tsv'
 
 # Use the mrs logger, so we have the same log level
 logger = logging.getLogger('mrs')
@@ -121,7 +125,7 @@ class RandomWalkAnalyzer(mrs.MapReduce):
         for filename in self.args[:-1]:
             size = os.stat(filename).st_size
             assert size % walk_struct_size == 0
-            total_records = size / walk_struct_size
+            total_records = size // walk_struct_size
             chunks = (size - 1) // MAX_INPUT_SIZE + 1
 
             offset = 0
@@ -149,7 +153,7 @@ class RandomWalkAnalyzer(mrs.MapReduce):
         walk_ids.close()
 
         path_counts = job.reducemap_data(node_pairs, self.path_count_reduce,
-                self.source_path_map, splits=NUM_COUNT_TASKS)
+                self.source_path_map, splits=NUM_OUTPUT_TASKS)
         node_pairs.close()
 
         # We just output here, which leads to pretty ugly storing of the
@@ -159,7 +163,7 @@ class RandomWalkAnalyzer(mrs.MapReduce):
         # memory.  Because we think this output will be rather large, we do
         # our outputting directly from the reduce.
         output_matrix = job.reducemap_data(path_counts, self.normalize_reduce,
-                self.matrix_map, splits=NUM_COUNT_TASKS,
+                self.matrix_map, splits=1,
                 outdir=outdir, format=mrs.fileformats.TextWriter)
         path_counts.close()
 
@@ -174,7 +178,7 @@ class RandomWalkAnalyzer(mrs.MapReduce):
         # If you don't return 0, mrs thinks your job failed
         return 0
 
-    int32_serializer = mrs.make_primitive_serializer('I')
+    int32_serializer = mrs.make_primitive_serializer('=I')
     int32_pair_serializer = mrs.make_struct_serializer('=II')
 
     @mrs.output_serializers(key=int32_serializer, value=int32_pair_serializer)
@@ -195,7 +199,7 @@ class RandomWalkAnalyzer(mrs.MapReduce):
     def walk_id_reduce(self, key, values):
         """Input is walk_id, (hop, node), from walk_file_map.  Output is
         walk_id, list(node)."""
-        value_list = list(values)
+        value_list = list(itertools.islice(values, 100))
         # GraphChi shouldn't ever let this happen, but sometimes there is a
         # single walk_id with a pathologically long list of hops that really
         # breaks things in map_walk_ids.  So we catch that case here.
@@ -238,13 +242,13 @@ class RandomWalkAnalyzer(mrs.MapReduce):
         if outdict:
             yield outdict
 
+    #@mrs.output_serializers(key=int32_serializer, value='str_serializer')
     def source_path_map(self, key, value):
         """Key here is (source_node, target_node), and value is the counter
         from path_count_reduce.  The output is (source_node, path),
         (target_node, count), so we can normalize over (source_node, path)."""
         source_node, target_node = key
-        for path in value:
-            count = value[path]
+        for path, count in value.iteritems():
             yield ((source_node, path), (target_node, count))
 
     def normalize_reduce(self, key, values):
@@ -267,8 +271,7 @@ class RandomWalkAnalyzer(mrs.MapReduce):
             # of other numbers to aid the consumer of this probability in
             # judging how reliably it was estimated.  If MIN_TOTAL_COUNT is
             # high enough, this may be unnecessary.
-            yield (target,
-                    (float(count) / total_count, total_count, len(values)))
+            yield (target, (count / total_count, total_count, len(values)))
 
     def matrix_map(self, key, value):
         """Input is (source_node, path), (target, (count + stuff)).  We want to

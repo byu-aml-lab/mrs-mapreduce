@@ -22,6 +22,7 @@ this output, we need to create a set of probabilities as shown above.
 
 from __future__ import division
 
+import itertools
 import logging
 import mrs
 import os
@@ -124,7 +125,7 @@ class RandomWalkAnalyzer(mrs.MapReduce):
 
     def walk_id_reduce(self, key, values):
         """Consolidate each walk into a single list of nodes."""
-        value_list = list(values)
+        value_list = list(itertools.islice(values, 100))
         # GraphChi shouldn't ever let this happen, but sometimes there is a
         # single walk_id with a pathologically long list of hops that really
         # breaks things in map_walk_ids.  So we catch that case here.
