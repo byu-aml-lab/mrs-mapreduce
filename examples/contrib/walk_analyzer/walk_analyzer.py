@@ -50,18 +50,12 @@
 # (source_node, end_node), path --reduce-->
 #                                    (source_node, end_node), counter(path)
 #
-# To normalize the probabilities, we would add another map and reduce:
+# To normalize the probabilities, we add another map and reduce:
 #
 # (source_node, end_node), counter(path) --map-->
 #                                   (source_node, path), (target_node, count)
 # (source_node, path), (target_node, count) --reduce-->
 #                             (source_node, target_node), (path, probability)
-#
-# There are some issues I care about that aren't implemented here, such as
-# actually putting in the edge types that exist between pairs of nodes, and
-# doing various kinds of filtering on paths to only keep paths I care about.
-# But this is a starting place that does the basic work of producing the
-# probability table I'm interested in.
 
 from __future__ import division
 
