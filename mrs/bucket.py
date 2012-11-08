@@ -206,9 +206,10 @@ class WriteBucket(ReadBucket):
         # close the underlying file.
         self._writer = None
 
-    def addpair(self, kvpair):
+    def addpair(self, kvpair, write_only=False):
         """Collect a single key-value pair."""
-        self._data.append(kvpair)
+        if not write_only:
+            self._data.append(kvpair)
         if self.dir:
             if not self._writer:
                 self.open_writer()

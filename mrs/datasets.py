@@ -291,12 +291,12 @@ class LocalData(BaseDataset):
                 # Assign to buckets in a round-robin fashion.
                 for split, kvpair in enumerate(itr):
                     bucket = self[source, split % n]
-                    bucket.addpair(kvpair)
+                    bucket.addpair(kvpair, write_only)
             else:
                 # Grow the number of buckets with the size of the data.
                 for split, kvpair in enumerate(itr):
                     bucket = self[source, split]
-                    bucket.addpair(kvpair)
+                    bucket.addpair(kvpair, write_only)
                 self.splits = split + 1
         else:
             if n == 1:
@@ -307,7 +307,7 @@ class LocalData(BaseDataset):
                     key, value = kvpair
                     split = parter(key, n)
                     bucket = self[source, split]
-                    bucket.addpair(kvpair)
+                    bucket.addpair(kvpair, write_only)
         for bucket in self[:, :]:
             bucket.close_writer(self.permanent)
 
