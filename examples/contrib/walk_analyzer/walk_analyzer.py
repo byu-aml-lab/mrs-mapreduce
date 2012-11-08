@@ -50,18 +50,12 @@
 # (source_node, end_node), path --reduce-->
 #                                    (source_node, end_node), counter(path)
 #
-# To normalize the probabilities, we would add another map and reduce:
+# To normalize the probabilities, we add another map and reduce:
 #
 # (source_node, end_node), counter(path) --map-->
 #                                   (source_node, path), (target_node, count)
 # (source_node, path), (target_node, count) --reduce-->
 #                             (source_node, target_node), (path, probability)
-#
-# There are some issues I care about that aren't implemented here, such as
-# actually putting in the edge types that exist between pairs of nodes, and
-# doing various kinds of filtering on paths to only keep paths I care about.
-# But this is a starting place that does the basic work of producing the
-# probability table I'm interested in.
 
 from __future__ import division
 
@@ -74,16 +68,7 @@ from collections import defaultdict
 from StringIO import StringIO
 from subprocess import Popen, PIPE
 
-NUM_PAIR_TASKS = 2000
-NUM_COUNT_TASKS = 3000
-NUM_OUTPUT_TASKS = 1000
 MAX_INPUT_SIZE = 64 * 1024 ** 2
-
-MIN_COUNT = 100
-MIN_TOTAL_COUNT = 300
-
-REL_NAMES_FILE = '/aml/data/mjg82/walks_big/labeled_edges.tsv'
-NODE_NAMES_FILE = '/aml/data/mjg82/walks_big/node_dict.tsv'
 
 # Use the mrs logger, so we have the same log level
 logger = logging.getLogger('mrs')
@@ -95,15 +80,20 @@ class RandomWalkAnalyzer(mrs.MapReduce):
 
     def __init__(self, opts, args):
         super(RandomWalkAnalyzer, self).__init__(opts, args)
+        self.min_total_count = opts.min_total_count
+        self.min_path_count = opts.min_path_count
+        self.num_pair_tasks = opts.num_pair_tasks
+        self.num_count_tasks = opts.num_count_tasks
+        self.num_output_tasks = opts.num_output_tasks
         self.rel_names = {}
         self.node_names = {}
-        for line in open(REL_NAMES_FILE):
+        for line in open(opts.rel_names_file):
             source, target, name = line.strip().split("\t")
             source = int(source)
             target = int(target)
             self.rel_names[(source, target)] = name
             self.rel_names[(target, source)] = name + "_inv"
-        for line in open(NODE_NAMES_FILE):
+        for line in open(opts.node_names_file):
             node, name = line.strip().split("\t")
             node = int(node)
             # This maybe could be an array, if it's faster, but I'm not sure
@@ -143,17 +133,17 @@ class RandomWalkAnalyzer(mrs.MapReduce):
 
         # We pass the initial data into the map tasks
         walk_ids = job.map_data(source, self.walk_file_map,
-                parter=self.mod_partition, splits=NUM_PAIR_TASKS)
+                parter=self.mod_partition, splits=self.num_pair_tasks)
         source.close()
 
         # If the output of a reduce is going straight into a map, we can do a
         # reducemap, which is pretty nice.
         node_pairs = job.reducemap_data(walk_ids, self.walk_id_reduce,
-                self.node_pair_map, splits=NUM_COUNT_TASKS)
+                self.node_pair_map, splits=self.num_count_tasks)
         walk_ids.close()
 
         path_counts = job.reducemap_data(node_pairs, self.path_count_reduce,
-                self.source_path_map, splits=NUM_OUTPUT_TASKS)
+                self.source_path_map, splits=self.num_output_tasks)
         node_pairs.close()
 
         # We just output here, which leads to pretty ugly storing of the
@@ -237,7 +227,7 @@ class RandomWalkAnalyzer(mrs.MapReduce):
             counts[v] += 1
         outdict = {}
         for path, count in counts.iteritems():
-            if count >= MIN_COUNT:
+            if count >= self.min_path_count:
                 outdict[path] = count
         if outdict:
             yield outdict
@@ -263,14 +253,14 @@ class RandomWalkAnalyzer(mrs.MapReduce):
         values = list(values)
         for target, count in values:
             total_count += count
-        if total_count < MIN_TOTAL_COUNT:
+        if total_count < self.min_total_count:
             return
         output = dict()
         for target, count in values:
             # In addition to saving the actually probability, we save a couple
             # of other numbers to aid the consumer of this probability in
-            # judging how reliably it was estimated.  If MIN_TOTAL_COUNT is
-            # high enough, this may be unnecessary.
+            # judging how reliably it was estimated.  If self.min_total_count
+            # is high enough, this may be unnecessary.
             yield (target, (count / total_count, total_count, len(values)))
 
     def matrix_map(self, key, value):
@@ -286,6 +276,39 @@ class RandomWalkAnalyzer(mrs.MapReduce):
         value = path + " %.5f %d %d" % stats
         yield (key, value)
 
+    @classmethod
+    def update_parser(cls, parser):
+        parser.add_option('', '--rel-file',
+                dest='rel_names_file',
+                help='Path to the relation names file',
+                )
+        parser.add_option('', '--node-file',
+                dest='node_names_file',
+                help='Path to the node names file',
+                )
+        parser.add_option('', '--min-path-count',
+                dest='min_path_count',
+                help='Minimum number of times a particular (source, path, '
+                'target) triple must be traversed to be kept',
+                )
+        parser.add_option('', '--min-total-count',
+                dest='min_total_count',
+                help='Minimum number of times a particular (source, path) '
+                'pair must be traversed to be kept',
+                )
+        parser.add_option('', '--num-pair-tasks',
+                dest='num_pair_tasks',
+                help='Number of tasks for walk_id_reduce_node_pair_map',
+                )
+        parser.add_option('', '--num-count-tasks',
+                dest='num_count_tasks',
+                help='Number of tasks for path_count_reduce_source_path_map',
+                )
+        parser.add_option('', '--num-output-tasks',
+                dest='num_output_tasks',
+                help='Number of tasks for normalize_reduce_matrix_map',
+                )
+        return parser
 
 class Path(object):
     def __init__(self):
