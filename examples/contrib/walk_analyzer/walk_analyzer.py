@@ -68,23 +68,17 @@ from collections import defaultdict
 from StringIO import StringIO
 from subprocess import Popen, PIPE
 
-MAX_INPUT_SIZE = 64 * 1024 ** 2
-
 # Use the mrs logger, so we have the same log level
 logger = logging.getLogger('mrs')
 
 walk_struct = struct.Struct('>IHI')
 walk_struct_size = walk_struct.size
 
+
 class RandomWalkAnalyzer(mrs.MapReduce):
 
     def __init__(self, opts, args):
         super(RandomWalkAnalyzer, self).__init__(opts, args)
-        self.min_total_count = opts.min_total_count
-        self.min_path_count = opts.min_path_count
-        self.num_pair_tasks = opts.num_pair_tasks
-        self.num_count_tasks = opts.num_count_tasks
-        self.num_output_tasks = opts.num_output_tasks
         self.rel_names = {}
         self.node_names = {}
         for line in open(opts.rel_names_file):
@@ -112,11 +106,12 @@ class RandomWalkAnalyzer(mrs.MapReduce):
         # the map.  In our case, we just need to give an index to the map task,
         # and each mapper will look up the document it needs from that index.
         kv_pairs = []
+        max_input_size = self.opts.input_chunk_size * 1024 ** 2
         for filename in self.args[:-1]:
             size = os.stat(filename).st_size
             assert size % walk_struct_size == 0
             total_records = size // walk_struct_size
-            chunks = (size - 1) // MAX_INPUT_SIZE + 1
+            chunks = (size - 1) // max_input_size + 1
 
             offset = 0
             for i in xrange(chunks):
@@ -133,17 +128,17 @@ class RandomWalkAnalyzer(mrs.MapReduce):
 
         # We pass the initial data into the map tasks
         walk_ids = job.map_data(source, self.walk_file_map,
-                parter=self.mod_partition, splits=self.num_pair_tasks)
+                parter=self.mod_partition, splits=self.opts.num_pair_tasks)
         source.close()
 
         # If the output of a reduce is going straight into a map, we can do a
         # reducemap, which is pretty nice.
         node_pairs = job.reducemap_data(walk_ids, self.walk_id_reduce,
-                self.node_pair_map, splits=self.num_count_tasks)
+                self.node_pair_map, splits=self.opts.num_count_tasks)
         walk_ids.close()
 
         path_counts = job.reducemap_data(node_pairs, self.path_count_reduce,
-                self.source_path_map, splits=self.num_output_tasks)
+                self.source_path_map, splits=self.opts.num_output_tasks)
         node_pairs.close()
 
         # We just output here, which leads to pretty ugly storing of the
@@ -227,7 +222,7 @@ class RandomWalkAnalyzer(mrs.MapReduce):
             counts[v] += 1
         outdict = {}
         for path, count in counts.iteritems():
-            if count >= self.min_path_count:
+            if count >= self.opts.min_path_count:
                 outdict[path] = count
         if outdict:
             yield outdict
@@ -253,14 +248,15 @@ class RandomWalkAnalyzer(mrs.MapReduce):
         values = list(values)
         for target, count in values:
             total_count += count
-        if total_count < self.min_total_count:
+        if total_count < self.opts.min_total_count:
             return
         output = dict()
         for target, count in values:
             # In addition to saving the actually probability, we save a couple
             # of other numbers to aid the consumer of this probability in
-            # judging how reliably it was estimated.  If self.min_total_count
-            # is high enough, this may be unnecessary.
+            # judging how reliably it was estimated.  If
+            # self.opts.min_total_count is high enough, this may be
+            # unnecessary.
             yield (target, (count / total_count, total_count, len(values)))
 
     def matrix_map(self, key, value):
@@ -289,26 +285,37 @@ class RandomWalkAnalyzer(mrs.MapReduce):
         parser.add_option('', '--min-path-count',
                 dest='min_path_count',
                 help='Minimum number of times a particular (source, path, '
-                'target) triple must be traversed to be kept',
+                    'target) triple must be traversed to be kept',
+                default=100,
                 )
         parser.add_option('', '--min-total-count',
                 dest='min_total_count',
                 help='Minimum number of times a particular (source, path) '
-                'pair must be traversed to be kept',
+                    'pair must be traversed to be kept',
+                default=300,
                 )
         parser.add_option('', '--num-pair-tasks',
                 dest='num_pair_tasks',
                 help='Number of tasks for walk_id_reduce_node_pair_map',
+                default=2000,
                 )
         parser.add_option('', '--num-count-tasks',
                 dest='num_count_tasks',
                 help='Number of tasks for path_count_reduce_source_path_map',
+                default=2000,
                 )
         parser.add_option('', '--num-output-tasks',
                 dest='num_output_tasks',
                 help='Number of tasks for normalize_reduce_matrix_map',
+                default=500,
+                )
+        parser.add_option('', '--input-chunk-size',
+                dest='input_chunk_size',
+                help='The amount of data (in MB) for each input map task',
+                default=64,
                 )
         return parser
+
 
 class Path(object):
     def __init__(self):

@@ -570,6 +570,7 @@ class TaskList(object):
         self._ready_tasks = collections.deque()
         self._tasks_made = False
         self._async_incomplete = None
+        self._num_tasks = 0
         self._last_progress_report = 0.0
         self._failures = collections.defaultdict(int)
 
@@ -595,6 +596,7 @@ class TaskList(object):
                         self._ready_tasks.append(task_index)
                         self._remaining_tasks.add(task_index)
                         break
+        self._num_tasks = len(self._remaining_tasks)
         self._tasks_made = True
 
     def async_incomplete(self):
@@ -610,7 +612,7 @@ class TaskList(object):
     def fraction_complete(self):
         """Returns the fraction of datasets that have been computed."""
         if self._tasks_made:
-            return 1 - len(self._remaining_tasks) / self.dataset.ntasks
+            return 1 - len(self._remaining_tasks) / self._num_tasks
         else:
             return 0
 
