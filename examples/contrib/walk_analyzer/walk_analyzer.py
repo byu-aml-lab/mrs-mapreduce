@@ -296,18 +296,21 @@ class RandomWalkAnalyzer(mrs.MapReduce):
                 )
         parser.add_option('', '--num-pair-tasks',
                 dest='num_pair_tasks',
-                help='Number of tasks for walk_id_reduce_node_pair_map',
-                default=2000,
+                help='Number of tasks (ideally prime) for '
+                    'walk_id_reduce_node_pair_map',
+                default=1499,
                 )
         parser.add_option('', '--num-count-tasks',
                 dest='num_count_tasks',
-                help='Number of tasks for path_count_reduce_source_path_map',
-                default=2000,
+                help='Number of tasks (ideally prime) for '
+                    'path_count_reduce_source_path_map',
+                default=1499,
                 )
         parser.add_option('', '--num-output-tasks',
                 dest='num_output_tasks',
-                help='Number of tasks for normalize_reduce_matrix_map',
-                default=500,
+                help='Number of tasks (ideally prime) for '
+                    'normalize_reduce_matrix_map',
+                default=499,
                 )
         parser.add_option('', '--input-chunk-size',
                 dest='input_chunk_size',
