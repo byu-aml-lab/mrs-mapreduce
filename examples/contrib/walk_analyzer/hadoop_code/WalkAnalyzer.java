@@ -49,6 +49,7 @@ public class WalkAnalyzer extends Configured implements Tool {
     private final static Logger log = Logger.getLogger(WalkAnalyzer.class);
 
     public static enum COUNTERS {
+        WALK_IDS_SEEN,
         TOO_MANY_HOPS,
         HOP_1,
         HOP_2,
@@ -66,7 +67,9 @@ public class WalkAnalyzer extends Configured implements Tool {
         HOP_14,
         HOP_15,
         MORE_THAN_15_HOPS,
+        RELATION_FOUND,
         NO_RELATION_FOUND,
+        NODE_NAME_FOUND,
         NO_NODE_NAME_FOUND,
         NODE_PAIR,
         NOT_ENOUGH_WALKS,
@@ -91,6 +94,7 @@ public class WalkAnalyzer extends Configured implements Tool {
         public void reduce(IntWritable walk_id, Iterator<IntPairWritable> values,
                 OutputCollector<IntWritable, IntPairArrayWritable> output, Reporter reporter)
                 throws IOException {
+            reporter.getCounter(COUNTERS.WALK_IDS_SEEN).increment(1);
             ArrayList<IntPairWritable> value_array = new ArrayList<IntPairWritable>();
             int count = 0;
             IntPairWritable iter = null;
@@ -122,8 +126,7 @@ public class WalkAnalyzer extends Configured implements Tool {
         Map<Integer, String> node_names = new HashMap<Integer, String>();
         // TODO: this should map to Set<String>, because there could be more than one relation
         // between nodes; need to change the logic below a little bit to handle this, though.
-        Map<Pair<Integer, Integer>, String> rel_names =
-            new HashMap<Pair<Integer, Integer>, String>();
+        Map<Long, String> rel_names = new HashMap<Long, String>();
 
         @Override
         public void configure(JobConf job) {
@@ -150,16 +153,13 @@ public class WalkAnalyzer extends Configured implements Tool {
             try {
                 String filename = local_files[1].toString();
                 BufferedReader reader = new BufferedReader(new FileReader(filename));
-                Pair<Integer, Integer> pair = null;
                 String line;
                 while ((line = reader.readLine()) != null) {
                     String[] parts = line.split("\t");
                     int start_node = Integer.parseInt(parts[0]);
                     int end_node = Integer.parseInt(parts[1]);
-                    pair = new Pair<Integer, Integer>(start_node, end_node);
-                    rel_names.put(pair, new String(parts[2]));
-                    pair = new Pair<Integer, Integer>(end_node, start_node);
-                    rel_names.put(pair, new String(parts[2]+"_inv"));
+                    rel_names.put(intPairToLong(start_node, end_node), new String(parts[2]));
+                    rel_names.put(intPairToLong(end_node, start_node), new String(parts[2]+"_inv"));
                 }
                 reader.close();
             } catch (IOException e) {
@@ -174,7 +174,6 @@ public class WalkAnalyzer extends Configured implements Tool {
             ArrayList<IntPairWritable> values = value.toArrayList();
             reporter.getCounter(getHopCounter(values.size())).increment(1);
             Collections.sort(values);
-            Pair<Integer, Integer> node_pair = null;
             for (int i=0; i<values.size(); i++) {
                 int start_node = values.get(i).getSecond();
                 // Beginning vertex - don't output a path feature, but instead a "started from here"
@@ -192,28 +191,37 @@ public class WalkAnalyzer extends Configured implements Tool {
                     int hop = values.get(j).getFirst();
                     int node = values.get(j).getSecond();
                     if (j - i > MAX_PATH_LENGTH) break;
-                    node_pair = new Pair<Integer, Integer>(prev_node, node);
                     // We don't need to worry about inverse relations here, because we took care of
                     // that when we created rel_names.
-                    String relation = rel_names.get(node_pair);
+                    String relation = rel_names.get(intPairToLong(prev_node, node));
                     if (relation == null) {
                         reporter.getCounter(COUNTERS.NO_RELATION_FOUND).increment(1);
                         relation = "UNKNOWN_RELATION";
+                    } else {
+                        reporter.getCounter(COUNTERS.RELATION_FOUND).increment(1);
                     }
                     path.addRelation(relation);
                     // TODO: add a mechanism to filter paths
                     out_key.set(start_node, node);
                     out_value.set(path.getPathString(remove_cycles, lexicalize_paths));
                     output.collect(out_key, out_value);
+                    String node_name = Integer.toString(node);
+                    /* This is too expensive, I think, and if you're not lexicalizing the nodes
+                     * anyway, there's no point in doing this lookup.
                     String node_name = node_names.get(node);
                     if (node_name == null) {
                         reporter.getCounter(COUNTERS.NO_NODE_NAME_FOUND).increment(1);
                         node_name = "UNKNOWN_NODE";
                     }
+                    */
                     path.addNode(node_name);
                     prev_node = node;
                 }
             }
+        }
+
+        private long intPairToLong(int first, int second) {
+            return (long) (first << 32) | (second & 0xFFFFFFFFL);
         }
     }
 
@@ -253,11 +261,11 @@ public class WalkAnalyzer extends Configured implements Tool {
         public void map(IntPairWritable key, MyMapWritable value,
                 OutputCollector<Text, IntPairWritable> output,
                 Reporter reporter) throws IOException {
+            int source = key.getFirst();
+            int target = key.getSecond();
             for (Map.Entry<Writable, Writable> entry : value.entrySet()) {
                 String path = ((Text) entry.getKey()).toString();
                 int count = ((IntWritable) entry.getValue()).get();
-                int source = key.getFirst();
-                int target = key.getSecond();
                 out_key.set(source + "\t" + path);
                 out_value.set(target, count);
                 output.collect(out_key, out_value);
@@ -308,6 +316,8 @@ public class WalkAnalyzer extends Configured implements Tool {
             if (source_name == null) {
                 reporter.getCounter(COUNTERS.NO_NODE_NAME_FOUND).increment(1);
                 source_name = "UNKNOWN_NODE";
+            } else {
+                reporter.getCounter(COUNTERS.NODE_NAME_FOUND).increment(1);
             }
             String path = parts[1];
             ArrayList<Pair<Integer, Integer>> counts = new ArrayList<Pair<Integer, Integer>>();
@@ -331,6 +341,8 @@ public class WalkAnalyzer extends Configured implements Tool {
                 if (target_name == null) {
                     reporter.getCounter(COUNTERS.NO_NODE_NAME_FOUND).increment(1);
                     target_name = "UNKNOWN_NODE";
+                } else {
+                    reporter.getCounter(COUNTERS.NODE_NAME_FOUND).increment(1);
                 }
                 out_key.set(source_name + " " + target_name);
                 out_value.set(path + "\t" + prob + "\t" + sum + "\t" + target_values);
@@ -396,12 +408,13 @@ public class WalkAnalyzer extends Configured implements Tool {
         conf.setOutputFormat(SequenceFileOutputFormat.class);
 
         conf.set("mapred.child.java.opts", "-Xmx700M -Xss10M");
-        conf.set("mapred.map.max.attempts", "20");
-        conf.set("mapred.reduce.max.attempts", "20");
-        conf.set("mapred.max.tracker.failures", "20");
-        conf.set("mapred.reduce.tasks", "150");
+        conf.set("mapred.map.max.attempts", "50");
+        conf.set("mapred.reduce.max.attempts", "50");
+        conf.set("mapred.max.tracker.failures", "50");
+        conf.set("mapred.reduce.tasks", "500");
         conf.set("mapred.job.map.memory.mb", "1500");
         conf.set("mapred.job.reduce.memory.mb", "1500");
+        conf.set("mapred.compress.map.output", "true");
 
         FileInputFormat.setInputPaths(conf, new Path(input_dir));
         FileOutputFormat.setOutputPath(conf, new Path(tmp_dir));
@@ -423,12 +436,13 @@ public class WalkAnalyzer extends Configured implements Tool {
         conf.setOutputFormat(SequenceFileOutputFormat.class);
 
         conf.set("mapred.child.java.opts", "-Xmx1300M -Xss10M");
-        conf.set("mapred.map.max.attempts", "20");
-        conf.set("mapred.reduce.max.attempts", "20");
-        conf.set("mapred.max.tracker.failures", "20");
-        conf.set("mapred.reduce.tasks", "150");
+        conf.set("mapred.map.max.attempts", "50");
+        conf.set("mapred.reduce.max.attempts", "50");
+        conf.set("mapred.max.tracker.failures", "50");
+        conf.set("mapred.reduce.tasks", "500");
         conf.set("mapred.job.map.memory.mb", "2000");
         conf.set("mapred.job.reduce.memory.mb", "2040");
+        conf.set("mapred.compress.map.output", "true");
 
         FileInputFormat.setInputPaths(conf, new Path(tmp_dir));
         FileOutputFormat.setOutputPath(conf, new Path(tmp_dir2));
@@ -457,12 +471,13 @@ public class WalkAnalyzer extends Configured implements Tool {
         conf.setOutputFormat(TextOutputFormat.class);
 
         conf.set("mapred.child.java.opts", "-Xmx1300M -Xss10M");
-        conf.set("mapred.map.max.attempts", "20");
-        conf.set("mapred.reduce.max.attempts", "20");
-        conf.set("mapred.max.tracker.failures", "20");
-        conf.set("mapred.reduce.tasks", "150");
+        conf.set("mapred.map.max.attempts", "50");
+        conf.set("mapred.reduce.max.attempts", "50");
+        conf.set("mapred.max.tracker.failures", "50");
+        conf.set("mapred.reduce.tasks", "500");
         conf.set("mapred.job.map.memory.mb", "2000");
         conf.set("mapred.job.reduce.memory.mb", "2040");
+        conf.set("mapred.compress.map.output", "true");
 
         FileInputFormat.setInputPaths(conf, new Path(tmp_dir2));
         FileOutputFormat.setOutputPath(conf, new Path(output_dir));
