@@ -393,10 +393,6 @@ public class WalkAnalyzer extends Configured implements Tool {
         JobConf conf = new JobConf(getConf(), WalkAnalyzer.class);
         conf.setJobName("FirstWalkAnalyzerMapReduce");
 
-        //DistributedCache.addFileToClassPath(new Path("/tmp/mg1/lib/mahout-core-0.5.jar"), conf);
-        DistributedCache.addFileToClassPath(new Path("/tmp/mg1/lib/hadoop-core.jar"), conf);
-        DistributedCache.addFileToClassPath(new Path("/tmp/mg1/lib/log4j-1.2.15.jar"), conf);
-
         conf.setInputFormat(WalkFileInputFormat.class);
         conf.setMapperClass(WalkFileMapper.class);
         conf.setMapOutputKeyClass(IntWritable.class);
@@ -449,10 +445,6 @@ public class WalkAnalyzer extends Configured implements Tool {
 
         DistributedCache.addCacheFile(new Path("/tmp/mg1/node_names.tsv").toUri(), conf);
         DistributedCache.addCacheFile(new Path("/tmp/mg1/rel_names.tsv").toUri(), conf);
-        // TODO: fix this to use HADOOP_CLASSPATH
-        //DistributedCache.addFileToClassPath(new Path("/tmp/mg1/lib/mahout-core-0.5.jar"), conf);
-        DistributedCache.addFileToClassPath(new Path("/tmp/mg1/lib/hadoop-core.jar"), conf);
-        DistributedCache.addFileToClassPath(new Path("/tmp/mg1/lib/log4j-1.2.15.jar"), conf);
 
         JobClient.runJob(conf);
 
@@ -483,10 +475,6 @@ public class WalkAnalyzer extends Configured implements Tool {
         FileOutputFormat.setOutputPath(conf, new Path(output_dir));
 
         DistributedCache.addCacheFile(new Path("/tmp/mg1/node_names.tsv").toUri(), conf);
-        // TODO: fix this to use HADOOP_CLASSPATH
-        //DistributedCache.addFileToClassPath(new Path("/tmp/mg1/lib/mahout-core-0.5.jar"), conf);
-        DistributedCache.addFileToClassPath(new Path("/tmp/mg1/lib/hadoop-core.jar"), conf);
-        DistributedCache.addFileToClassPath(new Path("/tmp/mg1/lib/log4j-1.2.15.jar"), conf);
 
         JobClient.runJob(conf);
 
