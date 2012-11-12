@@ -161,8 +161,15 @@ class MapReduce(object):
     def hash_partition(self, x, n):
         """A partition function that partitions by hashing the key.
 
-        The hash partition function is useful if the keys are not contiguous and
-        want to make sure that the partitions are sized as equally as possible.
+        The hash partition function is useful if the keys are not contiguous
+        and want to make sure that the partitions are sized as equally as
+        possible.
+
+        Note that Python's hash function is fast but very poor.  For many
+        types of keys, such as tuples of integers, it can distribute all of
+        the keys among a very small number of buckets.  This can be somewhat
+        mitigated by using a prime number of splits, but there may remain
+        situations where the standard hash function is a poor choice.
         """
         return hash(x) % n
 
