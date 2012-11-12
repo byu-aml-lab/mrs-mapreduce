@@ -331,6 +331,76 @@ There are a few helpers for common data formats already included:
   attributes in your own program. It is useful when you already have data in
   binary format and do not need to apply any serialization to that data.
 
+
+Tips
+====
+
+Partition Functions
+-------------------
+
+Python's standard ``hash`` function is fast but very poor.  In fact, Python's
+hash function actually makes ``mrs.hash_partition`` identical to
+``mrs.mod_partition``.  As described in ``dictobject.c``:
+
+    Most hash schemes depend on having a "good" hash function, in the sense of
+    simulating randomness.  Python doesn't:  its most important hash functions
+    (for strings and ints) are very regular in common cases.
+
+For many distributions of keys, the ``mrs.hash_partition`` function will put
+all keys into a small number of buckets.  For example, in a real-life problem
+with keys that were tuples of integers, millions of keys were place in only
+80 out of 2000 possible splits.
+
+There are two ways to work around this problem.  First, consider using a prime
+number of splits.  The regularity seems to be less apparent if there are a
+prime number of splits.  Changing the number of splits from 1500 to 1499 can
+make a huge improvement.  Second, consider using a custom hash function.  A
+different hash function is probably slower than Python's hash function, but it
+may be worth it in some situations.
+
+
+Network Filesystems
+-------------------
+
+Local temporary storage is specified with the ``--mrs-tmpdir`` option, which
+defaults to ``/var/tmp``.  Do not under any circumstances configure Mrs to
+store temporary files on a remote filesystem (e.g., NFS).  Temporary files
+are shared between slaves using HTTP, and adding an extra layer of network
+communication is unnecessary and slow.
+
+In some circumstances, it may be possible to store intermediate files on a
+remote filesystem.  In such situations, the master's ``--mrs-shared`` option
+can be used to configure a globally accessible directory.  However, this is
+only suitable for CPU-bound programs--a central bottleneck is disastrous for
+I/O-bound programs.  Even in the case of CPU-bound programs, a central
+``--mrs-shared`` directory for intermediate files can be problematic.  For
+example, if the Python files from Mrs are being run from a network filesystem,
+the extra load from ``--mrs-shared`` can cause the Python interpreter to hang
+for extended periods of time while waiting on remote bytecode files.
+
+
+Memory for Sorting
+------------------
+
+The ``-mrs-max-sort-size`` option determines the maximum amount of data that
+will be loaded for sorting at a time in a reduce task.  Reduce tasks can have
+input that is larger than the maximum sort size, but large input data is split
+into smaller chunks for sorting.  If more memory is available, performance may
+improve if data can be sorted in RAM.  However, it is important not to allow a
+Mrs process to use more memory than is available.  Sorting on disk is much
+faster than heavy swapping, and running out of memory can cause Mrs to crash.
+
+When choosing a maximum sort size, recognize that the amount of required
+memory is greater than the sort size.  Specifically, Mrs must store a list of
+tuples containing the deserialized key, serialized key, and serialized value.
+On a 64-bit machine with Python 2.7, this adds the memory required by the
+deserialized key plus an overhead of about 162 bytes per key-value pair (8
+bytes for a pointer to a tuple, 56 bytes for a tuple, 8*3 bytes for pointers
+in each tuple, plus 37*2 bytes for the strings).  Due to this overhead, it's
+important not to set ``--mrs-max-sort-size`` anywhere close to the total
+available memory.
+
+
 Examples
 ========
 
