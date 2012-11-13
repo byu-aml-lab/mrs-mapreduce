@@ -112,7 +112,7 @@ def try_makedirs(path):
 
 def remove_recursive(path):
     """Do the equivalent of rm -r."""
-    p = subprocess.Popen(['/bin/rm', '-rf', path])
+    p = subprocess.Popen(['/bin/rm', '-rf', path], close_fds=True)
     retcode = p.wait()
     if retcode == 0:
         return
