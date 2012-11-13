@@ -303,37 +303,37 @@ class RandomWalkAnalyzer(mrs.MapReduce):
                 help='Path to the node names file',
                 )
         parser.add_option('', '--min-path-count',
-                dest='min_path_count',
+                dest='min_path_count', type=int,
                 help='Minimum number of times a particular (source, path, '
                     'target) triple must be traversed to be kept',
                 default=100,
                 )
         parser.add_option('', '--min-total-count',
-                dest='min_total_count',
+                dest='min_total_count', type=int,
                 help='Minimum number of times a particular (source, path) '
                     'pair must be traversed to be kept',
                 default=300,
                 )
         parser.add_option('', '--num-pair-tasks',
-                dest='num_pair_tasks',
+                dest='num_pair_tasks', type=int,
                 help='Number of tasks (ideally prime) for '
                     'walk_id_reduce_node_pair_map',
                 default=1499,
                 )
         parser.add_option('', '--num-count-tasks',
-                dest='num_count_tasks',
+                dest='num_count_tasks', type=int,
                 help='Number of tasks (ideally prime) for '
                     'path_count_reduce_source_path_map',
                 default=1499,
                 )
         parser.add_option('', '--num-output-tasks',
-                dest='num_output_tasks',
+                dest='num_output_tasks', type=int,
                 help='Number of tasks (ideally prime) for '
                     'normalize_reduce_matrix_map',
                 default=499,
                 )
         parser.add_option('', '--input-chunk-size',
-                dest='input_chunk_size',
+                dest='input_chunk_size', type=int,
                 help='The amount of data (in MB) for each input map task',
                 default=64,
                 )
