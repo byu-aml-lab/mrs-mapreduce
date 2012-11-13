@@ -486,7 +486,7 @@ class MergeSortData(BaseDataset):
             return
         b = bucket.WriteBucket(len(self._data), self.fixed_split,
                 self.dir, serializers=serializers)
-        loads_key, _ = loads_functions(input.serializers)
+        loads_key, _ = loads_functions(input_serializers)
         data_itr = self._iter_serialized(data_list, loads_key)
         b.collect(data_itr, write_only=True)
         b.serializers = input_serializers
