@@ -259,7 +259,7 @@ class MasterRunner(runner.TaskRunner):
     def debug_status(self):
         super(MasterRunner, self).debug_status()
         print('Idle slaves:', (', '.join(str(slave.id)
-                for slave in self.idle_slaves)), file=sys.stderr)
+                for slave in self.idle_slaves._all_slaves)), file=sys.stderr)
         print('Dead slaves:', (', '.join(str(slave.id)
                 for slave in self.dead_slaves)), file=sys.stderr)
 

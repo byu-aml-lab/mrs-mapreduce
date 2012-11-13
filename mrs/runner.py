@@ -549,15 +549,17 @@ class TaskRunner(BaseRunner):
 
         self.timing_stats()
 
-        print('Runnable datasets:', (', '.join(ds.id
-                for ds in self.runnable_datasets)), file=sys.stderr)
-        print('Pending datasets:', (', '.join(ds.id
-                for ds in self.pending_datasets)), file=sys.stderr)
+        print('Runnable datasets:',
+                (', '.join(ds.id for ds in self.runnable_datasets)),
+                file=sys.stderr)
+        print('Pending datasets:',
+                (', '.join(ds.id for ds in self.pending_datasets)),
+                file=sys.stderr)
         print('Ready tasks:', file=sys.stderr)
         for ds in self.runnable_datasets:
-            if ds in self.tasklists:
-                sources = (str(t[1]) for t in self.tasklists[ds])
-                print('    %s:' % ds.id, ', '.join(sources))
+            if ds.id in self.tasklists:
+                taskids = (str(taskid) for _, taskid in self.tasklists[ds.id])
+                print('    %s:' % ds.id, ', '.join(taskids), file=sys.stderr)
 
 
 class TaskList(object):
