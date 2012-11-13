@@ -477,9 +477,9 @@ class MergeSortData(BaseDataset):
     def _iter_serialized(self, data_list, loads_key):
         """Iterate over the deserialized key-value pairs of the data list."""
         if loads_key is None:
-            data_itr = data_list
+            return data_list
         else:
-            data_itr = ((raw_k, raw_v) for (k, raw_k, raw_v) in data_list)
+            return ((raw_k, raw_v) for (k, raw_k, raw_v) in data_list)
 
     def _flush_data(self, data_list, serializers, input_serializers):
         if not data_list:
