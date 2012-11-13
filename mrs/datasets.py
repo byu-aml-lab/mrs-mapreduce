@@ -490,6 +490,7 @@ class MergeSortData(BaseDataset):
         data_itr = self._iter_serialized(data_list, loads_key)
         b.collect(data_itr, write_only=True)
         b.serializers = input_serializers
+        b.close_writer(False)
         self._append_bucket(b)
         del data_list[:]
 
