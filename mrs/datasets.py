@@ -441,8 +441,11 @@ class MergeSortData(BaseDataset):
                 data_list = []
                 current_bytes = 0
 
-            key = loads_key(raw_key)
-            data_list.append((key, raw_key, raw_value))
+            if loads_key is None:
+                data_list.append((raw_key, raw_value))
+            else:
+                key = loads_key(raw_key)
+                data_list.append((key, raw_key, raw_value))
             current_bytes += pair_bytes
             total_bytes += pair_bytes
 
@@ -452,19 +455,39 @@ class MergeSortData(BaseDataset):
         else:
             data_list.sort(key=itemgetter(0))
             b = bucket.WriteBucket(0, self.fixed_split)
-            data_itr = ((k, loads_value(raw_v)) for (k, _, raw_v) in data_list)
+            data_itr = self._iter_deserialized(data_list, loads_key,
+                    loads_value)
             b.collect(data_itr)
             self._append_bucket(b)
 
         logger.debug('MergeSortData initialized %s bytes in %s buckets'
                 % (total_bytes, len(self._data)))
 
+    def _iter_deserialized(self, data_list, loads_key, loads_value):
+        """Iterate over the deserialized key-value pairs of the data list."""
+        if loads_key is None and loads_value is None:
+            return data_list
+        elif loads_key is None:
+            return ((k, loads_value(raw_v)) for (k, raw_v) in data_list)
+        elif loads_value is None:
+            return ((k, raw_v) for (k, _, raw_v) in data_list)
+        else:
+            return ((k, loads_value(raw_v)) for (k, _, raw_v) in data_list)
+
+    def _iter_serialized(self, data_list, loads_key):
+        """Iterate over the deserialized key-value pairs of the data list."""
+        if loads_key is None:
+            data_itr = data_list
+        else:
+            data_itr = ((raw_k, raw_v) for (k, raw_k, raw_v) in data_list)
+
     def _flush_data(self, data_list, serializers, input_serializers):
         if not data_list:
             return
         b = bucket.WriteBucket(len(self._data), self.fixed_split,
                 self.dir, serializers=serializers)
-        data_itr = ((raw_k, raw_v) for (k, raw_k, raw_v) in data_list)
+        loads_key, _ = loads_functions(input.serializers)
+        data_itr = self._iter_serialized(data_list, loads_key)
         b.collect(data_itr, write_only=True)
         b.serializers = input_serializers
         self._append_bucket(b)
