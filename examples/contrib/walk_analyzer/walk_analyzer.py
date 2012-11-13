@@ -74,6 +74,19 @@ logger = logging.getLogger('mrs')
 walk_struct = struct.Struct('>IHI')
 walk_struct_size = walk_struct.size
 
+int32_struct = struct.Struct('=I')
+
+def int32_bytes_dumps(pair):
+    """Pack a pair consisting of an int and a bytes."""
+    i, b = pair
+    return int32_struct.pack(i) + b
+
+def int32_bytes_loads(x):
+    """Unpack a pair consisting of an int and a bytes."""
+    i = int32_struct.unpack(x[:int32_struct.size])
+    b = x[int32_struct.size:]
+    return i, b
+
 
 class RandomWalkAnalyzer(mrs.MapReduce):
 
@@ -193,7 +206,10 @@ class RandomWalkAnalyzer(mrs.MapReduce):
             nodes = [node for hop, node in value_list]
             yield nodes
 
-    @mrs.output_serializers(key=int32_pair_serializer, value='str_serializer')
+    # Note: this program isn't Python 3 compatible anyway, so raw_serializer
+    # should be a bit faster than str_serializer.
+    #@mrs.output_serializers(key=int32_pair_serializer, value='str_serializer')
+    @mrs.output_serializers(key=int32_pair_serializer, value='raw_serializer')
     def node_pair_map(self, key, value):
         """Input is walk_id, list(node), from walk_id_reduce.  We then ignore
         walk_id and output (start_node, end_node), path, by going though the
@@ -227,7 +243,11 @@ class RandomWalkAnalyzer(mrs.MapReduce):
         if outdict:
             yield outdict
 
-    #@mrs.output_serializers(key=int32_serializer, value='str_serializer')
+    int32_bytes_serializer = mrs.Serializer(int32_bytes_dumps,
+            int32_bytes_loads)
+
+    @mrs.output_serializers(key=int32_bytes_serializer,
+            value=int32_pair_serializer)
     def source_path_map(self, key, value):
         """Key here is (source_node, target_node), and value is the counter
         from path_count_reduce.  The output is (source_node, path),
