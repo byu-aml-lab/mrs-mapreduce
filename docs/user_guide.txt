@@ -459,11 +459,16 @@ The ``examples/contrib`` directory includes a few examples that may not be
 runnable without specific libraries or data but which show how Mrs is used in
 real-life problems.
 
-- `create_matrix.py <http://code.google.com/p/mrs-mapreduce/source/browse/examples/contrib/create_matrix.py>`_
+- `walk_analyzer.py <http://code.google.com/p/mrs-mapreduce/source/browse/examples/contrib/walk_analyzer/walk_analyzer.py>`_
 
-    The ``create_matrix.py`` program analyzes pregenerated lists of random
+    The ``walk_analyzer.py`` program analyzes pregenerated lists of random
     walks through a graph.  This program includes examples of using custom
     serializers to improve performance.  It also serves as a helpful example
     of how to break down large input files.
+
+    A simpler variant, `conditional_prob.py
+    <http://code.google.com/p/mrs-mapreduce/source/browse/examples/contrib/walk_analyzer/conditional_prob.py>`_,
+    that simply computes conditional probabilities is available as for
+    comparison.
 
 - `dependency_parse.py <http://code.google.com/p/mrs-mapreduce/source/browse/examples/contrib/dependency_parse.py>`_
