@@ -150,7 +150,7 @@ class ThreadPoolMixIn(socketserver.ThreadingMixIn):
     def process_request(self, request, client_address):
         if self.queue is None:
             self.queue = queue.Queue()
-            for i in xrange(PROCESS_REQUESTS_THREADS):
+            for i in range(PROCESS_REQUESTS_THREADS):
                 t = threading.Thread(target=self.process_requests_thread)
                 t.daemon = True
                 t.start()
