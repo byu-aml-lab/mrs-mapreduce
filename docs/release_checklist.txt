@@ -16,7 +16,7 @@ Release Checklist
 
 4. Tag the new commit with ``git tag vX.X``.
 5. Create and upload a release tarball with
-   ``python setup.py register bdist upload``.
+   ``python setup.py register sdist upload``.
 6. Upload the documentation with ``cd docs; make html`` and
    ``python setup.py upload_docs``.
 7. Upload the tarball to Google Code.
