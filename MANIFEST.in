@@ -1,3 +1,22 @@
 include LICENSE
-recursive-include examples *
-recursive-include docs *
+include ChangeLog
+include examples/clusterrun.py
+include examples/fulton.py
+include examples/wordcount.py
+include examples/wordcount2.py
+include examples/pi/c_pi.py
+include examples/pi/halton.c
+include examples/pi/Pi.java
+include examples/pi/pure_pi.py
+include examples/contrib/dependency_parse.py
+include examples/contrib/walk_analyzer/conditional_prob.py
+include examples/contrib/walk_analyzer/walk_analyzer.py
+include examples/contrib/walk_analyzer/hadoop_code/ConditionalProb.java
+include examples/contrib/walk_analyzer/hadoop_code/Pair.java
+include examples/contrib/walk_analyzer/hadoop_code/WalkAnalyzer.java
+include examples/contrib/walk_analyzer/hadoop_code/WalkFileInputFormat.java
+include examples/contrib/walk_analyzer/hadoop_code/WalkPath.java
+include examples/*.txt
+include examples/*.py
+recursive-include tests *.py *.txt
+
