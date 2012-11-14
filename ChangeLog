@@ -1,0 +1,20 @@
+2012-11-14  Andrew McNabb  <amcnabb@mcnabbs.org>
+
+    * Bump the version to 0.9.
+
+    * Relicense under the Apache Software License instead of the GPL.
+
+    * Support data larger than available RAM, configurable with a new
+    --mrs-max-sort-size option.
+
+    * Add extended documentation including a new User Guide.
+
+    * Allow custom serializers in addition to pickle (the default serializer).
+
+    * Add a new data-intensive example, Walk Analyzer, contributed by Matt
+    Gardner.
+
+    * Set a maximum number of failures per task, configurable with the new
+    --mrs-max-failures option.
+
+    * Fix a variety of bugs.
