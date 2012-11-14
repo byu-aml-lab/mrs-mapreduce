@@ -6,6 +6,7 @@ include examples/wordcount.py
 include examples/wordcount2.py
 include examples/pi/c_pi.py
 include examples/pi/halton.c
+include examples/pi/Makefile
 include examples/pi/Pi.java
 include examples/pi/pure_pi.py
 include examples/contrib/dependency_parse.py
