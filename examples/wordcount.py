@@ -24,14 +24,14 @@ class WordCount(mrs.MapReduce):
     working example and is provided to demonstrate a simple Mrs program. It is
     further explained in the tutorials provided in the docs directory.
     """
-    def map(self, key, value):
-        for word in value.split():
+    def map(self, line_num, line_text):
+        for word in line_text.split():
             word = word.strip(string.punctuation).lower()
             if word:
                 yield (word, 1)
 
-    def reduce(self, key, values):
-        yield sum(values)
+    def reduce(self, word, counts):
+        yield sum(counts)
 
 if __name__ == '__main__':
     mrs.main(WordCount)
