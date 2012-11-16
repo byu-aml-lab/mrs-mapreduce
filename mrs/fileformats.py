@@ -141,7 +141,7 @@ class LineReader(Reader):
             Inheriting classes will almost certainly override this method.
             """
             for i, s in enumerate(self.fileobj):
-                yield i, s.decode('utf-8', errors='replace')
+                yield i, s.decode('utf-8', 'replace')
 
 
 class BytesLineReader(Reader):
