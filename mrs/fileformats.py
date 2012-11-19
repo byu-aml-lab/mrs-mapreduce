@@ -178,17 +178,19 @@ class TextWriter(Writer):
     if PY3:
         def writepair(self, kvpair):
             key, value = kvpair
-            self.fileobj.write(str(key))
-            self.fileobj.write(' ')
-            self.fileobj.write(str(value))
-            self.fileobj.write('\n')
+            write = self.fileobj.write
+            write(str(key))
+            write(' ')
+            write(str(value))
+            write('\n')
     else:
         def writepair(self, kvpair):
             key, value = kvpair
-            self.fileobj.write(unicode(key).encode('utf-8'))
-            self.fileobj.write(' ')
-            self.fileobj.write(unicode(value).encode('utf-8'))
-            self.fileobj.write('\n')
+            write = self.fileobj.write
+            write(unicode(key).encode('utf-8'))
+            write(' ')
+            write(unicode(value).encode('utf-8'))
+            write('\n')
 
 
 class HexReader(Reader):
@@ -224,7 +226,11 @@ class HexWriter(Writer):
             value = self.dumps_value(value)
         encoded_key, length = hex_encoder(key)
         encoded_value, length = hex_encoder(value)
-        print(encoded_key, encoded_value, file=self.fileobj)
+        write = self.fileobj.write
+        write(encoded_key)
+        write(b' ')
+        write(encoded_value)
+        write(b'\n')
 
 
 class BinWriter(Writer):
@@ -248,14 +254,15 @@ class BinWriter(Writer):
             key = self.dumps_key(key)
         if self.dumps_value is not None:
             value = self.dumps_value(value)
+        write = self.fileobj.write
 
         binlen = len_struct.pack(len(key))
-        self.fileobj.write(binlen)
-        self.fileobj.write(key)
+        write(binlen)
+        write(key)
 
         binlen = len_struct.pack(len(value))
-        self.fileobj.write(binlen)
-        self.fileobj.write(value)
+        write(binlen)
+        write(value)
 
 
 class BinReader(Reader):

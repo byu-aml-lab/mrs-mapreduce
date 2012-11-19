@@ -1,4 +1,3 @@
-import glob
 from mrs.fileformats import LineReader
 import sys
 
