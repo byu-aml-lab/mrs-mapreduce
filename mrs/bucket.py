@@ -146,16 +146,6 @@ class WriteBucket(ReadBucket):
         dir: A string specifying the directory for writes.
         format: The class to be used for formatting writes.
         path: The local path of the written file.
-
-    >>> b = WriteBucket(0, 0)
-    >>> b.addpair((4, 'test'))
-    >>> b.collect([(3, 'a'), (1, 'This'), (2, 'is')])
-    >>> ' '.join(value for key, value in b)
-    'test a This is'
-    >>> b.sort()
-    >>> ' '.join(value for key, value in b)
-    'This is a test'
-    >>>
     """
     def __init__(self, source, split, dir=None, format=None, **kwds):
         super(WriteBucket, self).__init__(source, split, **kwds)
@@ -232,17 +222,12 @@ class WriteBucket(ReadBucket):
                 for kvpair in pairiter:
                     data.append(kvpair)
                     self._writer.writepair(kvpair)
-        else:
+        elif not write_only:
             for kvpair in pairiter:
                 data.append(kvpair)
 
     def prefix(self):
         """Return the filename for the output split for the given index.
-
-        >>> b = WriteBucket(2, 4)
-        >>> b.prefix()
-        'source_2_split_4_'
-        >>>
         """
         return 'source_%s_split_%s_' % (self.source, self.split)
 
