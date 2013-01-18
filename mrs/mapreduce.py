@@ -236,7 +236,7 @@ class MapReduce(object):
 
 
 class IterativeMR(MapReduce):
-    """A special type of MapReduce program optimized for iterative jobs.
+    """A producer-consumer iterative MapReduce program.
 
     This class provides a run method that expects two user-provided methods:
         producer: submits datasets
@@ -281,6 +281,56 @@ class IterativeMR(MapReduce):
         Called whenever a dataset completes.  Prints output and/or determines
         whether stopping criteria have been met.  Returns True if execution
         should continue.
+        """
+        raise NotImplementedError
+
+
+class GeneratorCallbackMR(MapReduce):
+    """A generator/callback style MapReduce program.
+
+    This class provides a run method that expects a user-provided method:
+        generator: submits datasets and associated callback function
+
+    The callback function is called, with the dataset as an argument, when
+    computation completes.  If the callback function returns False, then
+    the program will quit.
+    """
+    iterative_qmax = ITERATIVE_QMAX
+
+    def run(self, job):
+        """Default run which repeatedly calls producer and consumer."""
+        it = self.generator(job)
+
+        datasets = {}
+        stopped = False
+        while True:
+            while not stopped and len(datasets) < self.iterative_qmax:
+                try:
+                    ds, callback = next(it)
+                    datasets[ds] = callback
+                except StopIteration:
+                    stopped = True
+
+            if stopped and not datasets:
+                return 0
+
+            ready = job.wait(*datasets)
+            for ds in ready:
+                callback = datasets[ds]
+                if callback is None:
+                    keep_going = True
+                else:
+                    keep_going = callback(ds)
+                del datasets[ds]
+                if keep_going is False:
+                    # TODO: job.abort()
+                    return 0
+
+    def generator(self, job):
+        """Producer function.
+
+        Yields (dataset, callback) pairs for computation.  Iteration proceeds
+        whenever the queue of submitted datasets begins to run low.
         """
         raise NotImplementedError
 

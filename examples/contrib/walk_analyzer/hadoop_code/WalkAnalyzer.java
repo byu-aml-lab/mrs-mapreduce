@@ -443,8 +443,8 @@ public class WalkAnalyzer extends Configured implements Tool {
         FileInputFormat.setInputPaths(conf, new Path(tmp_dir));
         FileOutputFormat.setOutputPath(conf, new Path(tmp_dir2));
 
-        DistributedCache.addCacheFile(new Path("/tmp/mg1/node_names.tsv").toUri(), conf);
-        DistributedCache.addCacheFile(new Path("/tmp/mg1/rel_names.tsv").toUri(), conf);
+        DistributedCache.addCacheFile(new Path("/user/amcnabb/walks_medium/node_names.tsv").toUri(), conf);
+        DistributedCache.addCacheFile(new Path("/user/amcnabb/walks_medium/rel_names2.tsv").toUri(), conf);
 
         JobClient.runJob(conf);
 
@@ -474,7 +474,7 @@ public class WalkAnalyzer extends Configured implements Tool {
         FileInputFormat.setInputPaths(conf, new Path(tmp_dir2));
         FileOutputFormat.setOutputPath(conf, new Path(output_dir));
 
-        DistributedCache.addCacheFile(new Path("/tmp/mg1/node_names.tsv").toUri(), conf);
+        DistributedCache.addCacheFile(new Path("/user/amcnabb/walks_medium/node_names.tsv").toUri(), conf);
 
         JobClient.runJob(conf);
 
