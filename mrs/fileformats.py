@@ -27,12 +27,10 @@ if PY3:
     from urllib.parse import urlparse
     from urllib.request import urlopen, URLopener
     import io
-    import pickle
 else:
     from urlparse import urlparse
     from urllib import URLopener
     from urllib2 import urlopen
-    import cPickle as pickle
 
 from . import hdfs
 from .serializers import dumps_functions, loads_functions
@@ -360,49 +358,6 @@ class ZipReader(BinReader):
         self.original_file.close()
 
 
-# Note: the PickleWriter uses marginally less space than the BinWriter (and
-# is simpler to read), but the Pickle Reader is some 3 times slower than the
-# BinReader.  My theory that it has something to do with excessive seeks, but
-# I'm not quite sure.  In any case, this format is currently inefficient.
-class PickleWriter(Writer):
-    """An EXPERIMENTAL key-value store using the standard pickle format.
-
-    By default, the given file will be closed when the writer is closed,
-    but the close argument makes this configurable.  Setting close to False
-    is useful for StringIO/BytesIO.
-    """
-    ext = 'mrsp'
-
-    def writepair(self, kvpair):
-        """Write a key-value pair."""
-        key, value = kvpair
-        #key = self.pickler.dump(key)
-        #value = self.pickler.dump(value)
-        #self.pickler.clear_memo()
-        pickler = pickle.Pickler(self.fileobj, -1)
-        pickler.dump(key)
-        pickler.dump(value)
-
-
-class PickleReader(Reader):
-    """An EXPERIMENTAL key-value store using the standard pickle format."""
-    def __iter__(self):
-        """Iterate over key-value pairs."""
-        unpickler = pickle.Unpickler(self.fileobj)
-        while True:
-            try:
-                #key = self.unpickler.load()
-                key = unpickler.load()
-            except EOFError:
-                return
-            try:
-                #value = self.unpickler.load()
-                value = unpickler.load()
-            except EOFError:
-                raise RuntimeError('File ended with a lone key')
-            yield (key, value)
-
-
 def writerformat(extension):
     """Returns the writer class associated with the given file extension."""
     return writer_map[extension]
@@ -449,14 +404,12 @@ def test():
 reader_map = {
         'mrsx': HexReader,
         'mrsb': BinReader,
-        'mrsp': PickleReader,
         'mrsz': ZipReader,
         }
 writer_map = {
         'mtxt': TextWriter,
         'mrsx': HexWriter,
         'mrsb': BinWriter,
-        'mrsp': PickleWriter,
         'mrsz': ZipWriter,
         }
 default_read_format = LineReader
