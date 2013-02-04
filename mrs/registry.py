@@ -20,6 +20,8 @@ they are called.  A Registry is established before determining the
 master/slave roles.  Then everyone can agree on what the names mean.
 """
 
+import hashlib
+
 def object_hash(obj):
     """Hash an object x based on its code.
 
@@ -91,7 +93,8 @@ def object_hash(obj):
         codelist = [attr.__code__.co_code for attr in attrlist
                 if hasattr(attr, '__code__')]
         code = b','.join(codelist)
-    return str(hash(code))
+    digest = hashlib.md5(code).hexdigest()
+    return digest
 
 
 class Registry(object):

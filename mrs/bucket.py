@@ -196,14 +196,14 @@ class WriteBucket(ReadBucket):
         # close the underlying file.
         self._writer = None
 
-    def addpair(self, kvpair, write_only=False):
+    def addpair(self, kvpair, write_only=False, serialized_key=None):
         """Collect a single key-value pair."""
         if not write_only:
             self._data.append(kvpair)
         if self.dir:
             if not self._writer:
                 self.open_writer()
-            self._writer.writepair(kvpair)
+            self._writer.writepair(kvpair, serialized_key=serialized_key)
 
     def collect(self, pairiter, write_only=False):
         """Collect all key-value pairs from the given iterable
@@ -223,8 +223,7 @@ class WriteBucket(ReadBucket):
                     data.append(kvpair)
                     self._writer.writepair(kvpair)
         elif not write_only:
-            for kvpair in pairiter:
-                data.append(kvpair)
+            data.extend(pairiter)
 
     def prefix(self):
         """Return the filename for the output split for the given index.

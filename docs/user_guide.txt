@@ -39,10 +39,11 @@ Additional optional methods are:
     specified, adds custom command-line arguments to the given option parser
     (``optparse.OptionParser``).
 
-- ``partition(self, x, n)``
+- ``partition(self, key, serialized_key, n)``
 
     If specified, the ``partition`` method serves as the default partition
-    function for map and reduce datasets.
+    function for map and reduce datasets.  See the entry on the ``parter``
+    below for more information.
 
 - ``bypass(self)``
 
@@ -170,6 +171,14 @@ Most types of datasets accept a variety of optional keyword arguments:
 
     A method of the MapReduce program that is used to partition data to
     subsequent tasks.  See the MapReduce paper for more information.
+
+    A partition function takes three arguments: ``key``, ``serialized_key``,
+    and ``n``.  Although both the key object and the serialized key are
+    available, it will generally use one or the other.  For example,
+    ``mod_partition`` expects an integer and uses the unserialized form, while
+    ``hash_partition`` uses a hash function that operates on bytes, so it uses
+    the serialized form.  The argument ``n`` specifies the number of splits
+    and is usually used as a modulus (e.g., ``return x % n``).
 
 - ``combiner`` (for map and reducemap datasets)
 
@@ -332,30 +341,6 @@ There are a few helpers for common data formats already included:
 
 Tips
 ====
-
-Partition Functions
--------------------
-
-Python's standard ``hash`` function is fast but very poor.  In fact, Python's
-hash function actually makes ``mrs.hash_partition`` identical to
-``mrs.mod_partition``.  As described in ``dictobject.c``:
-
-    Most hash schemes depend on having a "good" hash function, in the sense of
-    simulating randomness.  Python doesn't:  its most important hash functions
-    (for strings and ints) are very regular in common cases.
-
-For many distributions of keys, the ``mrs.hash_partition`` function will put
-all keys into a small number of buckets.  For example, in a real-life problem
-with keys that were tuples of integers, millions of keys were place in only
-80 out of 2000 possible splits.
-
-There are two ways to work around this problem.  First, consider using a prime
-number of splits.  The regularity seems to be less apparent if there are a
-prime number of splits.  Changing the number of splits from 1500 to 1499 can
-make a huge improvement.  Second, consider using a custom hash function.  A
-different hash function is probably slower than Python's hash function, but it
-may be worth it in some situations.
-
 
 Network Filesystems
 -------------------

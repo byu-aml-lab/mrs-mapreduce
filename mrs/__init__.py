@@ -46,7 +46,7 @@ from . import registry
 from . import version
 from .fileformats import HexWriter, TextWriter, BinWriter, ZipWriter
 from .main import main
-from .mapreduce import MapReduce, IterativeMR
+from .mapreduce import MapReduce, IterativeMR, GeneratorCallbackMR
 from .serializers import (Serializer, output_serializers, raw_serializer,
         str_serializer, int_serializer, make_struct_serializer,
         make_primitive_serializer, make_protobuf_serializer)
@@ -57,6 +57,7 @@ __version__ = version.__version__
 __all__ = ['MapReduce', 'main', 'logger', 'BinWriter', 'HexWriter',
     'TextWriter', 'Serializer', 'output_serializers', 'raw_serializer',
     'str_serializer', 'int_serializer', 'make_struct_serializer',
-    'make_primitive_serializer', 'make_protobuf_serializer']
+    'make_primitive_serializer', 'make_protobuf_serializer',
+    'GeneratorCallbackMR']
 
 # vim: et sw=4 sts=4

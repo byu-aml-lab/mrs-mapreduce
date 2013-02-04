@@ -303,11 +303,17 @@ class LocalData(BaseDataset):
                 bucket = self[source, 0]
                 bucket.collect(itr, write_only)
             else:
+                dumps_key, _ = dumps_functions(self.serializers)
                 for kvpair in itr:
                     key, value = kvpair
-                    split = parter(key, n)
+                    if dumps_key is None:
+                        serialized_key = key
+                    else:
+                        serialized_key = dumps_key(key)
+                    split = parter(key, serialized_key, n)
                     bucket = self[source, split]
-                    bucket.addpair(kvpair, write_only)
+                    bucket.addpair(kvpair, write_only,
+                            serialized_key=serialized_key)
         for bucket in self[:, :]:
             bucket.close_writer(self.permanent)
 

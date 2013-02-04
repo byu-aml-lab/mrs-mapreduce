@@ -67,7 +67,7 @@ class Writer(object):
         self.fileobj = fileobj
         self.dumps_key, self.dumps_value = dumps_functions(serializers)
 
-    def writepair(self, kvpair):
+    def writepair(self, kvpair, **kwds):
         raise NotImplementedError
 
     def finish(self):
@@ -176,7 +176,7 @@ class TextWriter(Writer):
         super(TextWriter, self).__init__(fileobj, *args, **kwds)
 
     if PY3:
-        def writepair(self, kvpair):
+        def writepair(self, kvpair, **kwds):
             key, value = kvpair
             write = self.fileobj.write
             write(str(key))
@@ -184,7 +184,7 @@ class TextWriter(Writer):
             write(str(value))
             write('\n')
     else:
-        def writepair(self, kvpair):
+        def writepair(self, kvpair, **kwds):
             key, value = kvpair
             write = self.fileobj.write
             write(unicode(key).encode('utf-8'))
@@ -217,10 +217,12 @@ class HexWriter(Writer):
     """
     ext = 'mrsx'
 
-    def writepair(self, kvpair):
+    def writepair(self, kvpair, serialized_key=None):
         """Write a key-value pair."""
         key, value = kvpair
-        if self.dumps_key is not None:
+        if serialized_key is not None:
+            key = serialized_key
+        elif self.dumps_key is not None:
             key = self.dumps_key(key)
         if self.dumps_value is not None:
             value = self.dumps_value(value)
@@ -247,10 +249,12 @@ class BinWriter(Writer):
         super(BinWriter, self).__init__(fileobj, *args, **kwds)
         self.fileobj.write(self.magic)
 
-    def writepair(self, kvpair):
+    def writepair(self, kvpair, serialized_key=None):
         """Write a key-value pair."""
         key, value = kvpair
-        if self.dumps_key is not None:
+        if serialized_key is not None:
+            key = serialized_key
+        elif self.dumps_key is not None:
             key = self.dumps_key(key)
         if self.dumps_value is not None:
             value = self.dumps_value(value)

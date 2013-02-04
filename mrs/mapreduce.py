@@ -22,6 +22,7 @@ to create much more complex programs.
 
 from __future__ import division, print_function
 
+import hashlib
 import sys
 
 from . import fileformats
@@ -158,8 +159,31 @@ class MapReduce(object):
                 outdir=outdir, format=fileformats.TextWriter)
         return output_data
 
-    def hash_partition(self, x, n):
-        """A partition function that partitions by hashing the key.
+    # Note: int.from_bytes is only available in Python 3. :(
+    if hasattr(int, 'from_bytes'):
+        def md5_partition(self, key, serialized_key, n):
+            """A partition function using the md5 hash of the serialized key.
+
+            The md5 partition function is useful if the keys are not
+            contiguous and want to make sure that the partitions are sized as
+            equally as possible.
+            """
+            digest = hashlib.md5(serialized_key).digest()
+            return int.from_bytes(digest, 'little') % n
+    else:
+        def md5_partition(self, key, serialized_key, n):
+            """A partition function using the md5 hash of the serialized key.
+
+            The md5 partition function is useful if the keys are not
+            contiguous and want to make sure that the partitions are sized as
+            equally as possible.
+            """
+            digest = hashlib.md5(serialized_key).digest()
+            big_endian_digest = ''.join(reversed(digest))
+            return int(big_endian_digest.encode('hex'), 16) % n
+
+    def hash_partition(self, key, serialized_key, n):
+        """A partition function that hashes the key (DEPRECATED).
 
         The hash partition function is useful if the keys are not contiguous
         and want to make sure that the partitions are sized as equally as
@@ -170,19 +194,23 @@ class MapReduce(object):
         the keys among a very small number of buckets.  This can be somewhat
         mitigated by using a prime number of splits, but there may remain
         situations where the standard hash function is a poor choice.
-        """
-        return hash(x) % n
 
-    def mod_partition(self, x, n):
+        Also note that this function does not work in Python 3.3, where hash
+        randomization is enabled by default.  Thus, this partition function is
+        deprecated.
+        """
+        return hash(key) % n
+
+    def mod_partition(self, key, serialized_key, n):
         """A partition function that partitions by modding the key.
 
         The mod partition function is useful if your keys are contiguous and you
         want to make sure that the partitions are sized equally.
         """
-        return int(x) % n
+        return int(key) % n
 
-    # The default partition function is hash_partition:
-    partition = hash_partition
+    # The default partition function is md5_partition:
+    partition = md5_partition
 
     def bypass(self):
         """Bypass implementation.
