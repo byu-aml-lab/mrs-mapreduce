@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from amlpso.standardpso import StandardPSO
+from optprime.standardpso import StandardPSO
 from collections import defaultdict
 
 from .conftest import run_serial, run_mockparallel, run_master_slave
