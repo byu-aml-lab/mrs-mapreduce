@@ -44,7 +44,7 @@ With pip
 If you have `pip <http://www.pip-installer.org/en/latest/>`_, you can use it
 to install Mrs automatically::
 
-    $ pip install mrs --user
+    $ pip install mrs-mapreduce --user
 
 If you want pip and don't have it check out `their installation page
 <http://www.pip-installer.org/en/latest/installing.html>`_.
@@ -55,7 +55,7 @@ With easy_install
 If you don't have pip, you can use `easy_install
 <http://pypi.python.org/pypi/setuptools>`_ to install Mrs automatically::
 
-    $ easy_install mrs
+    $ easy_install mrs-mapreduce
 
 
 Option 2: Install Manually
