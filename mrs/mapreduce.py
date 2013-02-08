@@ -263,12 +263,16 @@ class MapReduce(object):
     str_serializer = serializers.str_serializer
 
 
+# May be deprecated soon:
 class IterativeMR(MapReduce):
-    """A producer-consumer iterative MapReduce program.
+    """A producer-consumer iterative MapReduce program (may be deprecated soon)
 
     This class provides a run method that expects two user-provided methods:
         producer: submits datasets
         consumer: processes completed datasets
+
+    WARNING: You should probably use GeneratorCallbackMR instead.  The
+    IterativeMR class may be deprecated in the near future.
     """
     iterative_qmax = ITERATIVE_QMAX
 
