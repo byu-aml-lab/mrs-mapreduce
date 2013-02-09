@@ -683,7 +683,8 @@ class MockParallelRunner(TaskRunner, worker.WorkerManager):
         return self.exitcode
 
     def schedule(self):
-        assert self.current_task is None
+        if self.current_task is not None:
+            return
         next_task = self.next_task()
         if next_task is not None:
             dataset_id, task_index = next_task
