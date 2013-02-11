@@ -383,6 +383,17 @@ in each tuple, plus 37*2 bytes for the strings).  Due to this overhead, it's
 important not to set ``--mrs-max-sort-size`` anywhere close to the total
 available memory.
 
+Task Granularity
+----------------
+
+When you run a distributed job, your dataset will be split into pieces before being sent to other machines. By default, the number of splits in a local dataset is the number of items in that dataset; that is, the task granularity is very high. You can adjust this by creating your dataset with a reasonable number of splits. E.g., ``job.local_data(data,splits=50)``. The number of splits that is reasonable will depend on your use case, but a rule of thumb might be 2 or 3 times the number of slaves you are working with. 
+
+You may also pass ``job.reduce_data``, ``job.map_data``, and ``job.reducemap_data`` functions a splits argument to define how many splits should be in the datasets they produce. 
+
+File-backed datasets
+--------------------
+
+During distributed runs, data sets are backed by files on the disk. One file is written for each split in the dataset. Therefore, if you use the default split value with its high granularity, you are likely to encounter an error on the master node similar to ``OSError: [Errno 24] Too many open files: '/tmp/mrs_master_N56b19/output_WlMAlB/source_0_split_4088_XWCpDb.mrsb'`` To avoid this, you will want to make your task granularity more coarse.
 
 Examples
 ========
