@@ -250,8 +250,7 @@ class TaskRunner(BaseRunner):
 
     Attributes:
         pending_datasets: set of datasets that are not yet runnable
-        runnable_datasets: deque of datasets that are ready to run but have
-            not yet been split into tasks
+        runnable_datasets: deque of datasets that are running or ready to run
         tasklists: map from a dataset id to the corresponding TaskList
         forward_links: map from a dataset id to a set of ids representing
             the transitive closure of datasets that backlink to it
@@ -555,10 +554,11 @@ class TaskRunner(BaseRunner):
         print('Pending datasets:',
                 (', '.join(ds.id for ds in self.pending_datasets)),
                 file=sys.stderr)
-        print('Ready tasks:', file=sys.stderr)
+        print('Remaining tasks:', file=sys.stderr)
         for ds in self.runnable_datasets:
             if ds.id in self.tasklists:
-                taskids = (str(taskid) for _, taskid in self.tasklists[ds.id])
+                taskids = (str(taskid) for _, taskid in
+                        self.tasklists[ds.id].remaining_tasks())
                 print('    %s:' % ds.id, ', '.join(taskids), file=sys.stderr)
 
 
@@ -658,9 +658,9 @@ class TaskList(object):
         self._failures[task_index] += 1
         return self._failures[task_index]
 
-    def __iter__(self):
-        """Iterate over tasks ((dataset_id, task_index) pairs)."""
-        for task_index in self._ready_tasks:
+    def remaining_tasks(self):
+        """Iterate over remaining tasks ((dataset_id, task_index) pairs)."""
+        for task_index in self._remaining_tasks:
             yield (self.dataset.id, task_index)
 
     def __len__(self):
