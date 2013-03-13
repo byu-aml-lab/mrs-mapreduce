@@ -16,7 +16,7 @@
 from optprime.standardpso import StandardPSO
 from collections import defaultdict
 
-from .conftest import run_serial, run_mockparallel, run_master_slave
+from mrs.test import run_serial, run_mockparallel, run_master_slave
 
 
 def test_pso(mrs_impl, tmpdir, capfd):
