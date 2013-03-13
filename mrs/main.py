@@ -223,6 +223,7 @@ class Implementation(BaseImplementation):
     runner = None
     shared = None
     use_bucket_server = False
+    worker_pipe = None
 
     def _main(self, opts, args):
         from . import job
@@ -297,7 +298,7 @@ class Serial(Implementation):
 
     def start_worker_process(self, profile):
         """Do-nothing method (no worker needed in the serial impl)."""
-        self.worker_pipe = None
+        pass
 
 
 class FileParams(ParamObj):
@@ -360,7 +361,7 @@ class Master(Implementation, FileParams, NetworkParams, TaskRunnerParams):
 
     def start_worker_process(self, profile):
         """Do-nothing method (no worker needed in the master)."""
-        self.worker_pipe = None
+        pass
 
 
 class Slave(BaseImplementation, FileParams, NetworkParams):
