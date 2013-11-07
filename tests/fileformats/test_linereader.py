@@ -1,3 +1,5 @@
+# coding=utf-8
+
 from mrs.fileformats import LineReader
 import sys
 
