@@ -12,7 +12,7 @@ Running in Parallel Manually
 This tutorial will walk you through the basic configurations and options of
 running Mrs in parallel.  If you followed the installation instructions,
 then you should have already run the example WordCount
-program in serial mode and so have varified that Mrs is installed and running
+program in serial mode and so have verified that Mrs is installed and running
 correctly on your system. Otherwise, you may want to do that before proceeding.
 
 Start by opening two terminals, one for the master and one for the slave.
@@ -90,12 +90,10 @@ Finally once you have modified the slaves file and set up passphraseless ssh,
 you should be able to run it by passing it a host file, a mrs program and some
 input. ::
 
-    > python clusterrun.py --hosts slaves wordcount.py mytxt.txt
+    > python clusterrun.py --hosts slaves wordcount.py mytxt.txt outDir
 
-You do not need to specify an output folder as you did when running manually as
-all output is put in a folder named after the jobname. You can specify the job
-name with the - -jobname option, or if you don't specify, Mrs will default to
-'newjob.'
+You can specify the job name with the - -jobname option, or if you don't
+specify, Mrs will default to 'newjob.'
 
 The examples directory also includes a run-script called fulton.py that
 submits a job to a PBS scheduler.  This script is customized for the

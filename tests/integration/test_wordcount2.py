@@ -19,7 +19,7 @@ from collections import defaultdict
 import glob
 import tempfile
 
-from .conftest import run_serial, run_mockparallel, run_master_slave
+from mrs.test import run_serial, run_mockparallel, run_master_slave
 from .wordcount2 import WordCount2
 
 

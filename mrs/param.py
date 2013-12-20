@@ -19,6 +19,7 @@ Anything that subclasses ParamObj will be an object for which _params is
 a special directory of Param objects.
 """
 
+import inspect
 import optparse
 import sys
 
@@ -42,7 +43,7 @@ NotSpecified = object()
 class Param(object):
     """A Parameter with name, default value, and documentation.
 
-    A list of Params is used by a class of type ParamMeta.
+    A list of Params is used by a class of type _ParamMeta.
 
     Attributes:
         default: The default value to be used.
@@ -109,7 +110,7 @@ class _ParamMeta(type):
     default to the default value in the Param object, but it can be
     overridden by name in __init__.
 
-    Rather than using _ParamMeta directly, we recommend that you subclass
+    Rather than using _ParamMeta directly, you must subclass
     ParamObj, which will allow you to override __init__ as long as you
     call super's __init__.
     """
@@ -120,13 +121,18 @@ class _ParamMeta(type):
             classdict['_params'] = {}
         params = classdict['_params']
 
-        has_custom_init = '__init__' in classdict
+        mro_names = [classname]
+        for parent in bases:
+            # Note: only immediate parent classes are in `bases`.
+            for base in inspect.getmro(parent):
+                mro_names.append(base.__name__)
+        assert ('ParamObj' in mro_names), (
+                        "%s must derive from ParamObj (current bases are %s)"
+                        % (classname, ', '.join(mro_names)))
+                        #% (classname, str(bases)))
 
-        # Collect the params from each of the parent classes.
+        # Collect the params from each of the (immediate!) parent classes.
         for base in bases:
-            if '__init__' in base.__dict__:
-                has_custom_init = True
-
             try:
                 baseparams = base._params
             except AttributeError:
@@ -154,32 +160,13 @@ class _ParamMeta(type):
         classdict['__doc__'] = classdict['__doc__'] + \
                 '\n    '.join(['\n%s Parameters:' % classname] + docs)
 
-        # Write a new __init__ for our classes.  If they write their own
-        # __init__, we refuse to overwrite it.
-        if not has_custom_init:
-            def __init__(self, **kwds):
-                for key in kwds:
-                    if key not in self._params:
-                        raise ParamError(self.__class__.__name__, key)
-                for param_name in self._params:
-                    if param_name in kwds:
-                        value = kwds[param_name]
-                    else:
-                        value = self._params[param_name].default
-                    setattr(self, param_name, value)
-            classdict['__init__'] = __init__
-
         # Create and return the new class
         return type.__new__(cls, classname, bases, classdict)
 
 
-# Python 3 compatibility.
-def with_metaclass(meta, base=object):
-    """Create a base class with a metaclass."""
-    return meta("NewBase", (base,), {})
-
-
-class ParamObj(with_metaclass(_ParamMeta)):
+# When support for Python 2 is dropped, switch to the following:
+#  class ParamObj(metaclass=_ParamMeta):
+class ParamObj(object):
     """An object that treats "_params" specially.
 
     An object of class ParamObj may contain a dictionary named _params.  This
@@ -205,6 +192,19 @@ class ParamObj(with_metaclass(_ParamMeta)):
     12
     >>>
     """
+    def __init__(self, **kwds):
+        for key in kwds:
+            if key not in self._params:
+                raise ParamError(self.__class__.__name__, key)
+        for param_name in self._params:
+            if param_name in kwds:
+                value = kwds[param_name]
+            else:
+                value = self._params[param_name].default
+            setattr(self, param_name, value)
+
+# Python 2/3 compatibility.
+ParamObj = _ParamMeta('ParamObj', (object,), dict(ParamObj.__dict__))
 
 
 def import_object(name):

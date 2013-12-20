@@ -16,7 +16,7 @@
 from collections import defaultdict
 import glob
 
-from .conftest import run_serial, run_mockparallel, run_master_slave
+from mrs.test import run_serial, run_mockparallel, run_master_slave
 from .wordcount import WordCount
 
 
