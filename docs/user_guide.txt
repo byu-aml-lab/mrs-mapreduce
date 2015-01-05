@@ -361,6 +361,11 @@ example, if the Python files from Mrs are being run from a network filesystem,
 the extra load from ``--mrs-shared`` can cause the Python interpreter to hang
 for extended periods of time while waiting on remote bytecode files.
 
+X11 forwarding should be disabled on all machines using a common network-shared 
+home directory. This can be accomplished by adding "ForwardX11 no" to 
+your ~/.ssh/config file. This is important to avoid resource conflicts that 
+can occur when mrs uses pssh to ssh into many machines simultaneously, all 
+of which attempt to lock the .Xauthority file.
 
 Memory for Sorting
 ------------------
@@ -415,6 +420,9 @@ Mrs.  The ``wordcount2.py`` example is a more full-featured version of
 WordCount that uses a combiner and explicitly sets a serializer (instead of
 automatically using pickle).
 
+The ``countofcounts.py`` example makes wordcount iterative. The first iterations yields 
+a classic word count. The second iteration yields a count of counts (i.e., how many word types occurred 
+n times?). The third iteration yields a count of count of counts, and so forth.
 
 Pi Estimator
 ------------
@@ -447,7 +455,6 @@ equivalent optimized
 `Pi.java <http://code.google.com/p/mrs-mapreduce/source/browse/examples/pi/Pi.java>`_
 program in Hadoop using Java.
 
-
 Other Contributed Examples
 --------------------------
 
@@ -468,3 +475,10 @@ real-life problems.
     comparison.
 
 - `dependency_parse.py <http://code.google.com/p/mrs-mapreduce/source/browse/examples/contrib/dependency_parse.py>`_
+
+- `jobfarm.py <http://code.google.com/p/mrs-mapreduce/source/browse/examples/contrib/jobfarm.py>`_
+
+  This script simply farms out a list of commands to client machines using mrs. 
+  It is a trivial (ab)use of the power of map-reduce that solves the simple problem of 
+  distributing many jobs to many machines in a single iteration of map-reduce.
+

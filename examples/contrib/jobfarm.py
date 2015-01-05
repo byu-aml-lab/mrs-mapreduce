@@ -78,18 +78,14 @@ class JobLauncher(mrs.GeneratorCallbackMR):
     on the state of the dataset.
     '''
     def generator(self, job):
-        itr = 0
         # bogus dataset. We will run only 1 iteration
         # and the map function will do all the work
         # of generating jobs
         ds = job.local_data([(1,["bogus"])],splits=jobfarmsplits)
 
         while True:
-
-            # iteratively map (divide into batches) and reduce (assemble batches)
-            ds = job.map_data(ds,mapper=self.map,splits=jobfarmsplits) # key=batch, val=contig
+            ds = job.map_data(ds,mapper=self.map,splits=jobfarmsplits) 
             ds = job.reduce_data(ds,self.reduce,splits=jobfarmsplits)
-            itr = itr + 1
             yield (ds, self.callback)
 
     '''
