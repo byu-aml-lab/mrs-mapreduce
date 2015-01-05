@@ -361,12 +361,6 @@ example, if the Python files from Mrs are being run from a network filesystem,
 the extra load from ``--mrs-shared`` can cause the Python interpreter to hang
 for extended periods of time while waiting on remote bytecode files.
 
-X11 forwarding should be disabled on all machines using a common network-shared 
-home directory. This can be accomplished by adding "ForwardX11 no" to 
-your ~/.ssh/config file. This is important to avoid resource conflicts that 
-can occur when mrs uses pssh to ssh into many machines simultaneously, all 
-of which attempt to lock the .Xauthority file.
-
 Memory for Sorting
 ------------------
 
